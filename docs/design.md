@@ -38,7 +38,7 @@ removes API-key environment overrides. Runtime configuration selects the sandbox
 approval behavior and connected tools.
 
 An authenticated owner can save a model from the native catalogue for a selected
-conversation. The next turn uses that model and its advertised default reasoning
+conversation. The next turn uses that model and its advertised default or chosen reasoning
 effort without replacing the native thread, history or memory. Accepted work must
 finish before the model can change. No failure triggers an alternative model.
 

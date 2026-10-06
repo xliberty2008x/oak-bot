@@ -6,6 +6,10 @@ installed runtime integrations, deployment settings and computer-use permission.
 task creation, memory contents and approval answers remain in Telegram.
 
 In Settings, the owner can confirm a model choice for the selected session.
+The separate Reasoning Effort slider uses that model's advertised levels.
+Its reset button previews the model's default; saving still needs confirmation.
+Model and effort are saved together and persist across restarts. Unsupported
+levels and changes during accepted work are rejected by the server.
 The list comes from the existing runtime. The next request uses the saved model
 and preserves history and memory; General and other topics are unchanged.
 Changes are blocked during accepted work. Catalogue availability does not prove

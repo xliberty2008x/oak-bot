@@ -3,7 +3,7 @@
 const $ = id => document.getElementById(id);
 let sessionToken = "", sessionEpoch = 0, authenticated = false, refreshing = false, mutationBusy = false, telegramLaunch = false;
 let panelData = null, integrationData = null, timezone = "", stopRequestState = "";
-let modelsData = null, lastModel = "", modelsUnavailable = false;
+let modelsData = null, lastModel = "", modelsUnavailable = false, draftEffort = null, lastEffort = null;
 let computerChanging = false;
 let selectedSession = "telegram", sessionsData = null;
 let initialConversation = new URLSearchParams(location.search).get("conversation");
@@ -15,6 +15,7 @@ const authLabels = {unknown: "Не визначено", unsupported: "Не пі�
 const runtimeLabels = {notStarted: "Ще не запущено", starting: "Запускається", connected: "Підключено до середовища", authenticationRequired: "Потрібна авторизація", failed: "Помилка", cancelled: "Запуск скасовано", disabled: "Вимкнено"};
 const pluginLabels = {enabled: "Увімкнено", disabled: "Вимкнено", disabled_by_admin: "Вимкнено адміністратором", plan_not_eligible: "Недоступно за підпискою", required_app_unavailable: "Потрібний застосунок недоступний", unknown: "Не визначено"};
 const loginLabels = {requested: "Вхід запитано", pending: "Очікуємо завершення входу", uncertain: "Результат входу невідомий", expired: "Час очікування минув; результат не підтверджено"};
+const effortLabels = {low: "Low", medium: "Medium", high: "High", xhigh: "Extra High", max: "Max", ultra: "Ultra", minimal: "Minimal", none: "None"};
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -96,10 +97,29 @@ function setConnection(text, state) {
 function modelName(model) {
   return modelsData?.models.find(row => row.model === model)?.display_name || model;
 }
+function modelChoice() { return modelsData?.models.find(row => row.model === $("model-select").value); }
+function effortName(effort) { return Object.hasOwn(effortLabels, effort) ? effortLabels[effort] : effort || "Не визначено"; }
 function updateModelActions() {
   const select = $("model-select"), known = modelsData && modelsData.models.length > 0;
   select.disabled = mutationBusy || refreshing || !known || modelsData.busy;
-  $("model-save").disabled = select.disabled || select.value === modelsData?.selected || !modelsData?.models.some(row => row.model === select.value);
+  const choice = modelChoice(), supported = choice?.efforts.includes(draftEffort);
+  $("model-save").disabled = select.disabled || !choice || (select.value === modelsData.selected && (!supported || draftEffort === modelsData.effort));
+  $("effort-range").disabled = select.disabled || !supported;
+  $("effort-reset").disabled = select.disabled || !choice?.efforts.includes(choice.default_effort);
+}
+function renderEffort() {
+  const choice = modelChoice(), levels = choice?.efforts || [], index = levels.indexOf(draftEffort), range = $("effort-range");
+  range.max = String(Math.max(0, levels.length - 1));
+  range.value = String(Math.max(0, index));
+  range.classList.toggle("unselected", index < 0);
+  const name = effortName(draftEffort);
+  const saved = choice?.model === modelsData?.selected && draftEffort === modelsData?.effort;
+  $("effort-value").textContent = draftEffort ? name : "Не визначено";
+  $("effort-model").textContent = modelName($("model-select").value) || "Модель не перевірено";
+  const text = !modelsData ? modelsUnavailable ? "Каталог недоступний. Збережений рівень не змінюємо." : "Перевіряємо доступні рівні…" : !levels.length ? "Runtime не повідомив доступні рівні міркування для цієї моделі." : index < 0 ? (draftEffort ? "Збережений рівень «" + name + "» відсутній у каталозі. " : "Рівень не визначено. ") + (levels.includes(choice.default_effort) ? "Кнопка скидання обере стандартний рівень лише для чернетки." : "Стандартний рівень недоступний; вибір міркування не змінюємо.") : (saved ? "Поточний рівень: " : "Чернетка: ") + name + ". Зміни діятимуть з наступного запиту після збереження й підтвердження.";
+  range.setAttribute("aria-valuetext", index >= 0 ? name : "Рівень не обрано: " + name);
+  message("effort-status", text);
+  updateModelActions();
 }
 function renderModels() {
   const select = $("model-select"), selected = modelsData?.selected || lastModel;
@@ -115,19 +135,24 @@ function renderModels() {
     option.value = row.model; select.append(option);
   }
   select.value = selected;
+  draftEffort = modelsData ? modelsData.effort : lastEffort;
   $("model-current").textContent = selected ? (modelsData || panelData ? "Обрана модель: " : "Останній перевірений вибір: ") + modelName(selected) : "Обрану модель ще не перевірено.";
   message("model-status", modelsUnavailable ? "Каталог моделей недоступний. Збережений вибір не змінюємо. Натисни «Оновити»." : !modelsData ? "Завантажуємо каталог моделей…" : modelsData.busy ? "Oak працює або готує запит у цій сесії. Модель можна змінити після завершення роботи." : !modelsData.models.length ? "У каталозі немає моделей для вибору. Збережений вибір не змінюємо." : !listed ? "Збережено модель, якої зараз немає в каталозі. Обери іншу лише якщо хочеш змінити вибір." : "Вибір стосується лише сесії «" + selectedName() + "».", modelsUnavailable);
-  updateModelActions();
+  renderEffort();
 }
 async function loadModels(epoch) {
   try {
     const value = await api("/api/models");
     if (epoch !== sessionEpoch) return false;
-    if (!value || typeof value.selected !== "string" || !value.selected || !Array.isArray(value.models) || typeof value.busy !== "boolean") throw new Error("Каталог недоступний.");
+    if (!value || typeof value.selected !== "string" || !value.selected || (value.effort !== null && typeof value.effort !== "string") || !Array.isArray(value.models) || typeof value.busy !== "boolean") throw new Error("Каталог недоступний.");
     const seen = new Set();
-    const models = value.models.filter(row => row && typeof row.model === "string" && row.model && typeof row.display_name === "string" && !seen.has(row.model) && seen.add(row.model));
-    modelsData = {selected: value.selected, models, busy: value.busy};
+    const models = value.models.filter(row => row && typeof row.model === "string" && row.model && typeof row.display_name === "string" && !seen.has(row.model) && seen.add(row.model)).map(row => {
+      const efforts = Array.isArray(row.efforts) ? [...new Set(row.efforts.filter(effort => typeof effort === "string" && effort))] : [];
+      return {model: row.model, display_name: row.display_name, efforts, default_effort: efforts.includes(row.default_effort) ? row.default_effort : null};
+    });
+    modelsData = {selected: value.selected, effort: value.effort, models, busy: value.busy};
     lastModel = value.selected;
+    lastEffort = value.effort;
     modelsUnavailable = false;
     renderModels();
     return true;
@@ -142,16 +167,19 @@ async function loadModels(epoch) {
 }
 async function changeModel() {
   const model = $("model-select").value, epoch = sessionEpoch;
-  if (mutationBusy || refreshing || $("workspace").hidden || !modelsData || modelsData.busy || model === modelsData.selected || !modelsData.models.some(row => row.model === model)) return;
-  if (!await confirmAction("Змінити модель цієї сесії?", "Для сесії «" + selectedName() + "» буде обрано «" + modelName(model) + "» з наступного запиту. Контекст і пам’ять сесії зберігаються.", "Зберегти вибір") || epoch !== sessionEpoch || $("workspace").hidden) { if (epoch === sessionEpoch) renderModels(); return; }
+  const choice = modelChoice(), effort = choice?.efforts.includes(draftEffort) ? draftEffort : undefined;
+  if (mutationBusy || refreshing || $("workspace").hidden || !modelsData || modelsData.busy || !choice || (model === modelsData.selected && (effort === undefined || effort === modelsData.effort))) return;
+  const effortText = effort === undefined ? " Доступний рівень міркування не повідомлено; його окремо не обираємо." : " Рівень міркування: «" + effortName(effort) + "».";
+  if (!await confirmAction("Змінити модель або рівень міркування?", "Для сесії «" + selectedName() + "» буде обрано «" + modelName(model) + "» з наступного запиту." + effortText + " Контекст і пам’ять сесії зберігаються.", "Зберегти вибір") || epoch !== sessionEpoch || $("workspace").hidden) { if (epoch === sessionEpoch) renderModels(); return; }
   mutationBusy = true;
   updateActions();
   let failure = null;
   try {
-    const value = await api("/api/models", {confirmed: true, model});
+    const value = await api("/api/models", {confirmed: true, model, ...(effort === undefined ? {} : {effort})});
     if (epoch !== sessionEpoch) return;
-    if (value?.selected !== model) throw new Error("Вибір не підтверджено.");
+    if (value?.selected !== model || (value.effort !== null && typeof value.effort !== "string") || (effort !== undefined && value.effort !== effort)) throw new Error("Вибір не підтверджено.");
     lastModel = value.selected;
+    lastEffort = value.effort;
   } catch (error) { failure = error; }
   try {
     if (epoch !== sessionEpoch) return;
@@ -160,10 +188,10 @@ async function changeModel() {
     if (epoch !== sessionEpoch) return;
     const checked = results.some(result => result.status === "fulfilled" && result.value === true);
     if (failure) {
-      const reason = failure.status === 409 ? "Зміна моделі недоступна під час роботи або підготовки запиту." : failure.status === 400 ? "Цю модель не вдалося обрати." : failure.status === 503 ? "Під час зміни каталог моделей був недоступний." : "Відповідь на зміну моделі не отримано.";
+      const reason = failure.status === 409 ? "Зміна моделі або міркування недоступна під час роботи або підготовки запиту." : failure.status === 400 ? "Цю модель або рівень міркування не вдалося обрати." : failure.status === 503 ? "Під час зміни каталог моделей був недоступний." : "Відповідь на зміну моделі або міркування не отримано.";
       message("notice", reason + (checked ? " Поточний вибір перевірено на сервері." : " Поточний вибір недоступний; натисни «Оновити» перед новою спробою."), true);
     } else if (!checked) message("notice", "Запит прийнято, але поточний вибір не вдалося перевірити. Натисни «Оновити».", true);
-    else message("notice", "Вибір моделі збережено для сесії «" + selectedName() + "». Зміна діятиме з наступного запиту.");
+    else message("notice", "Вибір моделі й міркування збережено для сесії «" + selectedName() + "». Зміна діятиме з наступного запиту.");
   } finally {
     if (epoch === sessionEpoch) mutationBusy = false;
     updateActions();
@@ -270,7 +298,7 @@ async function selectSession(id) {
   selectedSession = id;
   refreshing = false;
   panelData = integrationData = null;
-  modelsData = null; lastModel = ""; modelsUnavailable = false;
+  modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null;
   renderModels();
   stopRequestState = "";
   appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
@@ -334,7 +362,7 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   mutationBusy = false;
   panelData = null;
   integrationData = null;
-  modelsData = null; lastModel = ""; modelsUnavailable = false;
+  modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null;
   renderModels();
   appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
   stopRequestState = "";
@@ -511,9 +539,11 @@ function renderPanel(value) {
   else $("telegram-link").removeAttribute("href");
   const settings = value.settings, list = $("settings-list");
   if (typeof settings.model === "string" && settings.model) lastModel = settings.model;
+  if (settings.effort === null || typeof settings.effort === "string") lastEffort = settings.effort;
   if (!modelsData) renderModels();
   list.replaceChildren();
   fact(list, "Модель", settings.model || "Не повідомлено");
+  fact(list, "Рівень міркування", typeof settings.effort === "string" && settings.effort ? effortName(settings.effort) : "Не повідомлено");
   fact(list, "Вхід у модель", settings.auth === "chatgpt" ? "ChatGPT" : "Недоступний");
   fact(list, "Часовий пояс", settings.timezone || "Не повідомлено");
   fact(list, "Доступ до файлів", ({"workspace-write": "Файли робочої папки", "read-only": "Лише читання", "danger-full-access": "Повний доступ"})[settings.sandbox] || settings.sandbox || "Не повідомлено");
@@ -788,7 +818,22 @@ $("refresh").addEventListener("click", () => { message("notice", ""); void refre
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });
-$("model-select").addEventListener("change", updateModelActions);
+$("model-select").addEventListener("change", () => {
+  draftEffort = $("model-select").value === modelsData?.selected ? modelsData.effort : modelChoice()?.default_effort || null;
+  renderEffort();
+});
+$("effort-range").addEventListener("input", () => {
+  if ($("effort-range").disabled) return;
+  const levels = modelChoice()?.efforts || [], index = Number($("effort-range").value);
+  if (!Number.isInteger(index) || !levels[index]) return;
+  draftEffort = levels[index];
+  renderEffort();
+});
+$("effort-reset").addEventListener("click", () => {
+  if ($("effort-reset").disabled) return;
+  draftEffort = modelChoice().default_effort;
+  renderEffort();
+});
 $("stop").addEventListener("click", () => mutation("Зупинити поточну роботу Oak?", "Запит стосується вибраної сесії «" + selectedName() + "». Уже виконані зовнішні дії залишаться виконаними. Заплановані задачі потрібно скасовувати окремо.", "Запитати зупинку", async epoch => {
   stopRequestState = "uncertain";
   const result = await api("/api/stop", {conversation: selectedSession});
