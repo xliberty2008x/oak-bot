@@ -10,6 +10,8 @@ from pathlib import Path
 import re
 import shutil
 
+from aiohttp import ClientError, ClientSession, ClientTimeout
+
 
 class PreviewTunnel:
     def __init__(self, provider='quick', state_dir=None):
@@ -85,9 +87,33 @@ class PreviewTunnel:
             raise
 
     async def wait(self):
-        """Monitor in the service TaskGroup; unexpected exit requests restart."""
+        """Monitor process exit and lost SSH mappings in the service TaskGroup."""
         if self._exit is None:
             raise RuntimeError('Preview tunnel has not been started.')
+        if self.provider == 'localhost':
+            missing = 0
+            async with ClientSession(timeout=ClientTimeout(total=10)) as client:
+                while not self._exit.done():
+                    done, _ = await asyncio.wait((self._exit,), timeout=30)
+                    if done:
+                        break
+                    try:
+                        async with client.get(self.url, allow_redirects=False) as response:
+                            lost = False
+                            if response.status == 502:
+                                body = b''
+                                while len(body) < 32:
+                                    chunk = await response.content.read(32 - len(body))
+                                    if not chunk:
+                                        break
+                                    body += chunk
+                                lost = body.strip() == b'no tunnel'
+                    except (ClientError, asyncio.TimeoutError):
+                        missing = 0
+                        continue
+                    missing = missing + 1 if lost else 0
+                    if missing >= 2 and not self._closing:
+                        raise RuntimeError('HTTPS preview tunnel lost its public mapping.')
         code = await asyncio.shield(self._exit)
         if not self._closing:
             raise RuntimeError(f'HTTPS preview tunnel exited (code {code}).')

@@ -1,10 +1,11 @@
+import asyncio
 import hashlib
 import hmac
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
 
 from aiohttp import web
@@ -14,6 +15,7 @@ from oak.bus import EventBus
 from oak.controller import Controller
 from oak.panel import https_url
 from oak.tools import Tools
+from oak.tunnel import PreviewTunnel
 from oak.web import WebGateway, telegram_owner
 
 
@@ -28,6 +30,23 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.controller.db.close)
         self.controller.tools = Tools(self.controller, {})
         self.bus = EventBus(self.controller)
+
+    async def test_tunnel_recovers_lost_mapping_even_when_ssh_remains_alive(self):
+        tunnel = PreviewTunnel('localhost', self.root)
+        tunnel.url = 'https://synthetic.lhr.life'
+        tunnel._exit = asyncio.get_running_loop().create_future()
+        self.addCleanup(tunnel._exit.cancel)
+        response = MagicMock(status=502)
+        response.content.read = AsyncMock(side_effect=[b'no ', b'tunnel', b'', b'other error', b'', b'no tunnel', b'', b'no tunnel', b''])
+        session = MagicMock()
+        session.__aenter__.return_value = session
+        session.get.return_value.__aenter__.return_value = response
+        with patch('oak.tunnel.ClientSession', return_value=session), \
+                patch('oak.tunnel.asyncio.wait', AsyncMock(return_value=(set(), set()))):
+            with self.assertRaisesRegex(RuntimeError, 'public mapping'):
+                await asyncio.wait_for(tunnel.wait(), 0.1)
+        self.assertEqual(session.get.call_count, 4)
+        self.assertFalse(tunnel._exit.done())
 
     def test_telegram_auth_signature_freshness_duplicates_and_owner(self):
         token, now = '123:synthetic-test-token', 1800000000
