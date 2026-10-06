@@ -9,7 +9,6 @@ from urllib.parse import parse_qsl, urlsplit
 
 from aiohttp import web
 
-from .controller import MODEL
 from .runtime import RpcError
 from .telegram import TelegramError
 
@@ -165,7 +164,7 @@ class ControlPanel:
                 'uncertain_inputs': self.db.execute("SELECT count(*) FROM inputs WHERE chat_id=? AND status='uncertain'", (owner,)).fetchone()[0]},
             'memory': {'count': self.db.execute('SELECT count(*) FROM memory_notes WHERE chat_id=?', (owner,)).fetchone()[0]},
             'computer': c.tools.computer_status(owner) if c.tools else None,
-            'settings': {'model': MODEL, 'auth': 'chatgpt' if getattr(c.client, '_authenticated', False) is True else 'unavailable',
+            'settings': {'model': c.model_for(owner), 'auth': 'chatgpt' if getattr(c.client, '_authenticated', False) is True else 'unavailable',
                 'timezone': str(c.scheduler.timezone), 'sandbox': c.config.get('sandbox', 'workspace-write'),
                 'approval_policy': c.config.get('runtime_config', {}).get('approval_policy', 'on-request'),
                 'transport': self.gateway.config.get('transport', 'sse')},
@@ -187,7 +186,13 @@ class ControlPanel:
         tasks = [{k: row[k] for k in ('id', 'due', 'interval', 'mode', 'status')} |
                  {'turn_status': self.turn_status(row['turn_status'])} for row in rows]
         if task_id is None:
-            return {'tasks': tasks, 'timezone': str(self.controller.scheduler.timezone)}
+            counts = self.db.execute("SELECT status,count(*) FROM jobs WHERE chat_id=? AND status IN ('pending','running','uncertain') GROUP BY status", (owner,)).fetchall()
+            counts = dict(counts)
+            next_row = self.db.execute("SELECT id,due,interval,mode,status FROM jobs WHERE chat_id=? AND status='pending' ORDER BY due,id LIMIT 1", (owner,)).fetchone()
+            return {'tasks': tasks, 'timezone': str(self.controller.scheduler.timezone),
+                    'summary': {'active_count': sum(counts.values()), 'running_count': counts.get('running', 0),
+                                'uncertain_count': counts.get('uncertain', 0),
+                                'next_task': dict(next_row) if next_row else None}}
         if not rows:
             raise web.HTTPNotFound(text='Задачу не знайдено.')
         # The panel keeps only lifecycle events; never relay message or tool content.

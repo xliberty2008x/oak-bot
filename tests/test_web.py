@@ -14,6 +14,7 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 from oak.bus import EventBus
 from oak.controller import Controller
 from oak.panel import https_url
+from oak.runtime import RpcError
 from oak.tools import Tools
 from oak.tunnel import PreviewTunnel
 from oak.telegram import TelegramError
@@ -220,6 +221,62 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await response.json())['computer']['enabled'], enabled)
             self.assertTrue(self.controller.tools.computer_status(22)['enabled'])
         self.client.request.assert_not_awaited()
+
+    async def test_task_summary_covers_jobs_outside_the_bounded_list(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
+        for i in range(101):
+            self.controller.db.execute('INSERT INTO jobs(id,chat_id,prompt,due,interval,mode) VALUES (?,?,?,?,?,?)',
+                                       (str(i), 11, 'PRIVATE_TASK', i + 1, 60, 'run'))
+        self.controller.scheduler.add(22, 'OTHER_TASK', delay_seconds=0)
+        result = gateway.controls.tasks(11)
+        self.assertEqual(len(result['tasks']), 100)
+        self.assertEqual(result['summary']['active_count'], 101)
+        self.assertEqual(result['summary']['next_task']['id'], '0')
+        self.assertNotIn('PRIVATE_TASK', json.dumps(result))
+        self.controller.db.execute("UPDATE jobs SET status='running' WHERE chat_id=11")
+        summary = gateway.controls.tasks(11)['summary']
+        self.assertEqual(summary['running_count'], 101)
+        self.assertIsNone(summary['next_task'])
+
+    async def test_model_choice_requires_confirmation_catalogue_and_owned_idle_session(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        scope = self.controller.sessions.resolve(11, 42)
+        self.controller.sessions.resolve(22, 85)
+        self.client.request.return_value = {'data': [
+            {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low'},
+            {'model': 'synthetic-model', 'displayName': 'Synthetic model', 'hidden': False, 'defaultReasoningEffort': 'medium'}],
+            'nextCursor': None}
+        client = TestClient(TestServer(gateway.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        headers = {'Authorization': 'Bearer unit-session'}
+        url = '/api/models?conversation=topic:42'
+        change = {'model': 'synthetic-model', 'confirmed': True, 'owner': 22}
+        self.assertEqual((await client.get(url)).status, 401)
+        self.assertEqual((await client.post(url, headers=headers, json={**change, 'confirmed': False})).status, 400)
+        self.assertEqual((await client.post(url, headers={**headers, 'Origin': 'https://other.example'}, json=change)).status, 403)
+        self.assertEqual((await client.post('/api/models?conversation=topic:85', headers=headers, json=change)).status, 404)
+        self.assertEqual((await client.post(url, headers=headers, json={**change, 'model': 'invented'})).status, 400)
+        response = await client.get(url, headers=headers)
+        self.assertEqual(response.status, 200)
+        self.assertEqual((await response.json())['selected'], 'gpt-6.1-sol')
+        self.controller.active[scope] = 'synthetic-turn'
+        self.assertTrue((await (await client.get(url, headers=headers)).json())['busy'])
+        self.assertEqual((await client.post(url, headers=headers, json=change)).status, 409)
+        self.controller.active.clear()
+        response = await client.post(url, headers=headers, json=change)
+        self.assertEqual(response.status, 200, await response.text())
+        self.assertEqual((await response.json())['selected'], 'synthetic-model')
+        self.assertEqual(self.controller.model_for(11), 'gpt-6.1-sol')
+        panel = await (await client.get('/api/panel?conversation=topic:42', headers=headers)).json()
+        self.assertEqual(panel['settings']['model'], 'synthetic-model')
+        self.client.request.side_effect = RpcError(-32000, 'PRIVATE_PROVIDER_ERROR')
+        response = await client.get(url, headers=headers)
+        self.assertEqual(response.status, 503)
+        self.assertNotIn('PRIVATE_PROVIDER_ERROR', await response.text())
 
     async def test_topic_sessions_scope_controls_and_do_not_replay_native_creation(self):
         gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})

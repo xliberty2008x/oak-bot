@@ -225,7 +225,9 @@ ownership of a bot conversation. Configure needed integrations in this runtime;
 they are not implicitly inherited from another account/session directory.
 
 `runtime_config` passes supported options to the runtime dependency while Oak
-keeps authentication, provider and model pinned. The default example enables
+keeps ChatGPT authentication and the OpenAI provider pinned. The default model is
+`gpt-6.1-sol`; an explicit owner selection in the Mini App overrides it for that
+conversation's next turns. The default example enables
 live web search and on-request approvals. Configure connected applications or
 MCP servers only when needed; their account access is separate from Oak's
 Telegram token. Store any credentials in private deployment configuration.

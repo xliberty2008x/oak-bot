@@ -83,6 +83,16 @@
         </section>
         <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
           <div class="view-heading"><h1 id="settings-heading" tabindex="-1">Налаштування</h1><p>Поточні параметри Oak</p></div>
+          <section id="model-control" class="model-control" aria-labelledby="model-label">
+            <h2 id="model-label">Модель цієї сесії</h2>
+            <p id="model-current" class="model-current" role="status">Перевіряємо обрану модель…</p>
+            <form id="model-form">
+              <label for="model-select">Обрати модель</label>
+              <div class="model-form-row"><select id="model-select" aria-describedby="model-description model-status" disabled><option value="">Завантажуємо каталог…</option></select><button id="model-save" type="submit" disabled>Зберегти вибір</button></div>
+            </form>
+            <p id="model-description" class="hint">Зміна діятиме з наступного запиту. Контекст і пам’ять сесії зберігаються. Доступ до обраної моделі підтверджується під час запиту за підпискою.</p>
+            <p id="model-status" class="hint" role="status">Завантажуємо каталог моделей…</p>
+          </section>
           <section class="computer-control" aria-labelledby="computer-label">
             <div class="computer-heading"><span class="computer-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg></span><h2 id="computer-label">Керування комп’ютером</h2><button id="computer-switch" type="button" class="computer-switch" role="switch" aria-checked="false" aria-labelledby="computer-label" aria-describedby="computer-description computer-status" disabled><span class="switch-track" aria-hidden="true"></span><span id="computer-switch-state" aria-hidden="true">Перевіряємо…</span></button></div>
             <p id="computer-description" class="hint">Дозволяє Oak бачити екран і керувати комп’ютером у всіх твоїх сесіях. Вимкнення зупиняє поточну дію на комп’ютері та пов’язану роботу Oak.</p>

@@ -33,9 +33,14 @@ flowchart LR
 
 `oak/runtime.py` launches the `codex app-server` dependency over stdio and routes
 JSON-RPC requests, notifications and server requests independently. It verifies
-ChatGPT account authentication, pins the OpenAI provider and `gpt-6.1-sol`, and
+ChatGPT account authentication, pins the OpenAI provider, defaults to `gpt-6.1-sol`, and
 removes API-key environment overrides. Runtime configuration selects the sandbox,
 approval behavior and connected tools.
+
+An authenticated owner can save a model from the native catalogue for a selected
+conversation. The next turn uses that model and its advertised default reasoning
+effort without replacing the native thread, history or memory. Accepted work must
+finish before the model can change. No failure triggers an alternative model.
 
 Each deployment can select a private runtime home. The example keeps runtime
 sessions separate from desktop sessions, which prevents competing writer locks.

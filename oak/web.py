@@ -13,6 +13,9 @@ import uuid
 
 from aiohttp import web
 
+from .panel import label
+from .runtime import RpcError
+
 
 def telegram_owner(init_data, token, allowed, now=None):
     if not isinstance(init_data, str) or len(init_data) > 16000:
@@ -72,6 +75,7 @@ class WebGateway:
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
+            web.get('/api/models', self.models), web.post('/api/models', self.set_model),
             web.get('/api/sessions', self.topic_sessions), web.post('/api/sessions', self.create_topic),
             web.post('/api/sessions/{id}/rename', self.rename_topic),
             web.post('/api/computer', self.computer),
@@ -195,6 +199,30 @@ class WebGateway:
     async def panel(self, request):
         owner = self.owner(request)
         return web.json_response(self.controls.summary(self.conversation(request, owner)))
+
+    async def models(self, request):
+        scope = self.conversation(request, self.owner(request))
+        try:
+            models = await asyncio.wait_for(self.controller.model_catalog(), 8)
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
+            raise web.HTTPServiceUnavailable(text='Каталог моделей зараз недоступний. Онови панель.') from None
+        return web.json_response({'selected': self.controller.model_for(scope),
+            'models': [{'model': row['model'], 'display_name': label(row['display_name'], row['model'])} for row in models],
+            'busy': self.controller.model_busy(scope)})
+
+    async def set_model(self, request):
+        owner = await self.confirmed_owner(request)
+        scope = self.conversation(request, owner)
+        data = await request.json()
+        try:
+            settings = await asyncio.wait_for(self.controller.set_model(scope, data.get('model')), 8)
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
+            raise web.HTTPServiceUnavailable(text='Модель не змінено: каталог runtime недоступний. Онови панель.') from None
+        except ValueError:
+            raise web.HTTPBadRequest(text='Обери модель із поточного каталогу runtime.') from None
+        except RuntimeError:
+            raise web.HTTPConflict(text='Дочекайся завершення або зупини поточний запит перед зміною моделі.') from None
+        return web.json_response({'selected': settings['model']})
 
     async def topic_sessions(self, request):
         return web.json_response(await self.controls.sessions(self.owner(request)))
