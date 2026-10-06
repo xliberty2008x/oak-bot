@@ -252,6 +252,9 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
              'serviceTiers': [{'id': 'priority', 'name': 'Fast', 'description': 'Synthetic tier'}],
              'supportedReasoningEfforts': [{'reasoningEffort': 'medium'}, {'reasoningEffort': 'ultra'}]}],
             'nextCursor': None}
+        models = self.client.request.return_value
+        self.client.request.side_effect = lambda method, params: ({'data': [{'name': 'fast_mode', 'enabled': True}]}
+            if method == 'experimentalFeature/list' else models)
         client = TestClient(TestServer(gateway.app))
         await client.start_server()
         self.addAsyncCleanup(client.close)

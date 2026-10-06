@@ -38,6 +38,11 @@ The Turbo button selects the native Fast service tier independently of effort.
 It is available only when the model's current `serviceTiers` advertises Fast
 (`priority`, or the native `fast` alias); deprecated `additionalSpeedTiers` does
 not enable it. The confirmed choice persists in `conversation_models.service_tier`.
+`experimentalFeature/list` must also report effective `fast_mode.enabled: true`;
+for a loaded conversation, its `threadId` selects the refreshed thread config.
+Unavailable feature state disables Turbo without blocking the model catalogue.
+Each explicit Fast turn rechecks availability and fails before execution when
+support has disappeared, rather than silently running at Standard speed.
 New turns use `serviceTierForTurn: "fast"` or explicit `"default"` when turned
 off. This does not modify the thread's inherited tier or steer a running turn.
 An untouched null preference omits the override and is shown as inherited,

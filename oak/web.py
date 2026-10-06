@@ -203,7 +203,7 @@ class WebGateway:
     async def models(self, request):
         scope = self.conversation(request, self.owner(request))
         try:
-            models = await asyncio.wait_for(self.controller.model_catalog(), 8)
+            models = await asyncio.wait_for(self.controller.model_catalog(scope), 8)
         except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
             raise web.HTTPServiceUnavailable(text='Каталог моделей зараз недоступний. Онови панель.') from None
         return web.json_response({'selected': self.controller.model_for(scope),

@@ -101,7 +101,28 @@ class Controller:
             effort = runtime.get('model_reasoning_effort', 'low') if isinstance(runtime, dict) else None
         return effort if _valid_effort(effort) else None
 
-    async def model_catalog(self):
+    async def fast_mode_enabled(self, chat_id=None):
+        cursor, cursors = None, set()
+        thread = self.threads.get(chat_id)
+        try:
+            for _ in range(10):
+                result = await asyncio.wait_for(self.client.request('experimentalFeature/list', {
+                    'limit': 100, **({'threadId': thread} if thread in self.loaded else {}),
+                    **({'cursor': cursor} if cursor else {})}), 8)
+                if not isinstance(result, dict) or not isinstance(result.get('data'), list):
+                    return False
+                for row in result['data']:
+                    if isinstance(row, dict) and row.get('name') == 'fast_mode':
+                        return row.get('enabled') is True
+                cursor = result.get('nextCursor')
+                if cursor is None or not isinstance(cursor, str) or not cursor or cursor in cursors:
+                    return False
+                cursors.add(cursor)
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
+            pass
+        return False
+
+    async def model_catalog(self, chat_id=None):
         models, seen, cursors, cursor = [], set(), set(), None
         try:
             for _ in range(10):
@@ -139,6 +160,9 @@ class Controller:
                     seen.add(model)
                 cursor = result.get('nextCursor')
                 if cursor is None:
+                    if any(row['turbo_available'] for row in models) and not await self.fast_mode_enabled(chat_id):
+                        for row in models:
+                            row['turbo_available'] = False
                     return models
                 if not isinstance(cursor, str) or not cursor or cursor in cursors:
                     raise ValueError('Invalid model catalogue cursor.')
@@ -159,7 +183,7 @@ class Controller:
     async def set_model(self, chat_id, model, effort=None, turbo=None):
         if not isinstance(model, str) or not model.strip():
             raise ValueError('Обери модель із переліку.')
-        choice = next((item for item in await self.model_catalog() if item['model'] == model), None)
+        choice = next((item for item in await self.model_catalog(chat_id) if item['model'] == model), None)
         if choice is None:
             raise ValueError('Цієї моделі немає в поточному переліку.')
         if effort is not None and (not _valid_effort(effort) or effort not in choice['efforts']):
@@ -318,9 +342,16 @@ class Controller:
                                         (previous['status'], turn_id))
                 settings = self.model_settings(chat_id)
                 tier = self.service_tier_for(chat_id)
+                if tier == 'fast':
+                    try:
+                        catalogue = await asyncio.wait_for(self.model_catalog(chat_id), 8)
+                    except asyncio.TimeoutError:
+                        raise RpcError(-32000, 'Доступність турбо не підтверджено. Спробуй пізніше.') from None
+                    if not any(row['model'] == settings['model'] and row['turbo_available'] for row in catalogue):
+                        raise RpcError(-32000, 'Турбо зараз недоступне. Обери стандартну швидкість у налаштуваннях сесії.')
                 request = asyncio.create_task(self.client.request('turn/start', {**payload, 'model': settings['model'],
                     **({'effort': settings['effort']} if settings['effort'] is not None else {}),
-                       **({'serviceTierForTurn': tier} if tier is not None else {})}))
+                    **({'serviceTierForTurn': tier} if tier is not None else {})}))
                 cancelled = False
                 try:
                     result = await asyncio.shield(request)

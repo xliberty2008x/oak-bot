@@ -23,6 +23,8 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
         client = AsyncMock()
 
         async def request(method, params):
+            if method == 'experimentalFeature/list':
+                return {'data': [{'name': 'fast_mode', 'enabled': True}], 'nextCursor': None}
             if method == 'model/list':
                 if params.get('cursor'):
                     return {'data': [{'model': 'synthetic-choice', 'displayName': 'Duplicate', 'hidden': False,
@@ -83,6 +85,9 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'ultra'))
                 self.assertEqual(payload['serviceTierForTurn'], 'fast')
                 self.assertNotIn('serviceTier', payload)
+                flags = next(call.args[1] for call in reversed(client.request.await_args_list)
+                             if call.args[0] == 'experimentalFeature/list')
+                self.assertEqual(flags['threadId'], 'history-thread')
                 await controller.submit(topic, 'steer existing work', 11)
                 self.assertEqual(client.request.await_args.args[0], 'turn/steer')
                 self.assertNotIn('model', client.request.await_args.args[1])
@@ -102,8 +107,17 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((resume['threadId'], resume['model']), ('history-thread', 'synthetic-choice'))
                 self.assertEqual(restarted.threads[topic], 'history-thread')
                 restarted.active.clear()
+                async def disabled_fast(method, params):
+                    return {'data': [{'name': 'fast_mode', 'enabled': False}]} if method == 'experimentalFeature/list' else await request(method, params)
+                client.request.side_effect = disabled_fast
+                starts = sum(call.args[0] == 'turn/start' for call in client.request.await_args_list)
+                with self.assertRaises(RpcError):
+                    await restarted.submit(topic, 'unavailable fast must not silently run standard', 13)
+                self.assertEqual(sum(call.args[0] == 'turn/start' for call in client.request.await_args_list), starts)
+                self.assertEqual(restarted.db.execute('SELECT status FROM inputs WHERE update_id=13').fetchone()[0], 'failed')
+                client.request.side_effect = request
                 await restarted.set_model(topic, 'synthetic-choice', turbo=False)
-                await restarted.submit(topic, 'explicit standard speed', 13)
+                await restarted.submit(topic, 'explicit standard speed', 14)
                 self.assertEqual(client.request.await_args.args[1]['serviceTierForTurn'], 'default')
                 self.assertFalse(restarted.turbo_for(topic))
                 self.assertIsNone(restarted.turbo_for(7))
