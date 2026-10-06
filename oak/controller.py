@@ -6,12 +6,14 @@ import shutil
 import sqlite3
 import uuid
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .runtime import RpcError
 from .events import EventMapper
 from .memory import MemoryStore
 from .schedule import Scheduler
 from .interaction import Interactions
+from .sessions import SessionStore
 
 MODEL = "gpt-6.1-sol"
 
@@ -44,6 +46,7 @@ class Controller:
             if column not in {r[1] for r in self.db.execute('PRAGMA table_info(' + table + ')')}:
                 self.db.execute('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + definition)
         self.db.commit()
+        self.sessions = SessionStore(self.db)
         self.threads = {r['chat_id']: r['thread_id'] for r in self.db.execute('SELECT * FROM chats')}
         self.loaded = set()
         self.active = {}
@@ -292,8 +295,15 @@ class Controller:
             app = getattr(self, 'web', None)
             if not app or not app.public_url.startswith('https://'):
                 return 'Вебінтерфейс ще не під’єднаний. Використовуй цей чат.'
+            url = app.public_url
+            destination = self.sessions.destination(chat_id)
+            if destination and 'message_thread_id' in destination:
+                parsed = urlsplit(url)
+                query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != 'conversation']
+                query.append(('conversation', 'topic:' + str(destination['message_thread_id'])))
+                url = urlunsplit(parsed._replace(query=urlencode(query)))
             await self.emit(chat_id, {'type': 'CUSTOM', 'name': 'web_app_link',
-                                     'value': {'url': app.public_url, 'label': 'Відкрити Oak'}})
+                                     'value': {'url': url, 'label': 'Відкрити Oak'}})
             return None
         if name == '/remember':
             if not argument.strip():

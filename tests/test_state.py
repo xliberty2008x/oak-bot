@@ -19,6 +19,53 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
         self.db = sqlite3.connect(':memory:')
         self.addCleanup(self.db.close)
 
+    async def test_telegram_topics_keep_legacy_and_owner_scoped_state_after_restart(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db_path = Path(folder) / 'state.sqlite'
+            controller = Controller(AsyncMock(), db_path, folder, AsyncMock())
+            self.assertTrue(hasattr(controller, 'sessions'), 'Topic routing must persist with the controller.')
+            try:
+                sessions = controller.sessions
+                self.assertEqual(sessions.resolve(7), 7)
+                self.assertEqual(sessions.resolve(7, 1), 7)
+                topic = sessions.resolve(7, 12, name='Дослідження')
+                other = sessions.resolve(8, 12, name='Інша розмова')
+                self.assertLess(topic, 0)
+                self.assertNotEqual(topic, other)
+                self.assertEqual(sessions.destination(topic), {'chat_id': 7, 'message_thread_id': 12})
+                self.assertIsNone(sessions.destination(-1))
+                self.assertEqual(sessions.lookup(7, 'topic:12'), topic)
+                sessions.resolve(8, 13)
+                self.assertIsNone(sessions.lookup(7, 'topic:13'))
+                self.assertIsNone(sessions.lookup(8, 'topic:14'))
+                controller.memory.remember(7, 'General only')
+                controller.memory.remember(topic, 'Topic only')
+                controller.scheduler.add(topic, 'Topic task', delay_seconds=60)
+                sessions.resolve(7, 12, closed=True)
+            finally:
+                controller.close()
+            restarted = Controller(AsyncMock(), db_path, folder, AsyncMock())
+            try:
+                self.assertEqual(restarted.sessions.resolve(7, 12), topic)
+                self.assertEqual(restarted.sessions.list(7)[1]['name'], 'Дослідження')
+                self.assertTrue(restarted.sessions.list(7)[1]['closed'])
+                self.assertEqual([note['text'] for note in restarted.memory.search(7)], ['General only'])
+                self.assertEqual([note['text'] for note in restarted.memory.search(topic)], ['Topic only'])
+                self.assertEqual(restarted.scheduler.list(7), [])
+                self.assertEqual(len(restarted.scheduler.list(topic)), 1)
+                restarted.web = SimpleNamespace(public_url='https://oak.example/?view=status')
+                await restarted.command(topic, '/web', 1)
+                self.assertEqual(restarted.emit.await_args.args[0], topic)
+                self.assertEqual(restarted.emit.await_args.args[1]['value']['url'],
+                                 'https://oak.example/?view=status&conversation=topic%3A12')
+                from oak.tools import Tools
+                tools = Tools(restarted, {'computer': {'enabled': True, 'display': ':99'}})
+                await tools.set_computer_enabled(7, False)
+                self.assertFalse(tools.computer_status(topic)['enabled'])
+                self.assertTrue(tools.computer_status(other)['enabled'])
+            finally:
+                restarted.close()
+
     async def test_thread_open_failure_is_not_replayed_on_recovery(self):
         for error, status in ((RpcError(-32000, 'Cannot resume'), 'failed'),
                               (ConnectionError('Disconnected'), 'uncertain')):

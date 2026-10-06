@@ -83,6 +83,10 @@ class Tools:
             self.version = 'oak-v2-computer'
 
     def _computer_account(self, chat_id):
+        sessions = getattr(self.controller, 'sessions', None)
+        account = sessions.owner(chat_id) if sessions is not None else None
+        if account is not None:
+            return account
         if chat_id >= 0:
             return chat_id
         db = self.controller.db
