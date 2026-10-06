@@ -24,6 +24,7 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
   }
   function render() {
     document.body.classList.toggle("remote-active", connected);
+    $("remote-console").dataset.connected = String(connected);
     $("remote-console").dataset.keyboard = String(keyboardOpen);
     $("remote-start").hidden = !!rfb;
     $("remote-start").disabled = !available() || busy() || starting || stopping || status?.configured !== true || status?.manual === true;
@@ -96,7 +97,7 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
     if (error?.status === 403) return "Доступ до робочого столу не дозволено для цього сеансу.";
     return "Робочий стіл недоступний. Перевір з’єднання та натисни «Оновити».";
   }
-  async function refresh() {
+  async function refresh(keepMessage = false) {
     if (!available() || starting || stopping) { render(); return; }
     const current = generation;
     try {
@@ -104,7 +105,7 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
       if (current !== generation || !available()) return;
       if (!result || typeof result.configured !== "boolean" || typeof result.manual !== "boolean") throw new Error();
       status = result;
-      if (!rfb) message(!result.configured ? "Робочий стіл ще не налаштовано на машині Oak." : result.manual ? "Ручне керування вже активне. Заверши попереднє підключення, щоб підключитися тут." : "Підключися, щоб відкрити потрібний сайт та увійти у свій обліковий запис.");
+      if (!rfb && (!keepMessage || !result.configured || result.manual)) message(!result.configured ? "Робочий стіл ще не налаштовано на машині Oak." : result.manual ? "Ручне керування вже активне. Заверши попереднє підключення, щоб підключитися тут." : "");
     } catch (error) {
       if (current === generation && available()) { status = null; message(failure(error), true); }
     }
@@ -126,7 +127,7 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
   async function start() {
     if (!available() || busy() || starting || stopping || rfb || !status?.configured || status.manual) return;
     const requested = generation;
-    if (!await confirmAction("Керувати робочим столом?", "Поточна робота Oak буде зупинена. Поки ти підключений, Oak не починатиме нові задачі та не керуватиме комп’ютером. Ти зможеш самостійно увійти у потрібний сайт.", "Підключитися") || requested !== generation || !available()) return;
+    if (!await confirmAction("Керувати робочим столом?", "Поточна робота Oak буде зупинена. Поки ти керуєш, Oak не починатиме нові задачі та не керуватиме комп’ютером. Згортання чи закриття панелі завершить керування.", "Підключитися") || requested !== generation || !available()) return;
     starting = true; render(); message("Готуємо робочий стіл і передаємо керування…");
     const current = ++generation;
     let issued = false;
@@ -148,13 +149,16 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
       client.scaleViewport = true;
       client.showDotCursor = true;
       client.focusOnClick = true;
+      client.background = "transparent";
       client.addEventListener("connect", () => {
         if (client !== rfb || current !== generation) { client.disconnect(); return; }
         clearTimeout(timeout); timeout = null;
         connected = true;
         status = {...status, connected: true, manual: true, can_stop: true};
+        const frame = canvas();
+        if (frame?.width && frame.height) $("remote-console").style.setProperty("--remote-aspect", frame.width + " / " + frame.height);
         telegramSwipes(true);
-        message("Ти керуєш браузером. Коли завершиш вхід, натисни «Завершити».");
+        message("Коли завершиш вхід, натисни «Завершити».");
         render();
       });
       client.addEventListener("disconnect", event => {
@@ -163,7 +167,7 @@ export function createRemotePanel({api, confirmAction, available, busy}) {
         status = status ? {...status, connected: false, manual: false, can_stop: false} : null;
         message(event.detail.clean ? "Ручне керування завершено." : "З’єднання з робочим столом втрачено. Онови стан, щоб підключитися знову.", !event.detail.clean);
         render();
-        if (available()) void refresh();
+        if (available()) void refresh(true);
       });
       const connectionFailure = () => {
         if (client !== rfb) return;
