@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.state/
+*.sqlite*
+*.log
+config.local.json
+private/
+models/
+artifacts/
+browser-profile/
+*.onnx

@@ -1,0 +1,27 @@
+{
+  "telegram_token_file": "~/.config/oak-bot/telegram-token",
+  "telegram_username": null,
+  "allowed_user_ids": [],
+  "instructions_file": null,
+  "memory_files": [],
+  "workspace": ".state/workspace",
+  "state_dir": ".state",
+  "runtime_home": ".state/runtime",
+  "timezone": "UTC",
+  "sandbox": "workspace-write",
+  "runtime_config": {
+    "approval_policy": "on-request",
+    "web_search": "live"
+  },
+  "piper_model": null,
+  "vosk_model": null,
+  "whisper_model": null,
+  "search_url": null,
+  "web": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 8765,
+    "public_url": null,
+    "transport": "sse"
+  }
+}

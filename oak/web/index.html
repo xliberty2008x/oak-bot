@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Oak</title>
+  <link rel="stylesheet" href="/style.css">
+  <script id="telegram-sdk" src="/telegram-web-app.js" async></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a class="brand" href="/" aria-label="Oak, головна">Oak<span class="leaf" aria-hidden="true">◒</span></a><span id="connection" role="status">Під’єднуємося…</span></header>
+    <form id="login" hidden><h1>Твій простір для ідей</h1><p>Відкрий Oak із меню Telegram або введи приватний ключ доступу.</p><label for="key">Ключ доступу</label><input id="key" type="password" autocomplete="off" required><button>Увійти</button></form>
+    <section id="workspace" hidden>
+      <nav aria-label="Розмови"><select id="conversation" aria-label="Поточна розмова"></select><button id="new" type="button">Нова розмова</button><button id="stop" type="button" class="quiet">Зупинити</button></nav>
+      <div id="messages" role="log" aria-label="Повідомлення" aria-live="polite"><div id="empty"><h1>Що створимо сьогодні?</h1><p>Напиши ідею, запитай або дай задачу. Під час роботи можна додати уточнення.</p></div></div>
+      <div id="activity" role="status"></div>
+      <form id="compose"><label class="sr-only" for="input">Повідомлення для Oak</label><textarea id="input" placeholder="Напиши Oak…" maxlength="32000" rows="2" required></textarea><button>Надіслати</button></form>
+    </section>
+    <p id="error" role="alert"></p>
+  </main>
+</body>
+</html>
