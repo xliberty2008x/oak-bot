@@ -24,6 +24,7 @@ Oak uses ChatGPT subscription authentication and the exact model
 | Voice | Local Piper narration and local Vosk or optional faster-whisper transcription |
 | Research | Public web search, readable pages and public YouTube metadata |
 | Browser | A dedicated Playwright profile with navigation, reading, clicking, typing and screenshots |
+| Computer use | Configured Linux X11 desktop, visual screenshots returned to the model, mouse, keyboard, dragging and scrolling |
 
 Connected applications require their own configured access. Tool availability and
 local checks are recorded separately from live Telegram results in
@@ -54,6 +55,10 @@ installs Chromium. `--voice` downloads the public Ukrainian narration and
 recognition models outside the repository and prints configuration paths to
 copy into your local config. Omit either option when it is not needed. Install
 system packages separately.
+
+For desktop control, install `xdotool` and `xmodmap`, provide a running X11 session and use
+`--computer` to check the required local dependencies. Enable the explicit
+display in your private config; see [computer use](docs/configuration.md#computer-use).
 
 Store the Telegram token with hidden terminal input:
 

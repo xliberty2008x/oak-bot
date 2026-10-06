@@ -4,12 +4,14 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 umask 077
 install_browser=false
 install_voice=false
+check_computer=false
 for option in "$@"; do
   case "$option" in
     --browser) install_browser=true ;;
     --voice) install_voice=true ;;
+    --computer) check_computer=true ;;
     --help|-h)
-      printf '%s\n' 'Usage: ./scripts/bootstrap.sh [--browser] [--voice]' 'Create the Oak environment, install dependencies and check account/model access.'
+      printf '%s\n' 'Usage: ./scripts/bootstrap.sh [--browser] [--voice] [--computer]' 'Create the Oak environment, install dependencies and check account/model access.'
       exit 0 ;;
     *) printf '%s\n' "Unknown option: $option" >&2; exit 2 ;;
   esac
@@ -27,6 +29,14 @@ if [[ ! -x .venv/bin/python ]]; then
   python3 -m venv .venv
 fi
 .venv/bin/python -m pip install -r requirements.txt
+if [[ "$check_computer" == true ]]; then
+  if ! command -v xdotool >/dev/null 2>&1 || ! command -v xmodmap >/dev/null 2>&1; then
+    printf '%s\n' 'Install xdotool and xmodmap with your system package manager, then run bootstrap again.' >&2
+    exit 1
+  fi
+  .venv/bin/python -c 'from PIL import features; assert features.check_feature("xcb"), "Pillow requires XCB screen capture support"'
+  printf '%s\n' 'Enable computer.enabled and set computer.display to your running local X11 session in config.local.json.'
+fi
 if [[ "$install_browser" == true ]]; then
   .venv/bin/python -m playwright install chromium
 fi

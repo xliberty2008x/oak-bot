@@ -6,7 +6,7 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 57 tests.
+- The latest integrated test suite passed all 59 tests.
 - Subscription authentication and availability of the exact `gpt-6.1-sol` model.
 - Real model streaming, same-session continuation, active-turn steering and
   cancellation using isolated synthetic prompts.
@@ -69,6 +69,13 @@ or deployed conversation has been verified end to end.
   including in Safari. Changing the HTTPS endpoint resolved this observed issue.
 - After runtime-home migration, a resumed session invoked the registered local
   image tool and returned a real PNG through the authenticated artifact endpoint.
+- Computer use passed a real subscription-backed model task on an isolated X11
+  desktop: the model read a screenshot, entered the displayed Ukrainian text and
+  clicked the verification button. Six native tool calls returned six image
+  results to the model. Additional real desktop checks covered Ukrainian text,
+  emoji, newline input, key chords, mouse dragging and scrolling. The configured
+  deployment display was checked read-only; computer-use Telegram delivery was
+  not part of this test.
 
 ## Remaining deployment checks
 

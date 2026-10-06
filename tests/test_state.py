@@ -34,6 +34,33 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 finally:
                     controller.close()
 
+    async def test_desktop_remains_owned_until_the_active_turn_finishes(self):
+        from oak.tools import Tools
+        with tempfile.TemporaryDirectory() as folder:
+            controller = SimpleNamespace(cwd=folder, active={7: 'first', 8: 'second'})
+            tools = Tools(controller, {'computer': {'enabled': True, 'display': ':99'}})
+            tools.computer.run = AsyncMock(return_value={})
+            await tools.execute(7, 'oak_computer', {'action': 'screenshot'}, {'turnId': 'first'})
+            with self.assertRaises(RuntimeError):
+                await tools.execute(8, 'oak_computer', {'action': 'click'}, {'turnId': 'second'})
+            controller.active.pop(7)
+            await tools.execute(8, 'oak_computer', {'action': 'screenshot'}, {'turnId': 'second'})
+            self.assertEqual(tools.computer.run.await_count, 2)
+
+    async def test_desktop_rejects_invalid_coordinates_before_sending_input(self):
+        from oak.computer import ComputerTools
+        with self.assertRaises(ValueError):
+            ComputerTools('.', 'remote.example:0')
+        desktop = ComputerTools('.', ':99')
+        desktop._geometry = AsyncMock(return_value=(1280, 800))
+        desktop._exec = AsyncMock()
+        for args in ({'action': 'click', 'x': 1280, 'y': 0},
+                     {'action': 'drag', 'x': 10, 'y': 10, 'end_x': -1, 'end_y': 20},
+                     {'action': 'key', 'key': 'Return; touch file'}):
+            with self.assertRaises(ValueError):
+                await desktop.run(**args)
+        desktop._exec.assert_not_awaited()
+
     def test_selected_memory_import_is_atomic_and_chat_scoped(self):
         memory = MemoryStore(self.db)
         with tempfile.TemporaryDirectory() as folder:

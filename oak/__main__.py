@@ -34,6 +34,11 @@ def load_config(config_path):
 
 async def doctor(config_path=None):
     config = load_config(config_path)[1] if config_path else {}
+    computer = {'enabled': bool(config.get('computer', {}).get('enabled'))}
+    if computer['enabled']:
+        from .computer import ComputerTools
+        desktop = ComputerTools(config['workspace'], config['computer'].get('display'))
+        computer.update(await desktop.status())
     async with RuntimeClient(home=config.get('runtime_home'), config=config.get('runtime_config')) as client:
         models = await client.request('model/list', {})
         available = any(m.get('model') == MODEL or m.get('id') == MODEL for m in models['data'])
@@ -41,6 +46,7 @@ async def doctor(config_path=None):
         installed = apps.get('apps', [])
         print(json.dumps({'status': 'ready' if available else 'unavailable', 'auth': 'subscription',
                           'model': MODEL, 'model_available': available,
+                          'computer': computer,
                           'connected_apps': [a.get('runtimeName') for a in installed if a.get('enabled') and a.get('callable')]}))
         if not available:
             raise RuntimeError(f'{MODEL} is not available to this account.')

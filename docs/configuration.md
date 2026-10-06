@@ -21,6 +21,7 @@ paths resolve against the configuration file's directory.
 | `vosk_model` | Optional extracted local speech-recognition model directory |
 | `whisper_model` | Optional local faster-whisper model, used instead of Vosk |
 | `search_url` | Optional public SearXNG `/search` URL with JSON output enabled |
+| `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
 
 ## Web and Telegram Mini App
@@ -100,6 +101,39 @@ The browser uses `workspace/browser-profile`. It starts with its own account
 state; credentials are not copied from an existing browser. Install its binary
 with `.venv/bin/python -m playwright install chromium` if bootstrap was run
 without `--browser`. System libraries may be required by [Playwright](https://playwright.dev/python/docs/browsers).
+
+## Computer use
+
+Oak controls a configured Linux X11 desktop using `xdotool`, `xmodmap` and Pillow's
+XCB screen capture. Install these X11 tools with your system package manager and provide
+an existing X11 session (a physical desktop or Xvfb). `./scripts/bootstrap.sh
+--computer` checks the dependencies; it does not create or replace a desktop.
+
+```json
+{
+  "computer": {"enabled": true, "display": ":2"}
+}
+```
+
+Choose your actual local display explicitly; `:2` is only an example. Restart
+Oak after configuration changes. `doctor --config config.local.json` checks
+that display without capturing its contents. Desktop control acts on the apps
+and accounts already open on that display, independently of the shell sandbox
+and the separate Playwright browser profile. No browser credentials are copied.
+
+Ask Oak naturally to perform a desktop task. `oak_computer` returns an actual
+image to the model after each action, using the image's pixel coordinates. It
+supports screenshots, moving/clicking/dragging, scrolling, text, key chords and
+short waits. A conversation holds desktop access while its task is active;
+other conversations receive a busy result. `/stop` cancels the active task.
+Screenshots are private workspace artifacts and are sent to Telegram only when
+the assistant calls `oak_send_file`, for example at the owner's request.
+
+Enabling this tool changes the registered tool catalog. On the next message,
+Oak preserves the previous native session ID and starts an updated session with
+the last 12 turns (at most 24,000 text characters) plus scoped long-term memory.
+The original native history remains stored; the carried context is a bounded
+excerpt, not a full native-history transfer.
 
 ## Memory
 

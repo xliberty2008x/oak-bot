@@ -17,6 +17,10 @@
   "vosk_model": null,
   "whisper_model": null,
   "search_url": null,
+  "computer": {
+    "enabled": false,
+    "display": null
+  },
   "web": {
     "enabled": false,
     "host": "127.0.0.1",
