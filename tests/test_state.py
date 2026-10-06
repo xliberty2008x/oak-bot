@@ -29,8 +29,10 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                                       'defaultReasoningEffort': 'medium'}], 'nextCursor': None}
                 return {'data': [
                     {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low',
+                     'additionalSpeedTiers': ['fast'],
                      'supportedReasoningEfforts': [{'reasoningEffort': 'low'}]},
                     {'model': 'synthetic-choice', 'displayName': 'Synthetic choice', 'hidden': False, 'defaultReasoningEffort': 'medium',
+                     'serviceTiers': [{'id': 'priority', 'name': 'Fast', 'description': 'Synthetic tier'}, {'id': ['bad']}],
                      'supportedReasoningEfforts': [{'reasoningEffort': value} for value in
                                                   ['low', 'medium', 'ultra', 'ultra', '../bad', 'bad effort', '\x7f', 'x' * 65, 42]]},
                     {'model': 'hidden-choice', 'displayName': 'Hidden', 'hidden': True}, {'model': 42}], 'nextCursor': 'next'}
@@ -56,6 +58,8 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 catalogue = await controller.model_catalog()
                 self.assertEqual([item['model'] for item in catalogue], ['gpt-6.1-sol', 'synthetic-choice'])
                 self.assertEqual(catalogue[1]['efforts'], ['low', 'medium', 'ultra'])
+                self.assertEqual([item['turbo_available'] for item in catalogue], [False, True])
+                self.assertIsNone(controller.turbo_for(7))
                 self.assertEqual(controller.effort_for(7), 'low')
                 controller.config['runtime_config'] = {'model_reasoning_effort': 'high'}
                 self.assertEqual(controller.effort_for(7), 'high')
@@ -67,27 +71,42 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                     with self.assertRaises(ValueError):
                         await controller.set_model(topic, model, effort)
                 self.assertEqual(await controller.set_model(topic, 'synthetic-choice', 'ultra'), {'model': 'synthetic-choice', 'effort': 'ultra'})
+                await controller.set_model(topic, 'synthetic-choice', turbo=True)
                 self.assertEqual(await controller.set_model(topic, 'synthetic-choice'), {'model': 'synthetic-choice', 'effort': 'ultra'})
+                self.assertTrue(controller.turbo_for(topic))
+                with self.assertRaises(ValueError):
+                    await controller.set_model(topic, 'gpt-6.1-sol', 'low')
                 self.assertEqual(controller.model_for(7), 'gpt-6.1-sol')
                 self.assertEqual(controller.model_for(controller.sessions.resolve(8, 12)), 'gpt-6.1-sol')
                 await controller.submit(topic, 'continue existing history', 10)
                 payload = client.request.await_args.args[1]
                 self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'ultra'))
+                self.assertEqual(payload['serviceTierForTurn'], 'fast')
+                self.assertNotIn('serviceTier', payload)
                 await controller.submit(topic, 'steer existing work', 11)
                 self.assertEqual(client.request.await_args.args[0], 'turn/steer')
                 self.assertNotIn('model', client.request.await_args.args[1])
                 self.assertNotIn('effort', client.request.await_args.args[1])
+                self.assertNotIn('serviceTierForTurn', client.request.await_args.args[1])
             finally:
                 controller.close()
             restarted = Controller(client, db_path, folder, AsyncMock())
             try:
                 self.assertEqual(restarted.model_settings(topic), {'model': 'synthetic-choice', 'effort': 'ultra'})
                 self.assertEqual(restarted.effort_for(topic), 'ultra')
+                self.assertTrue(restarted.turbo_for(topic))
                 await restarted.submit(topic, 'after restart', 12)
                 self.assertEqual(client.request.await_args.args[1]['effort'], 'ultra')
+                self.assertEqual(client.request.await_args.args[1]['serviceTierForTurn'], 'fast')
                 resume = next(call.args[1] for call in client.request.await_args_list if call.args[0] == 'thread/resume')
                 self.assertEqual((resume['threadId'], resume['model']), ('history-thread', 'synthetic-choice'))
                 self.assertEqual(restarted.threads[topic], 'history-thread')
+                restarted.active.clear()
+                await restarted.set_model(topic, 'synthetic-choice', turbo=False)
+                await restarted.submit(topic, 'explicit standard speed', 13)
+                self.assertEqual(client.request.await_args.args[1]['serviceTierForTurn'], 'default')
+                self.assertFalse(restarted.turbo_for(topic))
+                self.assertIsNone(restarted.turbo_for(7))
             finally:
                 restarted.close()
 

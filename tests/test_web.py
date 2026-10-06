@@ -249,6 +249,7 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
             {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low',
              'supportedReasoningEfforts': [{'reasoningEffort': 'low'}, {'reasoningEffort': 'medium'}]},
             {'model': 'synthetic-model', 'displayName': 'Synthetic model', 'hidden': False, 'defaultReasoningEffort': 'medium',
+             'serviceTiers': [{'id': 'priority', 'name': 'Fast', 'description': 'Synthetic tier'}],
              'supportedReasoningEfforts': [{'reasoningEffort': 'medium'}, {'reasoningEffort': 'ultra'}]}],
             'nextCursor': None}
         client = TestClient(TestServer(gateway.app))
@@ -267,6 +268,8 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         catalogue = await response.json()
         self.assertEqual(catalogue['selected'], 'gpt-6.1-sol')
         self.assertEqual(catalogue['effort'], 'low')
+        self.assertIsNone(catalogue['turbo'])
+        self.assertEqual([row['turbo_available'] for row in catalogue['models']], [False, True])
         self.assertEqual(catalogue['models'][1]['efforts'], ['medium', 'ultra'])
         self.assertEqual(catalogue['models'][1]['default_effort'], 'medium')
         self.controller.active[scope] = 'synthetic-turn'
@@ -282,6 +285,18 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         response = await client.post(url, headers=headers, json={**change, 'effort': 'ultra'})
         self.assertEqual(response.status, 200)
         self.assertEqual((await response.json())['effort'], 'ultra')
+        response = await client.post(url, headers=headers, json={**change, 'turbo': True})
+        self.assertEqual(response.status, 200)
+        self.assertTrue((await response.json())['turbo'])
+        for turbo in (None, 1, 'true'):
+            self.assertEqual((await client.post(url, headers=headers, json={**change, 'turbo': turbo})).status, 400)
+        self.assertEqual((await client.post(url, headers=headers,
+            json={**change, 'model': 'gpt-6.1-sol', 'effort': 'low', 'turbo': True})).status, 400)
+        self.assertTrue(self.controller.turbo_for(scope))
+        self.assertIsNone(self.controller.turbo_for(11))
+        response = await client.post(url, headers=headers, json={**change, 'turbo': False})
+        self.assertEqual(response.status, 200)
+        self.assertFalse((await response.json())['turbo'])
         for effort in (None, 1, '', 'low', 'invented'):
             response = await client.post(url, headers=headers, json={**change, 'effort': effort})
             self.assertEqual(response.status, 400)

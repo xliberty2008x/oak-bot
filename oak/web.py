@@ -208,8 +208,10 @@ class WebGateway:
             raise web.HTTPServiceUnavailable(text='Каталог моделей зараз недоступний. Онови панель.') from None
         return web.json_response({'selected': self.controller.model_for(scope),
             'effort': self.controller.effort_for(scope),
+            'turbo': self.controller.turbo_for(scope),
             'models': [{'model': row['model'], 'display_name': label(row['display_name'], row['model']),
-                        'default_effort': row['effort'], 'efforts': row['efforts']} for row in models],
+                        'default_effort': row['effort'], 'efforts': row['efforts'],
+                        'turbo_available': row['turbo_available']} for row in models],
             'busy': self.controller.model_busy(scope)})
 
     async def set_model(self, request):
@@ -218,16 +220,20 @@ class WebGateway:
         data = await request.json()
         if 'effort' in data and (not isinstance(data['effort'], str) or not data['effort']):
             raise web.HTTPBadRequest(text='Обери підтримуваний рівень Reasoning Effort.')
+        if 'turbo' in data and type(data['turbo']) is not bool:
+            raise web.HTTPBadRequest(text='Режим турбо потребує логічного значення.')
         try:
             settings = await asyncio.wait_for(self.controller.set_model(scope, data.get('model'),
-                **({'effort': data['effort']} if 'effort' in data else {})), 8)
+                **({'effort': data['effort']} if 'effort' in data else {}),
+                   **({'turbo': data['turbo']} if 'turbo' in data else {})), 8)
         except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
             raise web.HTTPServiceUnavailable(text='Налаштування не змінено: каталог runtime недоступний. Онови панель.') from None
         except ValueError:
-            raise web.HTTPBadRequest(text='Обери модель та її підтримуваний рівень із поточного каталогу runtime.') from None
+            raise web.HTTPBadRequest(text='Обери модель, рівень і доступний режим швидкості з поточного каталогу runtime.') from None
         except RuntimeError:
             raise web.HTTPConflict(text='Дочекайся завершення або зупини поточний запит перед зміною налаштувань моделі.') from None
-        return web.json_response({'selected': settings['model'], 'effort': self.controller.effort_for(scope)})
+        return web.json_response({'selected': settings['model'], 'effort': self.controller.effort_for(scope),
+                                  'turbo': self.controller.turbo_for(scope)})
 
     async def topic_sessions(self, request):
         return web.json_response(await self.controls.sessions(self.owner(request)))
