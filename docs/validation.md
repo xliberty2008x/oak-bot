@@ -6,7 +6,13 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 59 tests.
+- The latest integrated test suite passed all 64 tests.
+- The control panel passed browser-key authentication, four-view navigation,
+  task lifecycle details, cancellation confirmation and computer permission
+  changes through its real HTTP endpoints with isolated synthetic state.
+  Mobile (390 pixels) and desktop (1440 pixels) had no horizontal page overflow
+  or uncaught JavaScript errors. The owner approved the displayed mobile design.
+  These checks do not establish a live Telegram launch or provider OAuth success.
 - Subscription authentication and availability of the exact `gpt-6.1-sol` model.
 - Real model streaming, same-session continuation, active-turn steering and
   cancellation using isolated synthetic prompts.

@@ -88,7 +88,7 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
 
 async function api(path, data) {
   const epoch = sessionEpoch, controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), path === "/api/integrations" ? 90000 : 15000);
   const headers = sessionToken ? {Authorization: "Bearer " + sessionToken} : {};
   const options = {credentials: "same-origin", headers, signal: controller.signal};
   if (data !== undefined) {
