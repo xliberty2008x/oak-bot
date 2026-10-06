@@ -32,61 +32,36 @@ local checks are recorded separately from live Telegram results in
 
 ## Setup
 
-Use Linux, Git, Node/npm, Python 3.11+ with venv/pip, FFmpeg and DejaVu Sans fonts.
-Autostart requires cron with `crontab`; temporary HTTPS preview uses `cloudflared`
-or OpenSSH, depending on the selected provider.
-The agent-runtime dependency
-is the official `codex` CLI; version `0.159.2` is the initial validated version.
-The signed-in ChatGPT account must have access to `gpt-6.1-sol`.
+Start with a fresh Ubuntu 24.04 or Debian 12/13 amd64 VM, a normal user with
+`sudo`, and Git. The repository includes an agent-readable
+[bootstrap skill](.agents/skills/oak-bootstrap/SKILL.md) and an executable installer
+for the machine, desktop, browser, voice and gateway.
 
 ```bash
 git clone https://github.com/xliberty2008x/oak-bot.git
 cd oak-bot
-npm install -g @openai/codex@0.159.2
-mkdir -p .state/runtime
-chmod 700 .state .state/runtime
-env CODEX_HOME="$PWD/.state/runtime" codex login --device-auth
-./scripts/bootstrap.sh --browser --voice
+./scripts/bootstrap-vm.sh --owner-id YOUR_NUMERIC_USER_ID --bot-username YOUR_BOT
 ```
 
-Bootstrap creates `.venv`, installs the pinned Python dependencies, creates a
-local config if missing and checks account/model availability. `--browser`
-installs Chromium. `--voice` downloads the public Ukrainian narration and
-recognition models outside the repository and prints configuration paths to
-copy into your local config. Omit either option when it is not needed. Install
-system packages separately.
+The installer requests the Telegram token through hidden terminal input, or
+accepts `--token-file /absolute/private/file`. It uses an isolated ChatGPT login
+for Oak; the account must have access to `gpt-6.1-sol`. It prepares an X11 desktop
+with a visible browser, enables computer use, starts one supervised bot and
+registers its HTTPS Mini App. State and credentials live outside Git. By default,
+HTTPS uses a managed temporary tunnel whose address can change after restart;
+use your own HTTPS endpoint for a lasting address.
 
-For desktop control, install `xdotool` and `xmodmap`, provide a running X11 session and use
-`--computer` to check the required local dependencies. Enable the explicit
-display in your private config; see [computer use](docs/configuration.md#computer-use).
+To delegate the installation, open this repository with your agent and say:
 
-Store the Telegram token with hidden terminal input:
+> Bootstrap this VM and deploy Oak using the repository's oak-bootstrap skill.
+> Configure the desktop, computer use, voice and Telegram/Mini App gateway;
+> verify the running deployment and tell me which sign-in steps need my input.
 
-```bash
-.venv/bin/python scripts/set_telegram_token.py
-```
-
-Edit `config.local.json`: set `telegram_username` and explicit numeric
-`allowed_user_ids`. The token file, persona, memories and runtime state stay
-outside version control. See [configuration](docs/configuration.md) for voice
-models, memory import and optional integrations.
-
-The optional Mini App controls the bot; conversations stay in Telegram. It shows
-the current session, scheduled tasks, memory counts, settings and installed
-integrations. Supported connection links require owner confirmation. Enable it
-in your private config and provide an HTTPS endpoint. See the
-[web configuration](docs/configuration.md#web-and-telegram-mini-app) for standalone
-login and temporary tunnel setup, and the [control panel notes](docs/control-panel.md)
-for connection limits.
-
-```bash
-.venv/bin/python -m oak doctor --config config.local.json
-.venv/bin/python -m oak smoke --config config.local.json
-.venv/bin/python -m oak run --config config.local.json
-```
-
-`smoke` performs real subscription-backed model calls. It checks streaming,
-continuation, steering and cancellation without contacting Telegram.
+See the [bootstrap guide](docs/bootstrap.md) for preparation without credentials,
+reruns, readiness checks and required user inputs. The existing
+`scripts/bootstrap.sh` remains a dependency helper for machines you already
+manage; it does not provision the full VM. See [configuration](docs/configuration.md)
+for private persona, memory import and integrations.
 
 ## Use in Telegram
 
@@ -112,12 +87,14 @@ purchase or delete should be explicitly confirmed with the owner.
 ## Keep Oak running
 
 ```bash
-.venv/bin/python -m oak service start --config config.local.json
-.venv/bin/python -m oak service status --config config.local.json
-.venv/bin/python -m oak service stop --config config.local.json
-.venv/bin/python -m oak service install-autostart --config config.local.json
+.venv/bin/python -m oak service start --config ~/.local/share/oak-bot/default/config.json
+.venv/bin/python -m oak service status --config ~/.local/share/oak-bot/default/config.json
+.venv/bin/python -m oak service stop --config ~/.local/share/oak-bot/default/config.json
+.venv/bin/python -m oak service install-autostart --config ~/.local/share/oak-bot/default/config.json
 ```
 
+The full VM bootstrap installs autostart; these commands also support manual
+operation. Substitute the path supplied to `--config` for custom deployments.
 Run one owner process per bot. Startup verifies the token's bot identity and
 refuses an existing webhook. Persist the configuration, workspace and state
 across restarts. Accepted inputs and outgoing delivery state are durable;

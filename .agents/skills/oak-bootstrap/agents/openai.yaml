@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oak VM Bootstrap"
+  short_description: "Provision a VM and deploy the complete Oak bot"
+  default_prompt: "Use $oak-bootstrap to provision this VM and deploy Oak with its desktop, computer use, voice and Telegram/Mini App gateway."

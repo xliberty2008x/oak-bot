@@ -6,7 +6,7 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 64 tests.
+- The latest integrated test suite passed all 66 tests.
 - The control panel passed browser-key authentication, four-view navigation,
   task lifecycle details, cancellation confirmation and computer permission
   changes through its real HTTP endpoints with isolated synthetic state.
@@ -82,6 +82,28 @@ or deployed conversation has been verified end to end.
   emoji, newline input, key chords, mouse dragging and scrolling. The configured
   deployment display was checked read-only; computer-use Telegram delivery was
   not part of this test.
+
+## Fresh Ubuntu preparation — 2026-10-06
+
+- Used the official Ubuntu Base 24.04.5 amd64 image, verified against SHA-256
+  `e77b6f10c2590cef872b33ee9f635a0e3fd1f57fb074c0e52b5c7f56147a0c86`.
+  Isolated mount/PID namespaces and `pivot_root` kept the host filesystem intact;
+  only Python, sudo and CA certificates were added before bootstrap.
+- Full `--prepare-only` installed the system packages, pinned runtime and Python
+  dependencies, Chromium, Piper and Vosk models, and private deployment paths.
+  Rerunning preparation passed with the existing configuration preserved.
+- The sandboxed browser on the actual 1280×800 virtual desktop passed screenshot,
+  mouse and Ukrainian keyboard checks using the distribution's packages.
+- All 65 tests passed inside that Ubuntu environment in 1.819 seconds. Real Piper
+  synthesis produced a 2.69-second WAV and Vosk returned a nonempty transcript;
+  this verifies the local voice pipeline, not recognition accuracy.
+
+No account credentials, bot token or memory were copied into the clean environment.
+Fresh-environment subscription login, model calls and live Telegram delivery were
+not tested; the existing deployment's checks above are separate evidence. This
+was a clean Ubuntu userland using the host kernel, not a newly booted VM. It does
+not verify an actual reboot or application of the Chromium AppArmor profile on
+an Ubuntu kernel enforcing its user-namespace restriction.
 
 ## Remaining deployment checks
 
