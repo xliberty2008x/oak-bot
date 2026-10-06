@@ -1,9 +1,17 @@
 # Oak control panel
 
-The Mini App manages Oak while conversation stays in Telegram. Its four views
-show current Telegram session state, the most recent 100 scheduled tasks,
+The Mini App manages Oak while conversation stays in Telegram. Its five views
+show owned Telegram sessions, current state, the most recent 100 scheduled tasks,
 installed runtime integrations, deployment settings and computer-use permission. `/new`,
 task creation, memory contents and approval answers remain in Telegram.
+
+In Settings, the owner can confirm a model choice for the selected session.
+The list comes from the existing runtime. The next request uses the saved model
+and preserves history and memory; General and other topics are unchanged.
+Changes are blocked during accepted work. Catalogue availability does not prove
+subscription access, and a failed model request never silently chooses another
+model. The overview counts all active scheduled tasks and finds the next pending
+run independently of the bounded task list.
 
 The Settings switch grants or revokes the owner's computer-use permission.
 It persists across restarts and takes effect without starting a new conversation.
@@ -86,5 +94,5 @@ stop request status, computer-use ON/OFF and pending/failed requests,
 unavailable/partial inventories, and returned native links.
 Test a real OAuth callback on a separately authorized deployment; schema/unit
 checks do not establish provider access. Session-selection limitations and
-future native-topic routing requirements are in
+native-topic routing behavior are in
 [Telegram session research](session-switching-research.md).

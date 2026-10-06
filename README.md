@@ -5,8 +5,9 @@ selected memories, accepts corrections while working, runs tools, creates media,
 and handles reminders and scheduled tasks. Each deployment supplies its own
 private persona and configuration.
 
-Oak uses ChatGPT subscription authentication and the exact model
-`gpt-6.1-sol`. There is no automatic API-key or model fallback.
+Oak uses ChatGPT subscription authentication with `gpt-6.1-sol` by default.
+The owner can explicitly select a runtime-listed model for each session in the
+Mini App. There is no automatic API-key or model fallback.
 
 ## Capabilities
 
@@ -14,7 +15,7 @@ Oak uses ChatGPT subscription authentication and the exact model
 | --- | --- |
 | Conversation | Streaming replies, ongoing-task steering, cancellation and persistent sessions |
 | Telegram | Private-chat allowlist, rich messages, safe classic fallback, typing, photos/files/voice input and durable delivery |
-| Web / Mini App | Owner-authenticated control panel: Telegram session state, task controls, settings and runtime integration status |
+| Web / Mini App | Owner-authenticated control panel: Telegram sessions, task controls, per-session model choice and runtime integration status |
 | Events | Durable AG-UI event stream with independent conversation/run subscribers and separate tool results |
 | Memory | Per-conversation notes, full-text retrieval, forgetting and selected-file import |
 | Scheduling | One-time reminders, recurring reminders and scheduled assistant tasks |

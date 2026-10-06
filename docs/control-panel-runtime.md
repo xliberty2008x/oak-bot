@@ -1,7 +1,7 @@
 # Control panel runtime capabilities
 
 Oak queries its existing subscription runtime. It retains the deployment's
-isolated `runtime_home`, ChatGPT authentication, and exact `gpt-6.1-sol` model.
+isolated `runtime_home`, ChatGPT authentication, and default `gpt-6.1-sol` model.
 The panel must not start a second runtime, read credential files, or copy another
 client's account state.
 
@@ -12,6 +12,25 @@ access:
 ```bash
 codex app-server generate-json-schema --experimental --out /tmp/oak-runtime-schema
 ```
+
+## Session model selection
+
+`model/list` with `includeHidden: false`, `limit` and cursor pagination supplies
+the visible model slugs, display names and default reasoning efforts. Oak uses
+this catalogue for its owner-confirmed `/api/models` selection and validates it
+again before saving. The selection belongs to the authenticated conversation;
+General, other topics and other owners retain their own settings.
+
+`thread/start` and `thread/resume` accept the selected `model`. `turn/start`
+accepts `model` and `effort`, so changing a model preserves the existing thread
+and takes effect on the next turn. `turn/steer` has no model or effort override.
+Oak rejects changes while accepted input, a scheduled run or a model turn is
+being processed. Explicit choices persist through restart; untouched sessions
+keep the deployment's default behavior. [Official app-server protocol](https://learn.chatgpt.com/docs/app-server)
+
+A catalogue entry does not prove subscription entitlement. Only a completed
+inference request proves that the signed-in account can use a model. Provider
+errors do not trigger fallback to another model or API billing. [Official catalogue and entitlement guidance](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
 
 ## Inventory
 
