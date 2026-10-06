@@ -1,10 +1,10 @@
 # Session selection and Telegram conversations
 
-Checked against official Telegram documentation on **2026-10-06**. This is documentation research; no live bot, client or provider access was tested or changed.
+Checked against official Telegram documentation on **2026-10-06**. Research itself does not change BotFather settings. A subsequent read-only `getMe` check confirmed that the deployment owner enabled both private topics and user topic management.
 
-## Current panel and future session selection
+## Recommended and implemented session selection
 
-**Current recommendation:** show the current Telegram session in Oak's control panel and keep conversation messages and `/new` in Telegram. No backend session picker is implemented. Only after owner-scoped backend routing exists should a future picker offer **“Select session for future messages”**. That selection would change subsequent model context, without replacing Telegram's visible history.
+**Use one native Telegram topic per Oak session.** Telegram chooses the conversation through the incoming `(owner chat ID, message_thread_id)`. The Mini App lists those sessions and lets the owner inspect their state, memory counts, scheduled tasks and runtime integrations, or create/rename a native topic after confirmation. Selecting a panel session changes the panel's scope; conversation and topic selection remain in Telegram.
 
 This distinction is an implementation conclusion: the documented Mini App bridge offers link navigation and app closing, but no method to replace the native chat history or select an arbitrary backend conversation in Telegram. Authenticate server requests with validated `Telegram.WebApp.initData`, check `auth_date`, and authorize each session against the authenticated user. `initDataUnsafe` is not trusted identity. Menu-button Mini Apps follow the inline-button launch behavior; `sendData` is available only for keyboard-button launches. [Mini App methods](https://core.telegram.org/bots/webapps#initializing-mini-apps), [validation](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app), [menu launch](https://core.telegram.org/bots/webapps#launching-mini-apps-from-the-menu-button)
 
@@ -28,6 +28,12 @@ Telegram notes an additional fee for Telegram Star purchases for threaded bots; 
 
 Telegram documents topic links using message-link syntax, such as `https://t.me/<supergroup_username>/<topic_id>` or `https://t.me/c/<supergroup_id>/<topic_id>`. The latter ID is a channel/supergroup ID, not a private user chat ID. The documented message-link scope is groups/channels; no private-bot topic deep-link syntax was found. Do not manufacture a private-chat topic URL or promise a Mini App can open that exact topic. A plain bot link can open the bot conversation; `?start=...` requests a Start flow, not history switching. [Message links](https://core.telegram.org/api/links#message-links), [topic links](https://core.telegram.org/api/links#forum-topic-links), [bot links](https://core.telegram.org/api/links#bot-links)
 
-Show current session state only for now. Existing Telegram messages remain where they were sent; the researched APIs do not provide history migration or replacement. Verify client behavior and BotFather prerequisites before exposing future topic actions.
+Existing Telegram messages remain where they were sent; the researched APIs do not provide history migration or replacement. Changing a backend model session only changes future context. `/new` resets context in its current topic and does not erase Telegram history.
 
-Future topic support requires a parent-owned Oak core handoff: the controller must map owner-scoped Telegram `(chat_id, message_thread_id)` keys to sessions; the gateway must persist incoming and outgoing `message_thread_id` through durable queues and retries; scheduler work, memory, approvals and outgoing delivery must retain that session/topic scope. Until those changes are implemented and verified, a panel selection must not claim to route Telegram conversations.
+## Oak routing and limits
+
+The core routing change is isolated in this feature: a durable owner/topic mapping supplies a unique internal conversation key. Existing General state keeps its original key. Input queues, native model threads, memory, jobs, approvals, lifecycle events and the outgoing queue use the internal key; native delivery resolves it back to the owner's Telegram chat and topic. Edits/deletes address the original message in that chat. Computer permission remains an owner setting shared by the owner's sessions; conversation data remains separate.
+
+The list contains topics observed in Bot API updates or created through Oak. The Bot API does not expose a complete private-topic listing or ordinary private-message deletion updates, so pre-existing unseen/deleted topics and missed renames cannot be synchronized automatically. Send a message in an older topic to register it; its label may initially be its numeric topic ID. This does not import its old history or another session's memory. The MTProto topic-list methods are a different protocol and are not used with the bot token. [Bot API updates](https://core.telegram.org/bots/api#update), [MTProto topic listing](https://core.telegram.org/api/forum#fetching-topics)
+
+Native topic creation/rename requests retain an owner-scoped operation receipt. A lost response or restart marks the request uncertain and prevents automatic replay, including creation of the same name after a page reload. Inspect Telegram before retrying; unresolved matching operations require operator reconciliation. Oak does not expose native topic deletion or unsupported private-chat close/reopen actions.

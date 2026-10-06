@@ -83,6 +83,8 @@ class TelegramGateway:
         if not token or not allowed_user_ids or any(type(n) is not int or n <= 0 for n in allowed_user_ids):
             raise ValueError('Telegram requires a token and explicit positive numeric user IDs.')
         self.controller = controller
+        self.controller.telegram = self
+        self.sessions = controller.sessions
         self._token = token
         self.allowed_user_ids = set(allowed_user_ids)
         self.state_dir = Path(state_dir)
@@ -106,6 +108,8 @@ class TelegramGateway:
         self._activity = {}
         self._typing_tasks = {}
         self._intake_tasks = {}
+        self._intake_workers = {}
+        self._worker_group = None
         self._intake_wake = {chat_id: asyncio.Event() for chat_id in self.allowed_user_ids}
         db_path = self.state_dir / 'telegram-outbox.sqlite3'
         fd = os.open(db_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -129,8 +133,18 @@ class TelegramGateway:
         with self.db:
             self.db.execute("UPDATE deliveries SET status='uncertain' WHERE status='sending'")
             self.db.execute("UPDATE intake SET status='uncertain' WHERE status='processing'")
+            # Observe topic metadata from older accepted updates without moving
+            # completed work. Only undispatched inputs can be safely rerouted.
+            for row in self.db.execute("SELECT update_id,chat_id,payload,status FROM intake WHERE status IN ('pending','done') ORDER BY update_id").fetchall():
+                update = json.loads(row['payload'])
+                message = update.get('message') or update.get('edited_message') or {}
+                if (row['chat_id'] == (message.get('chat') or {}).get('id')
+                        and self._owner(message, message.get('from') or {}, self.allowed_user_ids)):
+                    scope = self._message_scope(message)
+                    if row['status'] == 'pending':
+                        self.db.execute('UPDATE intake SET chat_id=? WHERE update_id=?', (scope, row['update_id']))
         for row in self.db.execute("SELECT * FROM replies WHERE status='pending' ORDER BY rowid").fetchall():
-            if row['chat_id'] not in self.allowed_user_ids:
+            if self._destination(row['chat_id']) is None:
                 continue
             reply = _Reply(**json.loads(row['value']))
             if reply.sending:
@@ -141,6 +155,43 @@ class TelegramGateway:
                 reply.terminal = True
                 reply.error = 'Попередню відповідь перервано перезапуском.'
             self._replies.setdefault(row['chat_id'], deque()).append(reply)
+
+    def _destination(self, scope):
+        destination = self.sessions.destination(scope)
+        return destination if destination and destination['chat_id'] in self.allowed_user_ids else None
+
+    def _native_payload(self, method, payload):
+        destination = self._destination(payload['chat_id'])
+        if destination is None:
+            raise ValueError('Telegram destination is unavailable.')
+        payload = dict(payload)
+        payload['chat_id'] = destination['chat_id']
+        if method.startswith('send') and 'message_thread_id' in destination:
+            payload['message_thread_id'] = destination['message_thread_id']
+        else:
+            payload.pop('message_thread_id', None)
+        return payload
+
+    def _message_scope(self, message):
+        name = None
+        for kind in ('forum_topic_created', 'forum_topic_edited'):
+            if kind in message:
+                value = message[kind].get('name')
+                if isinstance(value, str):
+                    name = ' '.join(''.join(c if ord(c) >= 32 and ord(c) != 127 else ' ' for c in value).split())[:128] or None
+        closed = True if 'forum_topic_closed' in message else False if 'forum_topic_reopened' in message else None
+        return self.sessions.resolve(message['chat']['id'], message.get('message_thread_id'), name=name, closed=closed)
+
+    @staticmethod
+    def _topic_service(message):
+        return any(kind in message for kind in ('forum_topic_created', 'forum_topic_edited',
+                   'forum_topic_closed', 'forum_topic_reopened', 'general_forum_topic_hidden', 'general_forum_topic_unhidden'))
+
+    def _ensure_intake_worker(self, scope):
+        self._intake_wake.setdefault(scope, asyncio.Event())
+        worker = self._intake_workers.get(scope)
+        if self._worker_group is not None and (worker is None or worker.done()):
+            self._intake_workers[scope] = self._worker_group.create_task(self._intake_worker(scope))
 
     def _save_reply(self, chat_id, reply, status='pending'):
         with self.db:
@@ -282,7 +333,7 @@ class TelegramGateway:
         deadline = time.monotonic()
         while self._activity.get(chat_id):
             try:
-                await asyncio.wait_for(self._api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'},
+                await asyncio.wait_for(self._api('sendChatAction', self._native_payload('sendChatAction', {'chat_id': chat_id, 'action': 'typing'}),
                                                 timeout=2, rate_limit_attempts=1), timeout=2)
             except Exception:
                 pass  # Activity feedback must never fail the actual task.
@@ -294,8 +345,10 @@ class TelegramGateway:
 
     async def _deliver(self, method, payload):
         chat_id = payload['chat_id']
-        async with self._delivery_locks.setdefault(chat_id, asyncio.Lock()):
-            delay = 1 - (time.monotonic() - self._last_send.get(chat_id, 0))
+        payload = self._native_payload(method, payload)
+        owner = payload['chat_id']
+        async with self._delivery_locks.setdefault(owner, asyncio.Lock()):
+            delay = 1 - (time.monotonic() - self._last_send.get(owner, 0))
             if delay > 0:
                 await asyncio.sleep(delay)
             for attempt in range(3):
@@ -307,6 +360,7 @@ class TelegramGateway:
                         raise
                     await asyncio.sleep(2)
             self._last_send[chat_id] = time.monotonic()
+            self._last_send[owner] = self._last_send[chat_id]
             return result
 
     def _checkpoint(self, offset):
@@ -324,7 +378,7 @@ class TelegramGateway:
                 os.unlink(name)
 
     async def emit(self, chat_id: int, event: dict):
-        if chat_id in self.allowed_user_ids:
+        if self._destination(chat_id) is not None:
             run_id = event.get('runId')
             if event.get('type') == 'RUN_STARTED' and run_id:
                 self._activity_add(chat_id, 'run:' + run_id)
@@ -470,7 +524,7 @@ class TelegramGateway:
                 data = callback.get('data', '')
                 match = re.fullmatch(r'(approve|deny):([A-Za-z0-9_.:-]{1,56})', data)
                 if match:
-                    await self._decision(message['chat']['id'], f'/{match[1]} {match[2]}')
+                    await self._decision(self._message_scope(message), f'/{match[1]} {match[2]}')
                 try:
                     await self._api('answerCallbackQuery', {'callback_query_id': callback['id']})
                 except TelegramError as exc:
@@ -483,6 +537,11 @@ class TelegramGateway:
         chat, sender = message.get('chat') or {}, message.get('from') or {}
         chat_id, user_id = chat.get('id'), sender.get('id')
         if self._owner(message, sender, self.allowed_user_ids):
+            chat_id = self._message_scope(message)
+            if self._topic_service(message):
+                if not queued:
+                    self._checkpoint(update_id + 1)
+                return
             text = message.get('text') or message.get('caption') or ''
             command = self._command(message)
             if command in {'/approve', '/deny', '/answer'}:
@@ -568,20 +627,23 @@ class TelegramGateway:
         message = update.get('message') or update.get('edited_message') or {}
         if (update.get('callback_query') or self._command(message) in
                 {'/stop', '/new', '/approve', '/deny', '/answer', '/status', '/help', '/start', '/web'}
+                or self._topic_service(message)
                 or not self._owner(message, message.get('from') or {}, self.allowed_user_ids)):
             await self.handle_update(update)
             return
-        chat_id = message['chat']['id']
+        chat_id = self._message_scope(message)
         # This durable handoff acknowledges receipt without waiting for file
         # download/transcription. Each chat still dispatches its inputs in order.
         with self.db:
             self.db.execute("INSERT OR IGNORE INTO intake VALUES (?,?,?,'pending')",
                             (update_id, chat_id, json.dumps(update)))
         self._checkpoint(update_id + 1)
+        self._ensure_intake_worker(chat_id)
         self._activity_add(chat_id, 'input:' + str(update_id))
         self._intake_wake[chat_id].set()
 
     async def _intake_worker(self, chat_id):
+        self._intake_wake.setdefault(chat_id, asyncio.Event())
         while True:
             row = self.db.execute("SELECT update_id,payload FROM intake WHERE chat_id=? "
                                   "AND status='pending' ORDER BY update_id LIMIT 1", (chat_id,)).fetchone()
@@ -791,7 +853,7 @@ class TelegramGateway:
 
     def _deliveries(self):
         return [row for row in self.db.execute("SELECT * FROM deliveries WHERE status='pending' ORDER BY rowid")
-                if row['chat_id'] in self.allowed_user_ids]
+                if self._destination(row['chat_id']) is not None]
 
     async def _render_delivery(self, row):
         with self.db:
@@ -846,11 +908,17 @@ class TelegramGateway:
                 self._activity_add(chat_id, next(iter(keys)))
         try:
             async with asyncio.TaskGroup() as tasks:
+                self._worker_group = tasks
                 tasks.create_task(self._poll())
                 tasks.create_task(self._render())
-                for chat_id in self.allowed_user_ids:
-                    tasks.create_task(self._intake_worker(chat_id))
+                scopes = set(self._intake_wake) | {row[0] for row in self.db.execute(
+                    "SELECT DISTINCT chat_id FROM intake WHERE status='pending'")}
+                for chat_id in scopes:
+                    if self._destination(chat_id) is not None:
+                        self._ensure_intake_worker(chat_id)
         finally:
+            self._worker_group = None
+            self._intake_workers.clear()
             self._running = False
             workers = list(self._typing_tasks.values())
             self._typing_tasks.clear()

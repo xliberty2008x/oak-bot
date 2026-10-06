@@ -16,6 +16,7 @@ from oak.controller import Controller
 from oak.panel import https_url
 from oak.tools import Tools
 from oak.tunnel import PreviewTunnel
+from oak.telegram import TelegramError
 from oak.web import WebGateway, telegram_owner
 
 
@@ -220,14 +221,73 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.controller.tools.computer_status(22)['enabled'])
         self.client.request.assert_not_awaited()
 
-    async def test_runtime_inventory_and_oauth_are_real_scoped_and_conservative(self):
-        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
-        request = make_mocked_request('POST', '/api/integrations', headers={'Authorization': 'Bearer unit-session'})
+    async def test_topic_sessions_scope_controls_and_do_not_replay_native_creation(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
         with self.controller.db:
             self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
                 (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
-        self.controller.threads[11] = 'loaded-owner-thread'
-        self.controller.loaded.add('loaded-owner-thread')
+        self.controller.telegram = MagicMock()
+        self.controller.telegram._api = AsyncMock(side_effect=[
+            {'is_bot': True, 'has_topics_enabled': True, 'allows_users_to_create_topics': False},
+            {'message_thread_id': 42, 'name': 'Проєкт'}, True, TelegramError('createForumTopic')])
+        client = TestClient(TestServer(gateway.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        headers = {'Authorization': 'Bearer unit-session'}
+        action = {'name': 'Проєкт', 'operation_id': 'synthetic-create-001', 'confirmed': True}
+        self.assertEqual((await client.get('/api/sessions')).status, 401)
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json={**action, 'confirmed': False})).status, 400)
+        response = await client.post('/api/sessions', headers=headers, json=action)
+        self.assertEqual(response.status, 200, await response.text())
+        created = await response.json()
+        self.assertEqual(created['session']['id'], 'topic:42')
+        self.assertNotIn('scope_id', created['session'])
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json=action)).status, 200)
+        self.assertEqual(self.controller.telegram._api.await_count, 2)
+        scope = self.controller.sessions.lookup(11, 'topic:42')
+        foreign = self.controller.sessions.resolve(22, 85, name='Інший власник')
+        self.controller.memory.remember(scope, 'PRIVATE_TOPIC_MEMORY')
+        self.controller.memory.remember(11, 'PRIVATE_GENERAL_MEMORY')
+        own_job = self.controller.scheduler.add(scope, 'PRIVATE_TOPIC_TASK', delay_seconds=60)
+        general_job = self.controller.scheduler.add(11, 'PRIVATE_GENERAL_TASK', delay_seconds=60)
+        foreign_job = self.controller.scheduler.add(foreign, 'PRIVATE_OTHER_TASK', delay_seconds=60)
+        response = await client.get('/api/sessions', headers=headers)
+        sessions = await response.json()
+        self.assertTrue(sessions['topics_enabled'])
+        self.assertFalse(sessions['users_can_create_topics'])  # Bot creation does not need native user-management permission.
+        self.assertEqual([s['id'] for s in sessions['sessions']], ['telegram', 'topic:42'])
+        self.assertEqual(sessions['sessions'][1]['task_count'], 1)
+        self.assertNotIn('PRIVATE_', json.dumps(sessions))
+        response = await client.get('/api/tasks?conversation=topic:42', headers=headers)
+        self.assertEqual([t['id'] for t in (await response.json())['tasks']], [own_job])
+        self.assertEqual((await client.get('/api/panel?conversation=topic:85', headers=headers)).status, 404)
+        self.assertEqual((await client.post('/api/tasks/' + foreign_job + '/cancel?conversation=topic:42', headers=headers, json={'confirmed': True})).status, 404)
+        response = await client.post('/api/tasks/' + own_job + '/cancel?conversation=topic:42', headers=headers, json={'confirmed': True})
+        self.assertTrue((await response.json())['cancelled'])
+        self.assertEqual(self.controller.scheduler.list(11)[0]['id'], general_job)
+        self.assertEqual(self.controller.scheduler.list(foreign)[0]['status'], 'pending')
+        response = await client.post('/api/sessions/topic:42/rename', headers=headers,
+            json={'confirmed': True, 'name': 'Дослідження', 'operation_id': 'synthetic-rename-001'})
+        self.assertEqual(response.status, 200)
+        self.assertEqual((await response.json())['session']['name'], 'Дослідження')
+        self.assertEqual(self.controller.telegram._api.await_args.args, ('editForumTopic', {'chat_id': 11, 'message_thread_id': 42, 'name': 'Дослідження'}))
+        action = {**action, 'name': 'Невідомий результат', 'operation_id': 'synthetic-create-002'}
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json=action)).status, 503)
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json=action)).status, 409)
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json={**action, 'operation_id': 'synthetic-create-003'})).status, 409)
+        self.assertEqual(self.controller.telegram._api.await_count, 4)
+        self.client.request.assert_not_awaited()  # Topic metadata does not start native model sessions.
+
+    async def test_runtime_inventory_and_oauth_are_real_scoped_and_conservative(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
+        request = make_mocked_request('POST', '/api/integrations?conversation=topic:42', headers={'Authorization': 'Bearer unit-session'})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        scope = self.controller.sessions.resolve(11, 42)
+        self.controller.threads[11] = 'general-thread'
+        self.controller.threads[scope] = 'loaded-topic-thread'
+        self.controller.loaded.update({'general-thread', 'loaded-topic-thread'})
         calls = []
 
         async def rpc(method, params):
@@ -273,8 +333,9 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(web.HTTPConflict):
             await gateway.oauth(request)
         self.assertEqual(sum(method == 'mcpServer/oauth/login' for method, _ in calls), 1)
-        self.assertTrue(all(params.get('threadId') == 'loaded-owner-thread' for method, params in calls if method != 'plugin/installed'))
+        self.assertTrue(all(params.get('threadId') == 'loaded-topic-thread' for method, params in calls if method != 'plugin/installed'))
         saved = [dict(row) for row in self.controller.db.execute('SELECT * FROM panel_oauth')]
+        self.assertEqual(saved[0]['owner'], 11)
         self.assertNotIn('provider.example', json.dumps(saved))
         self.assertNotIn('synthetic', json.dumps(saved))
 

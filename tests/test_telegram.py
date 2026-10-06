@@ -1,12 +1,16 @@
 import asyncio
 import json
 from pathlib import Path
+import sqlite3
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from oak.telegram import MAX_DOWNLOAD, TelegramError, TelegramGateway, split_text
+from oak.sessions import SessionStore
+from oak.controller import Controller
+from oak.interaction import Interactions
 
 
 class TelegramTests(unittest.IsolatedAsyncioTestCase):
@@ -14,6 +18,9 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.controller = AsyncMock()
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        self.controller.sessions = SessionStore(db)
         self.gateway = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
         self.addCleanup(self.gateway.db.close)
 
@@ -29,6 +36,123 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.submit.await_count, 2)
         self.controller.submit.assert_awaited_with(7, 'changed', 3)
         self.assertEqual(json.loads(self.gateway.offset_path.read_text()), {'offset': 4})
+
+    async def test_topics_route_inputs_commands_callbacks_and_metadata_separately(self):
+        gateway = self.gateway
+        topic = self.controller.sessions.resolve(7, 12, name='Початкова')
+        update = self.update(1, 'Topic message')
+        update['message']['message_thread_id'] = 12
+        await gateway.handle_update(update)
+        self.controller.submit.assert_awaited_once_with(topic, 'Topic message', 1)
+        update = self.update(2, '/stop')
+        update['message']['message_thread_id'] = 12
+        await gateway.handle_update(update)
+        self.controller.stop.assert_awaited_once_with(topic)
+        gateway._api = AsyncMock(return_value=True)
+        await gateway.handle_update({'update_id': 3, 'callback_query': {'id': 'cb', 'data': 'approve:req-1',
+            'from': {'id': 7}, 'message': {'chat': {'id': 7, 'type': 'private'}, 'message_thread_id': 12}}})
+        self.controller.approve.assert_awaited_once_with(topic, 'req-1', True)
+        for number, service in ((4, {'forum_topic_edited': {'name': 'Дослідження\n'}}),
+                                (5, {'forum_topic_edited': {'name': '', 'icon_custom_emoji_id': ''}}),
+                                (6, {'forum_topic_closed': {}}), (7, {'forum_topic_reopened': {}})):
+            update = self.update(number, 'Must not reach the model')
+            update['message'].update(message_thread_id=12, **service)
+            await gateway.handle_update(update)
+        self.assertEqual(self.controller.submit.await_count, 1)
+        self.assertEqual(self.controller.sessions.list(7)[1]['name'], 'Дослідження')
+        self.assertFalse(self.controller.sessions.list(7)[1]['closed'])
+        interactions = Interactions(self.controller.sessions.db, self.controller)
+        future = asyncio.get_running_loop().create_future()
+        interactions.pending['scoped-request'] = future
+        with interactions.db:
+            interactions.db.execute('INSERT INTO interactions VALUES (?,?,?,?,?,?,?,?)',
+                ('scoped-request', topic, 'thread', 'turn', 'approval', '{}', 4102444800, 'pending'))
+        self.controller.interactions = interactions
+        self.controller.approve = Controller.approve.__get__(self.controller)
+        callback = {'id': 'scoped-callback', 'data': 'approve:scoped-request', 'from': {'id': 7},
+                    'message': {'chat': {'id': 7, 'type': 'private'}, 'message_thread_id': 13}}
+        await gateway.handle_update({'update_id': 8, 'callback_query': callback})
+        self.assertFalse(future.done())
+        callback['message']['message_thread_id'] = 12
+        await gateway.handle_update({'update_id': 9, 'callback_query': callback})
+        self.assertTrue(future.result())
+
+    async def test_topic_outbox_survives_restart_and_sends_native_topic_addresses(self):
+        gateway = self.gateway
+        scope = self.controller.sessions.resolve(7, 12)
+        await gateway.emit(scope, {'type': 'TEXT_MESSAGE_CONTENT', 'runId': 'topic-run', 'delta': 'Topic reply'})
+        await gateway.emit(scope, {'type': 'RUN_FINISHED', 'runId': 'topic-run'})
+        await gateway.emit(scope, {'type': 'CUSTOM', 'name': 'approval_request',
+                                  'value': {'id': 'topic-request', 'summary': 'Confirm?'}})
+        restored = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
+        self.addCleanup(restored.db.close)
+        self.assertEqual(len(restored._pending()), 1)
+        self.assertEqual(restored._pending()[0][0], scope)
+        restored._api = AsyncMock(return_value={'message_id': 22})
+        await restored._render_one(*restored._pending()[0])
+        self.assertEqual(restored._api.await_args.args[1]['chat_id'], 7)
+        self.assertEqual(restored._api.await_args.args[1]['message_thread_id'], 12)
+        restored._last_send.clear()
+        restored._apply(scope, {'type': 'TEXT_MESSAGE_CONTENT', 'runId': 'topic-run', 'delta': ' edited'})
+        await restored._render_one(*restored._pending()[0])
+        self.assertEqual(restored._api.await_args.args[0], 'editMessageText')
+        self.assertNotIn('message_thread_id', restored._api.await_args.args[1])
+        await restored._render_delivery(restored._deliveries()[0])
+        self.assertEqual(restored._api.await_args.args[1]['chat_id'], 7)
+        self.assertEqual(restored._api.await_args.args[1]['message_thread_id'], 12)
+        await restored.emit(-1, {'type': 'RUN_STARTED', 'runId': 'browser-only'})
+        self.assertNotIn(-1, restored._replies)
+
+    async def test_topic_intake_restores_workers_and_stop_leaves_other_topics_running(self):
+        entered, other_entered = asyncio.Event(), asyncio.Event()
+        self.controller.db = Mock()
+        self.controller.db.execute.return_value.fetchone.return_value = None
+        first = self.controller.sessions.resolve(7, 12)
+        second = self.controller.sessions.resolve(7, 13)
+
+        async def submit(scope, *args, **kwargs):
+            if scope == first:
+                entered.set()
+                await asyncio.Event().wait()
+            other_entered.set()
+
+        self.controller.submit.side_effect = submit
+        update = self.update(10)
+        update['message']['message_thread_id'] = 12
+        await self.gateway._ingest(update)
+        historical = self.update(8, 'Historical input stays General')
+        historical['message'].update(message_thread_id=14, forum_topic_created={'name': 'Архів'})
+        with self.gateway.db:
+            self.gateway.db.execute('UPDATE intake SET chat_id=7 WHERE update_id=10')
+            self.gateway.db.execute("INSERT INTO intake VALUES (8,7,?,'done')", (json.dumps(historical),))
+        restored = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
+        self.addCleanup(restored.db.close)
+        self.assertEqual(restored.db.execute('SELECT chat_id FROM intake WHERE update_id=10').fetchone()[0], first)
+        self.assertIsNotNone(self.controller.sessions.lookup(7, 'topic:14'))
+        self.assertEqual(restored.db.execute('SELECT chat_id,status FROM intake WHERE update_id=8').fetchone()[0], 7)
+        restored._poll = AsyncMock(side_effect=asyncio.Event().wait)
+        restored._notice = AsyncMock()
+        restored._api = AsyncMock(return_value=True)
+        worker = asyncio.create_task(restored.run())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            update = self.update(11)
+            update['message']['message_thread_id'] = 13
+            await restored._ingest(update)
+            await asyncio.wait_for(other_entered.wait(), 1)
+            update = self.update(12)
+            update['message']['message_thread_id'] = 12
+            await restored._ingest(update)
+            update = self.update(13, '/stop')
+            update['message']['message_thread_id'] = 12
+            await restored._ingest(update)
+            rows = restored.db.execute('SELECT chat_id,status FROM intake WHERE update_id>=10 ORDER BY update_id').fetchall()
+            self.assertEqual([tuple(row) for row in rows], [(first, 'cancelled'), (second, 'done'), (first, 'cancelled')])
+            self.controller.stop.assert_awaited_once_with(first)
+        finally:
+            worker.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await worker
 
     async def test_uncertain_submit_does_not_advance_offset(self):
         self.controller.submit.side_effect = RuntimeError('uncertain')

@@ -11,6 +11,7 @@ from aiohttp import web
 
 from .controller import MODEL
 from .runtime import RpcError
+from .telegram import TelegramError
 
 
 def identifier(kind, value):
@@ -51,9 +52,102 @@ class ControlPanel:
         self.db.execute('''CREATE TABLE IF NOT EXISTS panel_oauth (
             owner INTEGER, server TEXT, state TEXT, expires REAL,
             PRIMARY KEY(owner,server))''')
+        self.db.execute('''CREATE TABLE IF NOT EXISTS panel_topic_operations (
+            owner INTEGER, operation TEXT, kind TEXT, name TEXT, session TEXT, state TEXT,
+            PRIMARY KEY(owner,operation))''')
+        self._topic_capabilities = (0, None)
         # A process restart cannot establish whether a dispatched login finished.
         with self.db:
             self.db.execute("UPDATE panel_oauth SET state='uncertain' WHERE state IN ('requested','pending')")
+            self.db.execute("UPDATE panel_topic_operations SET state='uncertain' WHERE state='requested'")
+
+    async def topic_capabilities(self):
+        checked, identity = self._topic_capabilities
+        if checked > time.monotonic() - 60:
+            return identity
+        telegram = getattr(self.controller, 'telegram', None)
+        identity = None
+        if telegram is not None:
+            try:
+                result = await telegram._api('getMe', {}, timeout=6, rate_limit_attempts=1)
+                if isinstance(result, dict) and result.get('is_bot') is True:
+                    identity = {'topics_enabled': result.get('has_topics_enabled') is True,
+                                'users_can_create_topics': result.get('allows_users_to_create_topics') is True}
+            except TelegramError:
+                pass
+        self._topic_capabilities = (time.monotonic(), identity)
+        return identity
+
+    def session_rows(self, owner):
+        rows = []
+        for session in self.controller.sessions.list(owner):
+            scope = session['scope_id']
+            state = self.summary(scope)
+            rows.append({k: session[k] for k in ('id', 'topic_id', 'name', 'closed')} |
+                        state['session'] | {'memory_count': state['memory']['count'],
+                        'task_count': self.db.execute("SELECT count(*) FROM jobs WHERE chat_id=? AND status IN ('pending','running','uncertain')", (scope,)).fetchone()[0]})
+        return rows
+
+    async def sessions(self, owner):
+        capabilities = await self.topic_capabilities()
+        return {**(capabilities or {'topics_enabled': None, 'users_can_create_topics': None}),
+                'sessions': self.session_rows(owner), 'inventory': 'observed'}
+
+    async def topic_action(self, owner, data, session_id=None):
+        name, operation = data.get('name'), data.get('operation_id')
+        if (not isinstance(name, str) or not 1 <= len(name.strip()) <= 128
+                or any(ord(c) < 32 or ord(c) == 127 for c in name)
+                or not isinstance(operation, str) or not re.fullmatch(r'[A-Za-z0-9_-]{16,64}', operation)):
+            raise web.HTTPBadRequest(text='Потрібні назва теми (1–128 символів) та ідентифікатор дії.')
+        name = name.strip()
+        kind = 'rename' if session_id is not None else 'create'
+        scope = self.controller.sessions.lookup(owner, session_id) if session_id is not None else None
+        if session_id is not None and (scope is None or scope == owner):
+            raise web.HTTPNotFound(text='Тему не знайдено.')
+        capabilities = await self.topic_capabilities()
+        existing = self.db.execute('SELECT * FROM panel_topic_operations WHERE owner=? AND operation=?', (owner, operation)).fetchone()
+        if existing:
+            if existing['kind'] != kind or existing['name'] != name or (kind == 'rename' and existing['session'] != session_id):
+                raise web.HTTPConflict(text='Ідентифікатор уже використано для іншої дії.')
+            if existing['state'] == 'created':
+                row = next((s for s in self.session_rows(owner) if s['id'] == existing['session']), None)
+                return {'session': row, 'state': 'created'}
+            raise web.HTTPConflict(text='Стан попередньої дії не підтверджено. Перевір теми в Telegram перед новою спробою.')
+        if not capabilities or capabilities['topics_enabled'] is not True:
+            raise web.HTTPConflict(text='Threaded mode не підтверджено. Перевір налаштування @BotFather та онови панель.')
+        # A lost response must not create a second topic, including after reload.
+        pending = self.db.execute("SELECT 1 FROM panel_topic_operations WHERE owner=? AND kind=? AND state IN ('requested','uncertain') AND (name=? OR (kind='rename' AND session=?))",
+                                  (owner, kind, name, session_id)).fetchone()
+        if pending:
+            raise web.HTTPConflict(text='Подібна дія вже очікує перевірки в Telegram; повторний запит не надіслано.')
+        with self.db:
+            self.db.execute('INSERT INTO panel_topic_operations VALUES (?,?,?,?,?,?)',
+                            (owner, operation, kind, name, session_id, 'requested'))
+        telegram = self.controller.telegram
+        try:
+            if kind == 'create':
+                result = await telegram._api('createForumTopic', {'chat_id': owner, 'name': name}, timeout=10, rate_limit_attempts=1)
+                topic_id = result.get('message_thread_id') if isinstance(result, dict) else None
+                if type(topic_id) is not int or topic_id <= 1:
+                    raise TelegramError('createForumTopic')
+                self.controller.sessions.resolve(owner, topic_id, name=name)
+                session_id = 'topic:' + str(topic_id)
+            else:
+                destination = self.controller.sessions.destination(scope)
+                result = await telegram._api('editForumTopic', {**destination, 'name': name}, timeout=10, rate_limit_attempts=1)
+                if result is not True:
+                    raise TelegramError('editForumTopic')
+                self.controller.sessions.resolve(owner, destination['message_thread_id'], name=name)
+        except (TelegramError, asyncio.CancelledError) as exc:
+            state = 'failed' if isinstance(exc, TelegramError) and not exc.uncertain else 'uncertain'
+            with self.db:
+                self.db.execute('UPDATE panel_topic_operations SET state=? WHERE owner=? AND operation=?', (state, owner, operation))
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            raise web.HTTPServiceUnavailable(text='Результат дії не підтверджено. Перевір теми в Telegram; автоматичного повтору немає.') from None
+        with self.db:
+            self.db.execute("UPDATE panel_topic_operations SET state='created',session=? WHERE owner=? AND operation=?", (session_id, owner, operation))
+        return {'session': next(s for s in self.session_rows(owner) if s['id'] == session_id), 'state': 'created'}
 
     def summary(self, owner):
         c = self.controller
@@ -184,11 +278,12 @@ class ControlPanel:
         row = self.db.execute('SELECT state,expires FROM panel_oauth WHERE owner=? AND server=?', (owner, server)).fetchone()
         return ('expired' if row['expires'] <= time.time() else row['state']) if row else None
 
-    async def inventory(self, request, owner):
-        params = self.thread_params(owner)
+    async def inventory(self, request, owner, scope=None):
+        scope = owner if scope is None else scope
+        params = self.thread_params(scope)
         apps, plugins, servers = await asyncio.gather(
             self.rpc('app/installed', {**params, 'forceRefresh': True}),
-            self.rpc('plugin/installed', {'cwds': [self.controller.cwd]}), self.servers(owner))
+            self.rpc('plugin/installed', {'cwds': [self.controller.cwd]}), self.servers(scope))
         app_items, plugin_items, server_items = [], [], []
         installed = apps.get('apps') if apps else None
         metadata = {}
@@ -240,8 +335,8 @@ class ControlPanel:
             'plugins': {'available': isinstance(marketplaces, list), 'complete': not bool((plugins or {}).get('marketplaceLoadErrors')), 'items': plugin_items},
             'servers': {'available': servers is not None, 'items': server_items}}
 
-    async def manage(self, owner, app_id):
-        params = self.thread_params(owner)
+    async def manage(self, owner, app_id, scope=None):
+        params = self.thread_params(owner if scope is None else scope)
         result = await self.rpc('app/installed', params)
         if result is None:
             raise web.HTTPServiceUnavailable(text='Стан інтеграцій недоступний.')
@@ -255,8 +350,9 @@ class ControlPanel:
             raise web.HTTPConflict(text='Runtime не надав підтримуване посилання на налаштування.')
         return {'url': url}
 
-    async def login(self, request, owner, server_id):
-        rows = await self.servers(owner)
+    async def login(self, request, owner, server_id, scope=None):
+        scope = owner if scope is None else scope
+        rows = await self.servers(scope)
         if rows is None:
             raise web.HTTPServiceUnavailable(text='Стан серверів недоступний.')
         server = next((s for s in rows if identifier('server', s['name']) == server_id), None)
@@ -275,7 +371,7 @@ class ControlPanel:
             self.db.execute('INSERT OR REPLACE INTO panel_oauth VALUES (?,?,?,?)', (owner, name, 'requested', time.time() + 600))
         try:
             result = await asyncio.wait_for(self.controller.client.request('mcpServer/oauth/login',
-                {**self.thread_params(owner), 'name': name, 'timeoutSecs': 300}), 12)
+                {**self.thread_params(scope), 'name': name, 'timeoutSecs': 300}), 12)
             url = https_url(result.get('authorizationUrl'))
             if not url:
                 raise ValueError('Unsupported OAuth URL')

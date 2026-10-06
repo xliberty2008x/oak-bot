@@ -6,7 +6,7 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 66 tests.
+- The latest integrated test suite passed all 71 tests.
 - The control panel passed browser-key authentication, four-view navigation,
   task lifecycle details, cancellation confirmation and computer permission
   changes through its real HTTP endpoints with isolated synthetic state.
@@ -104,6 +104,22 @@ not tested; the existing deployment's checks above are separate evidence. This
 was a clean Ubuntu userland using the host kernel, not a newly booted VM. It does
 not verify an actual reboot or application of the Chromium AppArmor profile on
 an Ubuntu kernel enforcing its user-namespace restriction.
+
+## Private Telegram topic sessions — 2026-10-06
+
+- Existing standard-library tests verify persistent owner/topic routing, legacy
+  General state, separate memory/jobs, callback approval scope, topic delivery
+  after restart, pending-intake migration and cancellation, and `/web` selection.
+- Authenticated HTTP checks verify session/task ownership, selected-topic runtime
+  inventory and OAuth parameters, owner confirmation, and no repeated native
+  topic creation after an uncertain response or changed operation identifier.
+- The real control-panel frontend passed isolated browser checks at 390 and 1440
+  pixels: five views, topic selection, task details/cancel/stop, creation/rename,
+  stale-response rejection, and safe rendering of a topic name containing HTML.
+  Runtime and Telegram transports used synthetic responses in those checks.
+- Read-only live `getMe` confirmed private topics and user topic management are
+  enabled by the owner. These checks do not establish a real model conversation
+  or approval round-trip inside a live Telegram topic.
 
 ## Remaining deployment checks
 
