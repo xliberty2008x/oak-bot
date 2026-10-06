@@ -162,6 +162,8 @@ class Tools:
 
     async def execute(self, chat_id, name, args, metadata=None):
         c = self.controller
+        if getattr(c, 'sessions', None) is not None and c.sessions.deleted(chat_id):
+            raise ValueError('Цю сесію видалено.')
         if name == 'oak_memory_read':
             return c.memory.search(chat_id, args.get('query', ''))
         if name == 'oak_memory_remember':

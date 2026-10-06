@@ -18,7 +18,8 @@ class Interactions:
 
     async def ask(self, metadata, kind, message):
         chat_id = self.controller.chat_for_thread(metadata.get('threadId'))
-        if chat_id is None:
+        sessions = getattr(self.controller, 'sessions', None)
+        if chat_id is None or (sessions is not None and sessions.deleted(chat_id)):
             return False if kind == 'approval' else ''
         request_id = uuid.uuid4().hex[:10]
         future = asyncio.get_running_loop().create_future()

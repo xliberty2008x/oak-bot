@@ -162,6 +162,37 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gateway.offset, 0)
         self.assertFalse(self.gateway.offset_path.exists())
 
+    async def test_missing_topic_cancels_delivery_and_ignores_replayed_input(self):
+        gateway = self.gateway
+        scope = self.controller.sessions.resolve(7, 12)
+
+        async def retire(chat_id):
+            self.controller.sessions.delete(chat_id)
+            await gateway.discard_topic(chat_id)
+
+        self.controller.retire_topic.side_effect = retire
+        gateway._request_sync = Mock(return_value={
+            'ok': False, 'error_code': 400, 'description': 'Bad Request: message thread not found'})
+        await gateway.emit(scope, {'type': 'TEXT_MESSAGE_CONTENT', 'runId': 'deleted', 'delta': 'Reply'})
+        await gateway._render_one(*gateway._pending()[0])
+        self.controller.retire_topic.assert_awaited_once_with(scope)
+        self.assertEqual(gateway.db.execute("SELECT status FROM replies WHERE run_id='deleted'").fetchone()[0], 'cancelled')
+        self.assertEqual(gateway._pending(), [])
+        update = self.update(10)
+        update['message']['message_thread_id'] = 12
+        await gateway._ingest(update)
+        await gateway.emit(scope, {'type': 'RUN_STARTED', 'runId': 'late'})
+        self.assertEqual(gateway.offset, 11)
+        self.controller.submit.assert_not_awaited()
+        self.assertEqual(gateway._pending(), [])
+        for code, description in ((400, 'TOPIC_CLOSED'), (400, 'chat not found'),
+                                  (400, 'message to edit not found'), (403, 'topic not found'),
+                                  (503, 'topic not found')):
+            gateway._request_sync.return_value = {'ok': False, 'error_code': code, 'description': description}
+            with self.assertRaises(TelegramError) as error:
+                await gateway._api('sendMessage', {'chat_id': 7})
+            self.assertNotEqual(error.exception.reason, 'topic_missing')
+
     async def test_stop_is_dispatched_without_model_submission(self):
         await self.gateway.handle_update(self.update(3, '/stop'))
         self.controller.stop.assert_awaited_once_with(7)
