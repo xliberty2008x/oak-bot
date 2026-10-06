@@ -207,22 +207,27 @@ class WebGateway:
         except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
             raise web.HTTPServiceUnavailable(text='Каталог моделей зараз недоступний. Онови панель.') from None
         return web.json_response({'selected': self.controller.model_for(scope),
-            'models': [{'model': row['model'], 'display_name': label(row['display_name'], row['model'])} for row in models],
+            'effort': self.controller.effort_for(scope),
+            'models': [{'model': row['model'], 'display_name': label(row['display_name'], row['model']),
+                        'default_effort': row['effort'], 'efforts': row['efforts']} for row in models],
             'busy': self.controller.model_busy(scope)})
 
     async def set_model(self, request):
         owner = await self.confirmed_owner(request)
         scope = self.conversation(request, owner)
         data = await request.json()
+        if 'effort' in data and (not isinstance(data['effort'], str) or not data['effort']):
+            raise web.HTTPBadRequest(text='Обери підтримуваний рівень Reasoning Effort.')
         try:
-            settings = await asyncio.wait_for(self.controller.set_model(scope, data.get('model')), 8)
+            settings = await asyncio.wait_for(self.controller.set_model(scope, data.get('model'),
+                **({'effort': data['effort']} if 'effort' in data else {})), 8)
         except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
-            raise web.HTTPServiceUnavailable(text='Модель не змінено: каталог runtime недоступний. Онови панель.') from None
+            raise web.HTTPServiceUnavailable(text='Налаштування не змінено: каталог runtime недоступний. Онови панель.') from None
         except ValueError:
-            raise web.HTTPBadRequest(text='Обери модель із поточного каталогу runtime.') from None
+            raise web.HTTPBadRequest(text='Обери модель та її підтримуваний рівень із поточного каталогу runtime.') from None
         except RuntimeError:
-            raise web.HTTPConflict(text='Дочекайся завершення або зупини поточний запит перед зміною моделі.') from None
-        return web.json_response({'selected': settings['model']})
+            raise web.HTTPConflict(text='Дочекайся завершення або зупини поточний запит перед зміною налаштувань моделі.') from None
+        return web.json_response({'selected': settings['model'], 'effort': self.controller.effort_for(scope)})
 
     async def topic_sessions(self, request):
         return web.json_response(await self.controls.sessions(self.owner(request)))

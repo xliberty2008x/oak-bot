@@ -24,6 +24,10 @@ General, other topics and other owners retain their own settings.
 `thread/start` and `thread/resume` accept the selected `model`. `turn/start`
 accepts `model` and `effort`, so changing a model preserves the existing thread
 and takes effect on the next turn. `turn/steer` has no model or effort override.
+The owner can choose an effort from the model's ordered
+`supportedReasoningEfforts`. The server validates model/effort together; the
+browser never invents additional levels. Untouched sessions display their
+effective deployment default (normally `low`).
 Oak rejects changes while accepted input, a scheduled run or a model turn is
 being processed. Explicit choices persist through restart; untouched sessions
 keep the deployment's default behavior. [Official app-server protocol](https://learn.chatgpt.com/docs/app-server)

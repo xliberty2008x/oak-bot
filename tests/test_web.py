@@ -246,8 +246,10 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         scope = self.controller.sessions.resolve(11, 42)
         self.controller.sessions.resolve(22, 85)
         self.client.request.return_value = {'data': [
-            {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low'},
-            {'model': 'synthetic-model', 'displayName': 'Synthetic model', 'hidden': False, 'defaultReasoningEffort': 'medium'}],
+            {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low',
+             'supportedReasoningEfforts': [{'reasoningEffort': 'low'}, {'reasoningEffort': 'medium'}]},
+            {'model': 'synthetic-model', 'displayName': 'Synthetic model', 'hidden': False, 'defaultReasoningEffort': 'medium',
+             'supportedReasoningEfforts': [{'reasoningEffort': 'medium'}, {'reasoningEffort': 'ultra'}]}],
             'nextCursor': None}
         client = TestClient(TestServer(gateway.app))
         await client.start_server()
@@ -262,7 +264,11 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await client.post(url, headers=headers, json={**change, 'model': 'invented'})).status, 400)
         response = await client.get(url, headers=headers)
         self.assertEqual(response.status, 200)
-        self.assertEqual((await response.json())['selected'], 'gpt-6.1-sol')
+        catalogue = await response.json()
+        self.assertEqual(catalogue['selected'], 'gpt-6.1-sol')
+        self.assertEqual(catalogue['effort'], 'low')
+        self.assertEqual(catalogue['models'][1]['efforts'], ['medium', 'ultra'])
+        self.assertEqual(catalogue['models'][1]['default_effort'], 'medium')
         self.controller.active[scope] = 'synthetic-turn'
         self.assertTrue((await (await client.get(url, headers=headers)).json())['busy'])
         self.assertEqual((await client.post(url, headers=headers, json=change)).status, 409)
@@ -273,6 +279,16 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.model_for(11), 'gpt-6.1-sol')
         panel = await (await client.get('/api/panel?conversation=topic:42', headers=headers)).json()
         self.assertEqual(panel['settings']['model'], 'synthetic-model')
+        response = await client.post(url, headers=headers, json={**change, 'effort': 'ultra'})
+        self.assertEqual(response.status, 200)
+        self.assertEqual((await response.json())['effort'], 'ultra')
+        for effort in (None, 1, '', 'low', 'invented'):
+            response = await client.post(url, headers=headers, json={**change, 'effort': effort})
+            self.assertEqual(response.status, 400)
+        self.assertEqual(self.controller.effort_for(scope), 'ultra')
+        self.assertEqual(self.controller.effort_for(11), 'low')
+        panel = await (await client.get('/api/panel?conversation=topic:42', headers=headers)).json()
+        self.assertEqual(panel['settings']['effort'], 'ultra')
         self.client.request.side_effect = RpcError(-32000, 'PRIVATE_PROVIDER_ERROR')
         response = await client.get(url, headers=headers)
         self.assertEqual(response.status, 503)
