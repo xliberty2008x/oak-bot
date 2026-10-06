@@ -47,6 +47,7 @@
         <button type="button" data-view="sessions" aria-controls="view-sessions"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg><span>Сесії</span></button>
         <button type="button" data-view="tasks" aria-controls="view-tasks"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg><span>Задачі</span></button>
         <button type="button" data-view="integrations" aria-controls="view-integrations"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>Інтеграції</span></button>
+        <button type="button" data-view="desktop" aria-controls="view-desktop" aria-label="Робочий стіл"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg><span>Робочий стіл</span></button>
         <button type="button" data-view="settings" aria-controls="view-settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span>Налаштування</span></button>
       </nav>
       <div class="workspace-main">
@@ -96,6 +97,20 @@
           <p id="integrations-status" class="section-message" role="status">Завантажуємо інтеграції…</p>
           <div id="integrations-content"></div>
           <p class="hint section-footnote">Авторизація, увімкнення та доступність інструментів — окремі стани. Після входу на зовнішній сторінці повернись і натисни «Оновити».</p>
+        </section>
+        <section id="view-desktop" class="view" aria-labelledby="desktop-heading" hidden>
+          <div class="view-heading"><h1 id="desktop-heading" tabindex="-1">Робочий стіл</h1><p>Відкрий браузер на машині Oak, увійди у потрібний сервіс і передай керування назад.</p></div>
+          <div id="remote-console" class="remote-console">
+            <div class="remote-toolbar"><span id="remote-state" class="connection" role="status">Не підключено</span><div class="remote-actions"><button id="remote-stop" type="button" class="danger" hidden>Завершити</button><button id="remote-fullscreen" type="button" class="quiet" aria-label="На весь екран" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg></button></div></div>
+            <p id="remote-message" class="hint" role="status">Перевіряємо доступ до робочого столу…</p>
+            <div class="remote-display"><div id="remote-screen" aria-label="Екран комп’ютера Oak"></div><div id="remote-placeholder"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg><p>Браузер на машині Oak</p><span>Миша й клавіатура на комп’ютері, тачпад і клавіатура на телефоні.</span><button id="remote-start" type="button" disabled>Підключитися</button></div></div>
+            <div id="remote-inputs" hidden>
+              <div class="remote-keys" aria-label="Клавіші віддаленого комп’ютера"><button id="remote-keyboard" type="button" class="quiet" aria-pressed="false">Клавіатура</button><button type="button" class="quiet" data-remote-key="address">Адреса</button><button type="button" class="quiet" data-remote-key="tab">Tab</button><button type="button" class="quiet" data-remote-key="enter">Enter</button><button type="button" class="quiet" data-remote-key="escape">Esc</button><button type="button" class="quiet" data-remote-key="backspace" aria-label="Видалити символ">⌫</button></div>
+              <input id="remote-text" class="remote-text" type="password" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" aria-label="Клавіатура віддаленого комп’ютера" tabindex="-1">
+              <div class="remote-touch-controls"><div id="remote-touchpad" class="remote-touchpad" aria-label="Тачпад: один палець рухає курсор, дотик натискає, два пальці прокручують"><svg class="icon remote-pad-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3l7 17 2.5-7.5L21 10z"/><path d="M13.5 13.5 19 19"/></svg><span>Тачпад</span><small>Рухай одним пальцем · Прокручуй двома</small></div><div class="remote-mouse-buttons"><button id="remote-click" type="button" class="quiet">Клік</button><button id="remote-drag" type="button" class="quiet" aria-pressed="false">Перетягування</button><button id="remote-right" type="button" class="quiet">Правий клік</button></div></div>
+            </div>
+          </div>
+          <p class="hint section-footnote">Поки ти підключений, Oak не починає нову роботу. Вхід зберігається у браузері на цій машині. Закриття чи згортання панелі завершує ручне керування.</p>
         </section>
         <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
           <div class="view-heading"><h1 id="settings-heading" tabindex="-1">Налаштування</h1><p>Поточні параметри Oak</p></div>

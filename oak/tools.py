@@ -102,6 +102,7 @@ class Tools:
         owner = self._computer_owner
         return {'configured': self.computer is not None,
                 'enabled': self.computer is not None and (bool(row[0]) if row else True),
+                'manual': getattr(self.controller, 'manual_owner', None) is not None,
                 'busy': bool(owner and self.controller.active.get(owner[0]) == owner[1])}
 
     async def set_computer_enabled(self, chat_id, enabled):
@@ -210,6 +211,8 @@ class Tools:
         if name == 'oak_send_file':
             return await self.artifact(chat_id, args['path'], args.get('caption', ''))
         if name == 'oak_computer':
+            if getattr(c, 'manual_owner', None) is not None:
+                raise ValueError('Робочим столом зараз керують вручну. Знімки та дії агента призупинено.')
             if self.computer is None:
                 raise ValueError('Computer-use не підключений у конфігурації Oak.')
             if not self.computer_status(chat_id)['enabled']:

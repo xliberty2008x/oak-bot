@@ -100,12 +100,26 @@ class ComputerTools:
         if newly_held:
             await self._exec('xdotool', 'keyup', '--', *(str(code) for code in sorted(newly_held)))
 
+    async def _await_cleanup(self, operation):
+        cleanup = asyncio.create_task(operation)
+        cancelled = False
+        # Keep the desktop lock until cleanup finishes, even if cancellation
+        # arrives (or repeats) while a key-release/finally block runs.
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                cancelled = True
+        cleanup.result()
+        if cancelled:
+            raise asyncio.CancelledError
+
     async def _key(self, chord):
         try:
             await self._exec('xdotool', 'key', '--', chord)
         except BaseException:
             with contextlib.suppress(Exception):
-                await asyncio.shield(self._exec('xdotool', 'keyup', '--', chord))
+                await self._await_cleanup(self._exec('xdotool', 'keyup', '--', chord))
             raise
 
     async def _clear_borrowed_keys(self, codes):
@@ -147,10 +161,10 @@ class ComputerTools:
                         await asyncio.sleep(0.3)
                         await self._exec('xdotool', 'type', '--delay', '0', '--file', '-', data=run.encode())
                     finally:
-                        await asyncio.shield(self._clear_borrowed_keys(list(bindings.values())))
+                        await self._await_cleanup(self._clear_borrowed_keys(list(bindings.values())))
         except BaseException:
             with contextlib.suppress(Exception):
-                await asyncio.shield(self._release_typing_modifiers(before))
+                await self._await_cleanup(self._release_typing_modifiers(before))
             raise
 
     async def status(self):

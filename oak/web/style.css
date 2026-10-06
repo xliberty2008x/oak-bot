@@ -73,7 +73,7 @@ button:disabled { opacity: .42; cursor: default; box-shadow: none; }
 .danger:hover:not(:disabled) { background: rgba(255, 106, 96, .2); border-color: rgba(255, 122, 114, .6); box-shadow: 0 10px 30px -12px rgba(255, 106, 96, .5); }
 
 /* Glass surfaces */
-.hero-card, .tile, .next-card, .telegram-note, .item, .topic-form, .computer-control, .model-control, .facts.rows, .login, .inventory-empty, .integration-list, dialog {
+.hero-card, .tile, .next-card, .telegram-note, .item, .topic-form, .computer-control, .model-control, .facts.rows, .login, .inventory-empty, .integration-list, .remote-console, dialog {
   border: 1px solid var(--line); border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .025));
   -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%);
@@ -110,7 +110,7 @@ button:disabled { opacity: .42; cursor: default; box-shadow: none; }
 /* Navigation: floating tab bar (mobile) */
 .navigation { position: fixed; z-index: 30; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 2px; width: min(calc(100% - 20px), 520px); padding: 6px;
   border: 1px solid var(--line-strong); border-radius: 26px; background: rgba(12, 22, 18, .72); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); box-shadow: 0 20px 50px -12px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .06) inset; }
-.navigation button { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 3px; min-height: 56px; padding: 7px 2px 6px; border: 0; border-radius: 20px; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 600; box-shadow: none; }
+.navigation button { flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 3px; min-height: 56px; padding: 7px 2px 6px; border: 0; border-radius: 20px; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 600; box-shadow: none; }
 .navigation button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .navigation button .icon { width: 22px; height: 22px; transition: transform .25s var(--ease); }
 .navigation button:hover:not(:disabled) { color: var(--ink); background: rgba(255, 255, 255, .05); box-shadow: none; }
@@ -431,4 +431,83 @@ dialog p { color: var(--muted); font-size: 15px; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .effort-progress::-webkit-progress-value { animation: none !important; }
   .effort-progress::-moz-progress-bar { animation: none !important; }
+}
+
+/* Owner's live desktop */
+.remote-console { padding: 20px; }
+.remote-toolbar, .remote-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.remote-toolbar { min-height: 40px; margin-bottom: 14px; }
+.remote-actions button { min-height: 40px; padding: 9px 15px; font-size: 14px; }
+#remote-message { margin-bottom: 14px; }
+#remote-message:empty { margin-bottom: 0; }
+#remote-message.error-message { color: var(--red); }
+.remote-display { position: relative; margin-inline: auto; aspect-ratio: var(--remote-aspect, 16 / 10); max-height: max(300px, calc(100dvh - 380px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 14px; background: rgba(0, 0, 0, .35); }
+.remote-console:not([data-connected="true"]) .remote-display { aspect-ratio: auto; height: clamp(260px, 30vw, 360px); }
+#remote-screen { width: 100%; height: 100%; }
+#remote-screen canvas { outline: none; }
+#remote-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; color: var(--muted); background: radial-gradient(ellipse at center, rgba(61, 220, 151, .08), transparent 70%); pointer-events: none; }
+#remote-placeholder > .icon { width: 40px; height: 40px; margin-bottom: 4px; color: var(--accent-2); opacity: .75; }
+#remote-placeholder > p { color: var(--ink); font-size: 17px; font-weight: 650; }
+#remote-placeholder > span { max-width: 36ch; font-size: 13.5px; }
+#remote-placeholder > button { min-width: 200px; margin-top: 10px; pointer-events: auto; }
+.remote-keys { display: flex; gap: 7px; flex-wrap: wrap; margin: 14px 0 0; }
+.remote-keys button { padding: 8px 14px; font-size: 13px; min-height: 40px; }
+.remote-text { position: fixed; left: 1px; top: 1px; width: 1px; height: 1px; padding: 0; opacity: .01; pointer-events: none; border: 0; font-size: 16px; }
+.remote-touch-controls { margin-top: 10px; }
+.remote-touchpad { height: 158px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(61, 220, 151, .25); border-radius: 16px; color: var(--muted); background: radial-gradient(circle at center, rgba(61, 220, 151, .075), transparent 70%), rgba(255, 255, 255, .025); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.remote-touchpad > .remote-pad-mark { width: 26px; height: 26px; margin-bottom: 2px; color: var(--accent-2); opacity: .65; }
+.remote-touchpad > span { font-size: 14px; }
+.remote-touchpad small { font-size: 11px; color: var(--faint); }
+.remote-mouse-buttons { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; margin-top: 8px; }
+.remote-mouse-buttons button { padding: 9px 6px; font-size: 12px; min-height: 44px; border-radius: 12px; }
+.remote-console button[aria-pressed="true"] { color: var(--accent-2); background: var(--accent-soft); border-color: var(--accent); }
+.remote-console:fullscreen { display: flex; flex-direction: column; padding: 14px; border: 0; border-radius: 0; background: var(--bg); overflow: auto; }
+.remote-console:fullscreen .remote-display { flex: 1 1 auto; min-height: 160px; max-height: none; margin-inline: 0; aspect-ratio: auto; }
+.remote-console:fullscreen #remote-message { margin-bottom: 8px; }
+@media (pointer: fine) and (hover: hover) { .remote-touch-controls { display: none; } }
+@media (max-width: 600px) {
+  .remote-console { padding: 12px; border-radius: 18px; }
+  .remote-console:not([data-connected="true"]) .remote-display { height: clamp(240px, 70vw, 320px); }
+  .remote-actions { gap: 6px; }
+  .remote-toolbar .connection { font-size: 12px; }
+  .remote-keys { gap: 6px; }
+  .remote-keys button { flex: 1 1 auto; padding: 8px 9px; }
+  .remote-console:fullscreen .remote-touchpad { height: 130px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .remote-console:fullscreen #remote-inputs { display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 12px; }
+  .remote-console:fullscreen .remote-touchpad { height: 70px; }
+  .remote-console:fullscreen .remote-touchpad small, .remote-console:fullscreen .remote-pad-mark { display: none; }
+  .remote-console:fullscreen .remote-display { min-height: 100px; }
+}
+/* Keep the live screen and pad together inside mobile WebViews, which may not
+   support the browser Fullscreen API. Visual viewport sizing handles keyboards. */
+@media (max-width: 959px) {
+  body.remote-active { overflow: hidden; }
+  .remote-active .navigation, .remote-active .page-header { visibility: hidden; }
+  .remote-active .remote-console { position: fixed; z-index: 60; inset: var(--remote-top, 0px) 0 auto; height: var(--remote-height, 100dvh); display: flex; flex-direction: column; padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); border: 0; border-radius: 0; background: var(--bg); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: auto; }
+  .remote-active .remote-toolbar { flex: 0 0 auto; margin-bottom: 8px; }
+  .remote-active #remote-message { flex: 0 0 auto; font-size: 12px; line-height: 1.4; }
+  .remote-active #remote-message:not(:empty) { margin-bottom: 8px; }
+  /* Keep the screen at its own aspect ratio; the touchpad takes the rest. */
+  .remote-active .remote-display { flex: 0 1 auto; min-height: 120px; max-height: none; margin-inline: 0; }
+  .remote-active #remote-inputs { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .remote-active .remote-keys { flex: 0 0 auto; flex-wrap: nowrap; gap: 5px; margin-top: 10px; overflow-x: auto; }
+  .remote-active .remote-keys button { flex: 1 0 auto; min-height: 40px; padding: 8px; font-size: 12px; }
+  .remote-active .remote-touch-controls { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .remote-active .remote-touchpad { flex: 1 1 auto; height: auto; min-height: 96px; }
+  .remote-active .remote-mouse-buttons { flex: 0 0 auto; }
+  .remote-active .remote-console[data-keyboard="true"] #remote-message { display: none; }
+  .remote-active .remote-console[data-keyboard="true"] .remote-touchpad { min-height: 64px; }
+  .remote-active .remote-console[data-keyboard="true"] .remote-pad-mark { display: none; }
+}
+@media (max-width: 959px) and (max-height: 500px) and (orientation: landscape) {
+  .remote-active .remote-console { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 36%); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .remote-active .remote-toolbar { grid-column: 1 / -1; margin: 0; }
+  .remote-active #remote-message { display: none; }
+  .remote-active .remote-display { grid-column: 1; grid-row: 2; min-height: 0; aspect-ratio: auto; }
+  .remote-active #remote-inputs { grid-column: 2; grid-row: 2; min-width: 0; }
+  .remote-active .remote-keys { flex-wrap: wrap; margin-top: 0; }
+  .remote-active .remote-touchpad { min-height: 70px; }
+  .remote-active .remote-touchpad small, .remote-active .remote-pad-mark { display: none; }
 }

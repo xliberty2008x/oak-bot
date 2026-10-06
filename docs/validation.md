@@ -127,6 +127,21 @@ an Ubuntu kernel enforcing its user-namespace restriction.
   with no JavaScript errors or page overflow; cookie-free Bearer refresh passed.
   Cross-topic live approval and a two-topic memory experiment were not tested.
 
+## Manual remote desktop — 2026-10-06
+
+- The existing suite covers owner/session-bound remote tickets, WebSocket origin
+  checks, replay and expiry, takeover gating, input leases and key validation.
+- An isolated Xvfb desktop with a real Chromium browser and noVNC connection
+  passed mouse input, physical Ukrainian text, common keyboard shortcuts and
+  ordered text/Backspace/Enter. Cookie-free Bearer authentication also passed.
+- Browser checks at 390×844 and 844×390 passed relative touchpad movement, tap,
+  right-click, two-finger scrolling and drag. Screen, pad and Stop stayed visible.
+- Stop and network loss released held pointer buttons, ended the bridge, cleared
+  the viewer and restored navigation. Input created no screenshot artifacts.
+- These are operator checks on synthetic content. Native Telegram device
+  keyboards, desktop IME, local clipboard integration and provider sign-in are
+  not established by these results.
+
 ## Remaining deployment checks
 
 - Browser artifact download is not yet verified: the last browser check had no

@@ -59,6 +59,8 @@ class Controller:
         self.loaded = set()
         self.active = {}
         self.locks = {}
+        self.manual_owner = None
+        self._dispatching = set()
         self.mapper = EventMapper()
         self.memory = MemoryStore(self.db)
         self.scheduler = Scheduler(self.db, self, self.config.get('timezone', 'Europe/Kyiv'))
@@ -267,6 +269,45 @@ class Controller:
         return thread_id
 
     async def submit(self, chat_id, text, update_id, attachments=None, idle_only=False):
+        # A human login owns the shared desktop. Stop runtime dispatch too:
+        # native shell tools can access X11 without calling oak_computer.
+        if self.manual_owner is not None:
+            if not idle_only:
+                await self.notice(chat_id, 'Ручне керування робочим столом активне. Заверши його в панелі й надішли запит ще раз.')
+            return False
+        task = asyncio.current_task()
+        self._dispatching.add(task)
+        try:
+            return await self._submit(chat_id, text, update_id, attachments, idle_only)
+        finally:
+            self._dispatching.discard(task)
+
+    async def pause_for_manual(self, owner):
+        if self.manual_owner is not None:
+            raise RuntimeError('Робочим столом уже керують вручну.')
+        # Set before the first await, so new dispatches cannot race takeover.
+        self.manual_owner = owner
+        try:
+            async with asyncio.timeout(8):
+                while self._dispatching:
+                    # submit can run inside a long-lived scheduler/poller task;
+                    # wait for dispatch itself, not that outer task to finish.
+                    await asyncio.sleep(0.05)
+            if self.tools:
+                tasks = tuple(task for group in self.tools._computer_tasks.values() for task in group)
+                for task in tasks:
+                    task.cancel()
+                if tasks:
+                    await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 8)
+            await asyncio.wait_for(asyncio.gather(*(self.stop(chat) for chat in tuple(self.active))), 8)
+            async with asyncio.timeout(8):
+                while self.active:
+                    await asyncio.sleep(0.05)
+        except BaseException:
+            self.manual_owner = None
+            raise
+
+    async def _submit(self, chat_id, text, update_id, attachments=None, idle_only=False):
         """Durably accept text; returns after dispatch, without awaiting generation."""
         if self.sessions.deleted(chat_id):
             return False

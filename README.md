@@ -26,10 +26,16 @@ Mini App. There is no automatic API-key or model fallback.
 | Research | Public web search, readable pages and public YouTube metadata |
 | Browser | A dedicated Playwright profile with navigation, reading, clicking, typing and screenshots |
 | Computer use | Configured Linux X11 desktop, visual screenshots returned to the model, mouse, keyboard, dragging and scrolling |
+| Remote desktop | Owner-operated desktop in the Mini App, with a phone touchpad, mobile keyboard and desktop mouse/keyboard |
 
 Connected applications require their own configured access. Tool availability and
 local checks are recorded separately from live Telegram results in
 [validation](docs/validation.md).
+
+To sign in to a website yourself, open **Робочий стіл** in the Mini App and
+connect. Oak pauses agent work while you operate the VM's browser. Use
+**Завершити** when finished. See [remote desktop](docs/remote-desktop.md)
+for phone controls, authentication and deployment requirements.
 
 ## Setup
 

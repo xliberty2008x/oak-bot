@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
 
-from aiohttp import web
+from aiohttp import WSServerHandshakeError, web
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from oak.bus import EventBus
@@ -199,7 +199,7 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         response = await client.post('/api/computer', json={'enabled': False, 'confirmed': True})
         self.assertEqual(response.status, 401)
         response = await client.get('/api/panel', headers=headers)
-        self.assertEqual((await response.json())['computer'], {'configured': False, 'enabled': False, 'busy': False})
+        self.assertEqual((await response.json())['computer'], {'configured': False, 'enabled': False, 'manual': False, 'busy': False})
         response = await client.post('/api/computer', headers=headers, json={'enabled': True, 'confirmed': True})
         self.assertEqual(response.status, 400)
         self.controller.tools.computer = object()  # Configure the contract without operating a desktop.
@@ -221,6 +221,132 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await response.json())['computer']['enabled'], enabled)
             self.assertTrue(self.controller.tools.computer_status(22)['enabled'])
         self.client.request.assert_not_awaited()
+
+    async def test_remote_requires_confirmed_owner_short_lived_ticket_and_origin(self):
+        self.controller.tools = Tools(self.controller, {'computer': {'enabled': True, 'display': ':99'}})
+        await self.controller.tools.set_computer_enabled(11, False)
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
+        for owner, token in ((11, 'remote-owner'), (22, 'remote-other'), (11, 'remote-same-owner')):
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(token.encode()).hexdigest(), owner, 4102444800))
+        self.controller.db.commit()
+        client = TestClient(TestServer(gateway.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        headers = {'Authorization': 'Bearer remote-owner'}
+        origin = str(client.make_url('/')).rstrip('/')
+        response = await client.get('/api/remote', headers=headers)
+        self.assertIn(origin.replace('http://', 'ws://'), response.headers['Content-Security-Policy'])
+        self.assertIn(origin.replace('http://', 'wss://'), response.headers['Content-Security-Policy'])
+        rejected_host = make_mocked_request('GET', '/', headers={'Host': 'bad; script-src https://other.example'})
+        guarded = await gateway.guard(rejected_host, AsyncMock(return_value=web.Response()))
+        self.assertNotIn('other.example', guarded.headers['Content-Security-Policy'])
+        self.assertEqual((await client.get('/api/remote')).status, 401)
+        self.assertEqual((await client.post('/api/remote/start', headers=headers, json={})).status, 400)
+        with patch('oak.remote.shutil.which', return_value='/usr/bin/x11vnc'):
+            cookie = {'Cookie': 'oak_session=remote-owner'}
+            self.assertEqual((await client.post('/api/remote/start', headers=cookie, json={'confirmed': True})).status, 200)
+            self.assertEqual((await client.post('/api/remote/stop', headers=cookie, json={'confirmed': True})).status, 200)
+            response = await client.post('/api/remote/start', headers=headers, json={'confirmed': True})
+            self.assertEqual(response.status, 200)
+            ticket = await response.json()
+            lease = {'lease': ticket['lease']}
+            self.assertEqual(ticket['protocol'], 'oak-remote.' + ticket['ticket'])
+            self.assertEqual(ticket['expires_in'], 30)
+            self.assertTrue(self.controller.tools.computer_status(11)['manual'])
+            self.assertEqual((await client.post('/api/remote/type', headers=headers, json={**lease, 'text': 'Привіт'})).status, 409)
+            gateway.remote.current['socket'] = MagicMock(prepared=True, closed=False)
+            with patch.object(self.controller.tools.computer, '_type', new_callable=AsyncMock) as typing, \
+                    patch.object(self.controller.tools.computer, '_key', new_callable=AsyncMock) as keypress:
+                for wrong in ('remote-other', 'remote-same-owner'):
+                    self.assertEqual((await client.post('/api/remote/type', headers={'Authorization': 'Bearer ' + wrong},
+                                                       json={**lease, 'text': 'Привіт'})).status, 403)
+                self.assertEqual((await client.post('/api/remote/type', headers=headers, json={**lease, 'text': 'a' * 1001})).status, 400)
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={**lease, 'text': 'Привіт'})).status, 200)
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={**lease, 'key': 'BackSpace'})).status, 200)
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={**lease, 'key': 'Escape;echo no'})).status, 400)
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={'lease': 'old-lease', 'text': 'stale'})).status, 409)
+                typing.assert_awaited_once_with('Привіт')
+                keypress.assert_awaited_once_with('BackSpace')
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={**lease, 'key': 'ctrl+shift+Left'})).status, 200)
+                keypress.assert_awaited_with('ctrl+shift+Left')
+                self.assertEqual((await client.post('/api/remote/type', headers=cookie, json={**lease, 'key': 'ctrl+ctrl+a'})).status, 400)
+            gateway.remote.current['socket'] = None
+            self.assertFalse(await self.controller.submit(11, 'wait', 901, idle_only=True))
+            with self.assertRaisesRegex(ValueError, 'вручну'):
+                await self.controller.tools.execute(11, 'oak_computer', {'action': 'screenshot'}, {'turnId': 'x'})
+            self.assertEqual((await client.post('/api/remote/start', headers=headers, json={'confirmed': True})).status, 409)
+            self.assertEqual((await client.post('/api/remote/stop', headers={'Authorization': 'Bearer remote-other'},
+                                               json={'confirmed': True})).status, 403)
+            for bad_origin in ('https://other.example', None):
+                with self.assertRaises(WSServerHandshakeError) as denied:
+                    await client.ws_connect('/api/remote/socket', protocols=[ticket['protocol']], origin=bad_origin)
+                self.assertEqual(denied.exception.status, 403)
+            # Missing/unrelated tickets cannot start the subprocess.
+            with patch('oak.remote.asyncio.create_subprocess_exec', new_callable=AsyncMock) as spawn:
+                with self.assertRaises(WSServerHandshakeError) as denied:
+                    await client.ws_connect('/api/remote/socket', protocols=['oak-remote.' + 'x' * 43], origin=origin)
+                self.assertEqual(denied.exception.status, 401)
+                spawn.assert_not_awaited()
+                spawn.side_effect = OSError('unavailable')
+                with self.assertRaises(WSServerHandshakeError) as failed:
+                    await client.ws_connect('/api/remote/socket', protocols=[ticket['protocol']], origin=origin)
+                self.assertEqual(failed.exception.status, 503)
+                self.assertIsNone(self.controller.manual_owner)
+                with self.assertRaises(WSServerHandshakeError) as replay:
+                    await client.ws_connect('/api/remote/socket', protocols=[ticket['protocol']], origin=origin)
+                self.assertEqual(replay.exception.status, 401)
+            response = await client.post('/api/remote/start', headers=headers, json={'confirmed': True})
+            ticket = await response.json()
+            gateway.remote.current['expires'] = 0
+            with self.assertRaises(WSServerHandshakeError) as expired:
+                await client.ws_connect('/api/remote/socket', protocols=[ticket['protocol']], origin=origin)
+            self.assertEqual(expired.exception.status, 401)
+            await asyncio.sleep(1.1)
+            self.assertIsNone(self.controller.manual_owner)
+            self.assertEqual((await client.post('/api/remote/stop', headers=headers, json={'confirmed': True})).status, 200)
+            self.assertFalse(self.controller.tools.computer_status(11)['enabled'])
+            ticket = await (await client.post('/api/remote/start', headers=headers, json={'confirmed': True})).json()
+            self.controller.db.execute('DELETE FROM web_sessions WHERE owner=11')
+            self.controller.db.commit()
+            with self.assertRaises(WSServerHandshakeError) as revoked:
+                await client.ws_connect('/api/remote/socket', protocols=[ticket['protocol']], origin=origin)
+            self.assertEqual(revoked.exception.status, 401)
+            await gateway.remote.close()
+            self.assertIsNone(self.controller.manual_owner)
+        self.client.request.assert_not_awaited()
+
+    async def test_manual_takeover_waits_for_active_turn_and_preserves_permissions(self):
+        self.controller.tools = Tools(self.controller, {'computer': {'enabled': True, 'display': ':99'}})
+        self.controller.active[11] = 'working'
+        dispatching, release = asyncio.Event(), asyncio.Event()
+        async def dispatch(*args):
+            dispatching.set()
+            await release.wait()
+            return True
+        self.controller._submit = AsyncMock(side_effect=dispatch)
+        async def poller():
+            await self.controller.submit(11, 'dispatch', 321)
+            await asyncio.Event().wait()
+        outer = asyncio.create_task(poller())
+        self.addCleanup(outer.cancel)
+        await dispatching.wait()
+        interrupted = asyncio.Event()
+        async def stop(chat):
+            interrupted.set()
+        self.controller.stop = AsyncMock(side_effect=stop)
+        takeover = asyncio.create_task(self.controller.pause_for_manual(11))
+        await asyncio.sleep(0)
+        release.set()
+        await interrupted.wait()
+        self.assertFalse(outer.done())
+        self.assertFalse(takeover.done())
+        self.assertFalse(await self.controller.submit(22, 'must not run', 123))
+        self.client.request.assert_not_awaited()
+        self.controller.active.clear()  # The runtime completion event releases ownership.
+        await takeover
+        self.assertTrue(self.controller.tools.computer_status(11)['enabled'])
+        self.assertTrue(self.controller.tools.computer_status(11)['manual'])
 
     async def test_task_summary_covers_jobs_outside_the_bounded_list(self):
         gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})

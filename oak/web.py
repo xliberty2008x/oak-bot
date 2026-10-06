@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+import re
 import secrets
 import time
 from urllib.parse import parse_qsl, urlsplit
@@ -58,6 +59,8 @@ class WebGateway:
             self.db.commit()
         from .panel import ControlPanel
         self.controls = ControlPanel(self)
+        from .remote import RemoteDesktop
+        self.remote = RemoteDesktop(self)
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -70,8 +73,10 @@ class WebGateway:
         self.runner = None
         self.sdk_file = Path(controller.config['state_dir']) / 'telegram-web-app.js'
         self.app = web.Application(client_max_size=1024 * 1024, middlewares=[self.guard])
+        self.app.on_shutdown.append(self.close_remote)
         self.app.add_routes([
             web.get('/', self.static), web.get('/app.js', self.static), web.get('/style.css', self.static),
+            web.get('/remote.js', self.static), web.get('/vendor/novnc/{path:.+}', self.remote_vendor),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
@@ -80,6 +85,9 @@ class WebGateway:
             web.post('/api/sessions/{id}/rename', self.rename_topic),
             web.post('/api/sessions/{id}/delete', self.delete_topic),
             web.post('/api/computer', self.computer),
+            web.get('/api/remote', self.remote_status), web.post('/api/remote/start', self.remote.start),
+            web.post('/api/remote/stop', self.remote.stop), web.post('/api/remote/type', self.remote.type),
+            web.get('/api/remote/socket', self.remote.socket),
             web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
             web.get('/api/integrations', self.integrations),
             web.post('/api/integrations/apps/{id}/manage', self.manage_app),
@@ -104,8 +112,21 @@ class WebGateway:
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'no-referrer'
         response.headers['Cache-Control'] = 'no-store'
+        # WebKit versions differ on whether connect-src 'self' includes WS.
+        # Accept only URL authorities, never interpolated CSP directives.
+        authorities = {request.host}
+        if urlsplit(self.public_url).scheme in ('http', 'https'):
+            authorities.add(urlsplit(self.public_url).netloc)
+        socket_sources = []
+        for authority in sorted(authorities):
+            if re.fullmatch(r'(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\])(?::[0-9]{1,5})?', authority):
+                try:
+                    urlsplit('http://' + authority).port
+                except ValueError:
+                    continue
+                socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
-            "connect-src 'self'; img-src 'self'; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
+            "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
         return response
 
     def owner(self, request):
@@ -139,8 +160,21 @@ class WebGateway:
         return row[0] if row else None
 
     async def static(self, request):
-        name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}[request.path]
+        name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
+
+    async def remote_vendor(self, request):
+        root = (Path(__file__).parent / 'web' / 'vendor' / 'novnc').resolve()
+        path = (root / request.match_info['path']).resolve()
+        if not path.is_relative_to(root) or not path.is_file() or path.suffix != '.js':
+            raise web.HTTPNotFound()
+        return web.FileResponse(path)
+
+    async def remote_status(self, request):
+        return web.json_response(self.remote.status(self.owner(request)))
+
+    async def close_remote(self, app):
+        await self.remote.close()
 
     async def sdk(self, request):
         if not self.sdk_file.exists():

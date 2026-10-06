@@ -5,6 +5,7 @@ let sessionToken = "", sessionEpoch = 0, authenticated = false, refreshing = fal
 let panelData = null, integrationData = null, timezone = "", stopRequestState = "";
 let modelsData = null, lastModel = "", modelsUnavailable = false, draftEffort = null, lastEffort = null, draftTurbo = null, lastTurbo = null;
 let computerChanging = false;
+let remotePanel = null, remoteLoading = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 let initialConversation = new URLSearchParams(location.search).get("conversation");
 const topicBlocked = new Set();
@@ -453,6 +454,7 @@ async function deleteTopic(session) {
 }
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
+  remotePanel?.reset();
   sessionEpoch++;
   sessionToken = "";
   authenticated = false;
@@ -490,7 +492,7 @@ async function api(path, data) {
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
   }
-  const timeout = setTimeout(() => controller.abort(), endpoint === "/api/integrations" ? 90000 : 15000);
+  const timeout = setTimeout(() => controller.abort(), endpoint === "/api/integrations" ? 90000 : endpoint === "/api/remote/start" ? 45000 : 15000);
   const headers = sessionToken ? {Authorization: "Bearer " + sessionToken} : {};
   const options = {credentials: "same-origin", headers, signal: controller.signal};
   if (data !== undefined) {
@@ -518,6 +520,7 @@ async function api(path, data) {
 }
 
 function updateActions() {
+  remotePanel?.update();
   $("refresh").disabled = refreshing || mutationBusy;
   for (const button of document.querySelectorAll("[data-mutation]")) button.disabled = mutationBusy || refreshing || button.dataset.locked === "true";
   $("stop").disabled = mutationBusy || refreshing || !panelData?.session?.active || !!stopRequestState;
@@ -990,8 +993,22 @@ async function refresh() {
   }
 }
 
+async function desktopPanel() {
+  if (!remoteLoading) remoteLoading = import("/remote.js").then(module => {
+    remotePanel = module.createRemotePanel({api, confirmAction, available: () => authenticated && !$("workspace").hidden && !$("view-desktop").hidden && !document.hidden, busy: () => mutationBusy || refreshing || $("confirmation").open});
+    return remotePanel;
+  }).catch(() => {
+    remoteLoading = null;
+    message("remote-message", "Не вдалося завантажити робочий стіл. Перевір з’єднання та натисни «Оновити».", true);
+    return null;
+  });
+  const panel = await remoteLoading;
+  if (!$("view-desktop").hidden && !$("workspace").hidden) await panel?.refresh();
+}
+
 for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
   const view = button.dataset.view;
+  if (view !== "desktop") remotePanel?.leave();
   for (const navButton of document.querySelectorAll("[data-view]")) {
     if (navButton === button) navButton.setAttribute("aria-current", "page");
     else navButton.removeAttribute("aria-current");
@@ -999,10 +1016,11 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== "view-" + view;
   window.scrollTo({top: 0});
   $(view + "-heading").focus({preventScroll: true});
+  if (view === "desktop") void desktopPanel();
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
-$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); });
+$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) void syncSessions(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });

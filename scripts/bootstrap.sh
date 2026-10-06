@@ -30,8 +30,8 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 .venv/bin/python -m pip install -r requirements.txt
 if [[ "$check_computer" == true ]]; then
-  if ! command -v xdotool >/dev/null 2>&1 || ! command -v xmodmap >/dev/null 2>&1; then
-    printf '%s\n' 'Install xdotool and xmodmap with your system package manager, then run bootstrap again.' >&2
+  if ! command -v xdotool >/dev/null 2>&1 || ! command -v xmodmap >/dev/null 2>&1 || ! command -v x11vnc >/dev/null 2>&1; then
+    printf '%s\n' 'Install xdotool, xmodmap and x11vnc with your system package manager, then run bootstrap again.' >&2
     exit 1
   fi
   .venv/bin/python -c 'from PIL import features; assert features.check_feature("xcb"), "Pillow requires XCB screen capture support"'
