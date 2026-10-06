@@ -163,6 +163,12 @@ class Controller:
             except asyncio.CancelledError:
                 self._status(update_id, 'cancelled')
                 raise
+            except RpcError:
+                self._status(update_id, 'failed')
+                raise
+            except Exception:
+                self._status(update_id, 'uncertain')
+                raise
             payload = {'threadId': thread_id, 'input': items}
             self._status(update_id, 'dispatching')
             try:

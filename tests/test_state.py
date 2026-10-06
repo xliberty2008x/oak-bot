@@ -7,8 +7,10 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock
 
+from oak.controller import Controller
 from oak.interaction import Interactions
 from oak.memory import MemoryStore
+from oak.runtime import RpcError
 from oak.schedule import Scheduler
 
 
@@ -16,6 +18,21 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
         self.addCleanup(self.db.close)
+
+    async def test_thread_open_failure_is_not_replayed_on_recovery(self):
+        for error, status in ((RpcError(-32000, 'Cannot resume'), 'failed'),
+                              (ConnectionError('Disconnected'), 'uncertain')):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as folder:
+                client = SimpleNamespace(request=AsyncMock(side_effect=error))
+                controller = Controller(client, Path(folder) / 'state.sqlite', folder, AsyncMock())
+                try:
+                    with self.assertRaises(type(error)):
+                        await controller.submit(7, 'one task', 1)
+                    self.assertEqual(controller.db.execute('SELECT status FROM inputs').fetchone()[0], status)
+                    await controller.recover()
+                    client.request.assert_awaited_once()
+                finally:
+                    controller.close()
 
     def test_selected_memory_import_is_atomic_and_chat_scoped(self):
         memory = MemoryStore(self.db)

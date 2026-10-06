@@ -6,7 +6,7 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 56 tests.
+- The latest integrated test suite passed all 57 tests.
 - Subscription authentication and availability of the exact `gpt-6.1-sol` model.
 - Real model streaming, same-session continuation, active-turn steering and
   cancellation using isolated synthetic prompts.
@@ -24,6 +24,8 @@ or deployed conversation has been verified end to end.
   included in this repository.
 - Focused standard-library checks for authentication, event mapping, input
   deduplication, allowlists, output chunking and controller race handling.
+  Session-open failures are persisted as failed or uncertain and are not replayed
+  automatically on recovery.
 - Real local Pillow PNG generation with Ukrainian text and FFmpeg MP4 montage
   generation from two synthetic images.
 - Real Piper Ukrainian WAV narration and local Vosk transcription of that
