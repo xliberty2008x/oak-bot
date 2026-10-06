@@ -9,7 +9,7 @@ let remotePanel = null, remoteLoading = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 let initialConversation = new URLSearchParams(location.search).get("conversation");
 const topicBlocked = new Set();
-const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set();
+const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set(), openIntegrations = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
 const turnLabels = {inProgress: "Виконується", running: "Виконується", completed: "Завершено", interrupted: "Перервано", failed: "Помилка виконання", uncertain: "Результат невідомий"};
 const authLabels = {unknown: "Не визначено", unsupported: "Не підтримується", notLoggedIn: "Потрібен вхід", bearerToken: "Токен налаштовано", oAuth: "OAuth-доступ збережено"};
@@ -17,6 +17,16 @@ const runtimeLabels = {notStarted: "Ще не запущено", starting: "За
 const pluginLabels = {enabled: "Увімкнено", disabled: "Вимкнено", disabled_by_admin: "Вимкнено адміністратором", plan_not_eligible: "Недоступно за підпискою", required_app_unavailable: "Потрібний застосунок недоступний", unknown: "Не визначено"};
 const loginLabels = {requested: "Вхід запитано", pending: "Очікуємо завершення входу", uncertain: "Результат входу невідомий", expired: "Час очікування минув; результат не підтверджено"};
 const effortLabels = {low: "Light", medium: "Medium", high: "High", xhigh: "Extra High", max: "Max", ultra: "Ultra", minimal: "Minimal", none: "None"};
+const authPolicyLabels = {ON_INSTALL: "Під час встановлення", ON_USE: "Під час використання", unknown: "Не визначено"};
+const toolWords = {one: "інструмент", few: "інструменти", many: "інструментів", other: "інструмента"};
+// First match wins; unmatched names get a monogram.
+const integrationIcons = [
+  ["calendar", /calendar/], ["mail", /mail|outlook|inbox/], ["chat", /slack|teams|discord|chat/],
+  ["folder", /drive|dropbox|onedrive|sharepoint|\bbox\b|\bfiles?\b/], ["code", /github|gitlab|bitbucket|\bgit\b|code/],
+  ["doc", /notion|confluence|\bdocs?\b|\bnotes?\b|\bword\b/], ["tasks", /linear|jira|asana|trello|todo|\btasks?\b/],
+  ["pen", /figma|canva|design/], ["search", /search|research/], ["globe", /browser|playwright|chrome|\bweb\b/],
+  ["chart", /data|\bsheets?\b|excel|analytic|chart/], ["monitor", /desktop|computer|screen/]
+];
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -362,7 +372,7 @@ function resetSessionView() {
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
   stopRequestState = "";
-  appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
+  appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear(); openIntegrations.clear();
   $("session-state").textContent = "Перевіряємо стан…";
   $("session-description").textContent = "Завантажуємо дані вибраної сесії.";
   $("session-indicator").className = "status-dot";
@@ -454,7 +464,7 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   integrationData = null;
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
-  appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
+  appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear(); openIntegrations.clear();
   stopRequestState = "";
   computerChanging = false;
   selectedSession = "telegram";
@@ -708,33 +718,83 @@ function renderTasks(value) {
   updateActions();
 }
 
-function inventoryGroup(title, inventory, emptyText, renderItem) {
-  const section = element("section", undefined, "integration-group"), heading = element("h2", title);
+function svgIcon(name, className = "icon") {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"), use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  svg.setAttribute("class", className);
+  svg.setAttribute("aria-hidden", "true");
+  use.setAttribute("href", "#i-" + name);
+  svg.append(use);
+  return svg;
+}
+function integrationIcon(name, muted = false) {
+  const text = typeof name === "string" ? name.trim() : "", lower = text.toLowerCase();
+  const match = integrationIcons.find(([, pattern]) => pattern.test(lower));
+  const node = element("span", undefined, "integration-icon" + (muted ? " muted" : ""));
+  node.setAttribute("aria-hidden", "true");
+  if (match) {
+    node.classList.add("icon-" + match[0]);
+    node.append(svgIcon(match[0]));
+  } else {
+    let hash = 0;
+    for (const char of lower) hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+    node.classList.add("monogram", "tone-" + hash % 6);
+    node.textContent = Array.from(text)[0]?.toLocaleUpperCase("uk-UA") || "#";
+  }
+  return node;
+}
+function toolsText(value) {
+  return Number.isInteger(value) && value >= 0 ? count(value) + " " + toolWords[new Intl.PluralRules("uk-UA").select(value)] : "Інструменти не визначено";
+}
+function serverNeedsLogin(server) { return server.auth_status === "notLoggedIn" || server.runtime_status === "authenticationRequired"; }
+function serverAttention(server) { return server.runtime_status === "failed" || serverNeedsLogin(server) || ["uncertain", "expired"].includes(server.login_state); }
+function appStatus(app) { return !app.enabled ? ["Вимкнено", ""] : app.callable ? ["Працює", "good"] : ["Обмежено", "warning"]; }
+function pluginStatus(plugin) { return plugin.status === "enabled" ? ["Увімкнено", "good"] : [plugin.status === "unknown" ? "Не визначено" : "Вимкнено", ""]; }
+function serverStatus(server) {
+  if (server.runtime_status === "failed") return ["Помилка", "bad"];
+  if (serverNeedsLogin(server)) return ["Потрібен вхід", "warning"];
+  if (server.runtime_status === "connected") return ["Підключено", "good"];
+  return [server.runtime_status ? label(runtimeLabels, server.runtime_status) : "Стан невідомий", ""];
+}
+function inventoryGroup(title, inventory, emptyText, renderItem, summary) {
+  const section = element("section", undefined, "integration-group"), heading = element("div", undefined, "integration-group-heading");
+  heading.append(element("h2", title));
   section.append(heading);
   if (!inventory || inventory.available !== true || !Array.isArray(inventory.items)) {
     section.append(element("p", "Дані недоступні. Натисни «Оновити», щоб перевірити доступність.", "inventory-empty"));
   } else {
-    heading.append(" ", element("span", count(inventory.items.length) + (inventory.complete === false ? "+" : ""), "group-count"));
+    if (inventory.items.length) heading.append(element("p", summary[0] + ": " + count(inventory.items.filter(summary[1]).length) + " з " + count(inventory.items.length) + (inventory.complete === false ? "+" : "")));
     if (inventory.complete === false) section.append(element("p", "Список неповний: частину даних не вдалося отримати. Натисни «Оновити», щоб перевірити повний список.", "item-description warning"));
     if (!inventory.items.length) section.append(element("p", inventory.complete === false ? "Повний список недоступний." : emptyText, "inventory-empty"));
     else {
-      const list = element("ul", undefined, "item-list");
+      const list = element("ul", undefined, "integration-list");
       for (const item of inventory.items) list.append(renderItem(item));
       section.append(list);
     }
   }
   return section;
 }
-function integrationItem(name) {
-  const item = element("li", undefined, "item");
-  item.append(element("h3", name || "Назву не повідомлено"));
-  return item;
+function integrationText(name, subtitle, tone = "") {
+  const text = element("span", undefined, "integration-text");
+  text.append(element("span", name || "Назву не повідомлено", "integration-name"), element("span", subtitle, "integration-subtitle" + (tone ? " " + tone : "")));
+  return text;
+}
+function integrationItem(value, subtitle, status, muted = false) {
+  const item = element("li"), details = element("details", undefined, "integration"), summary = element("summary", undefined, "integration-row");
+  const badge = element("span", status[0], "badge" + (status[1] ? " " + status[1] : "")), body = element("div", undefined, "integration-details");
+  summary.append(integrationIcon(value.name, muted), integrationText(value.name, subtitle), badge, svgIcon("chevron", "icon chevron"));
+  details.dataset.integration = value.id;
+  details.open = openIntegrations.has(value.id);
+  details.addEventListener("toggle", () => { if (details.open) openIntegrations.add(value.id); else openIntegrations.delete(value.id); });
+  details.append(summary, body);
+  item.append(details);
+  return {item, body};
 }
 function renderApp(app) {
-  const item = integrationItem(app.name), facts = element("dl", undefined, "inventory-facts");
+  const {item, body} = integrationItem(app, app.callable ? "Можна викликати" : "Виклик недоступний", appStatus(app), !app.enabled);
+  const facts = element("dl", undefined, "integration-facts");
   fact(facts, "Стан", app.enabled ? "Увімкнено" : "Вимкнено");
   fact(facts, "Доступність для Oak", app.callable ? "Можна викликати" : "Виклик недоступний");
-  item.append(facts);
+  body.append(facts);
   if (app.manage_available) {
     const actions = element("div", undefined, "item-actions"), button = element("button", "Налаштування ChatGPT", "quiet");
     button.type = "button"; button.dataset.mutation = "manage";
@@ -751,56 +811,95 @@ function renderApp(app) {
     }));
     actions.append(button);
     if (appLinks.has(app.id)) actions.append(externalLink(appLinks.get(app.id), "Відкрити в ChatGPT"));
-    item.append(actions);
-  } else item.append(element("p", "Зовнішні налаштування цього застосунку зараз недоступні.", "item-description"));
+    body.append(actions);
+  } else body.append(element("p", "Зовнішні налаштування цього застосунку зараз недоступні.", "item-description"));
   return item;
 }
 function renderPlugin(plugin) {
-  const item = integrationItem(plugin.name), facts = element("dl", undefined, "inventory-facts");
+  const restricted = ["disabled_by_admin", "plan_not_eligible", "required_app_unavailable"].includes(plugin.status);
+  const subtitle = restricted ? label(pluginLabels, plugin.status) : "Вхід: " + label(authPolicyLabels, plugin.auth_policy).toLocaleLowerCase("uk-UA");
+  const {item, body} = integrationItem(plugin, subtitle, pluginStatus(plugin), plugin.status !== "enabled");
+  const facts = element("dl", undefined, "integration-facts");
   fact(facts, "Увімкнення", plugin.enabled ? "Увімкнено" : "Вимкнено");
   fact(facts, "Стан", label(pluginLabels, plugin.status));
-  fact(facts, "Запит на вхід", ({ON_INSTALL: "Під час встановлення", ON_USE: "Під час використання", unknown: "Не визначено"})[plugin.auth_policy] || "Не визначено");
-  item.append(facts);
+  fact(facts, "Запит на вхід", label(authPolicyLabels, plugin.auth_policy));
+  body.append(facts);
   return item;
 }
+function serverLogin(server, compact = false) {
+  const actions = element("div", undefined, "item-actions"), button = element("button", compact ? "Увійти" : "Увійти на зовнішній сторінці", compact ? undefined : "quiet");
+  if (compact) button.setAttribute("aria-label", "Увійти в «" + server.name + "» на зовнішній сторінці");
+  button.type = "button"; button.dataset.mutation = "oauth";
+  button.dataset.locked = ["requested", "pending", "uncertain"].includes(server.login_state) || oauthBlocked.has(server.id) ? "true" : "false";
+  button.addEventListener("click", () => mutation("Почати зовнішній вхід?", "Oak запитає посилання для авторизації «" + server.name + "». Після входу повернись у панель і натисни «Оновити», щоб перевірити стан.", "Отримати посилання", async epoch => {
+    oauthBlocked.add(server.id); button.dataset.locked = "true";
+    const result = await api("/api/integrations/servers/" + encodeURIComponent(server.id) + "/oauth", {confirmed: true});
+    if (epoch !== sessionEpoch) return;
+    const url = safeHTTPS(result.url);
+    if (!url || result.state !== "pending") throw new Error("Безпечне посилання не отримано.");
+    oauthLinks.set(server.id, url);
+    server.login_state = "pending";
+    renderIntegrations(integrationData);
+    message("notice", "Посилання для входу готове. Відкрий сторінку входу, а потім повернись і натисни «Оновити». Авторизацію ще не підтверджено.");
+  }));
+  actions.append(button);
+  if (oauthLinks.has(server.id)) actions.append(externalLink(oauthLinks.get(server.id), "Відкрити сторінку входу"));
+  return actions;
+}
 function renderServer(server) {
-  const item = integrationItem(server.name), facts = element("dl", undefined, "inventory-facts");
+  const {item, body} = integrationItem(server, server.login_state ? label(loginLabels, server.login_state) : toolsText(server.tool_count), serverStatus(server), server.runtime_status === "disabled");
+  const facts = element("dl", undefined, "integration-facts");
   fact(facts, "Авторизація", label(authLabels, server.auth_status));
   fact(facts, "Стан у середовищі", server.runtime_status === null ? "Не повідомлено" : label(runtimeLabels, server.runtime_status));
   fact(facts, "Інструментів", Number.isInteger(server.tool_count) && server.tool_count >= 0 ? count(server.tool_count) : "Не визначено");
-  item.append(facts);
-  if (server.login_state) item.append(element("p", label(loginLabels, server.login_state), "item-description" + (["uncertain", "expired"].includes(server.login_state) ? " warning" : "")));
+  body.append(facts);
+  if (server.login_state) body.append(element("p", label(loginLabels, server.login_state), "item-description" + (["uncertain", "expired"].includes(server.login_state) ? " warning" : "")));
   if (server.oauth_available) {
-    const actions = element("div", undefined, "item-actions"), button = element("button", "Увійти на зовнішній сторінці", "quiet");
-    button.type = "button"; button.dataset.mutation = "oauth";
-    button.dataset.locked = ["requested", "pending", "uncertain"].includes(server.login_state) || oauthBlocked.has(server.id) ? "true" : "false";
-    button.addEventListener("click", () => mutation("Почати зовнішній вхід?", "Oak запитає посилання для авторизації «" + server.name + "». Після входу повернись у панель і натисни «Оновити», щоб перевірити стан.", "Отримати посилання", async epoch => {
-      oauthBlocked.add(server.id); button.dataset.locked = "true";
-      const result = await api("/api/integrations/servers/" + encodeURIComponent(server.id) + "/oauth", {confirmed: true});
-      if (epoch !== sessionEpoch) return;
-      const url = safeHTTPS(result.url);
-      if (!url || result.state !== "pending") throw new Error("Безпечне посилання не отримано.");
-      oauthLinks.set(server.id, url);
-      server.login_state = "pending";
-      renderIntegrations(integrationData);
-      message("notice", "Посилання для входу готове. Відкрий сторінку входу, а потім повернись і натисни «Оновити». Авторизацію ще не підтверджено.");
-    }));
-    actions.append(button);
-    if (oauthLinks.has(server.id)) actions.append(externalLink(oauthLinks.get(server.id), "Відкрити сторінку входу"));
-    item.append(actions);
-    if (["requested", "pending", "uncertain"].includes(server.login_state) && !oauthLinks.has(server.id)) item.append(element("p", "Перевір стан входу через «Оновити». Новий запит автоматично не надсилаємо.", "item-description"));
-  } else item.append(element("p", server.oauth_reason || "Зовнішній вхід для цього підключення недоступний.", "item-description"));
+    body.append(serverLogin(server));
+    if (["requested", "pending", "uncertain"].includes(server.login_state) && !oauthLinks.has(server.id)) body.append(element("p", "Перевір стан входу через «Оновити». Новий запит автоматично не надсилаємо.", "item-description"));
+  } else body.append(element("p", server.oauth_reason || "Зовнішній вхід для цього підключення недоступний.", "item-description"));
   return item;
+}
+function attentionGroup(servers) {
+  const pending = servers.filter(serverAttention);
+  if (!pending.length) return null;
+  const section = element("section", undefined, "integration-attention"), heading = element("h2"), list = element("ul", undefined, "attention-list");
+  heading.id = "integrations-attention";
+  section.setAttribute("aria-labelledby", heading.id);
+  heading.append(svgIcon("alert"), element("span", "Потребує уваги"), element("span", count(pending.length), "group-count"));
+  for (const server of pending) {
+    const row = element("li", undefined, "integration-row"), [, tone] = serverStatus(server);
+    const reason = server.login_state ? label(loginLabels, server.login_state) : server.runtime_status === "failed" ? "Сервер не запустився" : "Без входу інструменти недоступні";
+    row.append(integrationIcon(server.name), integrationText(server.name, reason, tone));
+    if (server.oauth_available) row.append(serverLogin(server, true));
+    else {
+      const button = element("button", "Деталі", "quiet");
+      button.type = "button";
+      button.setAttribute("aria-label", "Деталі «" + (server.name || "Назву не повідомлено") + "»");
+      button.addEventListener("click", () => {
+        const target = Array.from($("integrations-content").querySelectorAll("details[data-integration]")).find(node => node.dataset.integration === server.id);
+        if (!target) return;
+        target.open = true;
+        target.querySelector("summary").focus();
+      });
+      row.append(button);
+    }
+    list.append(row);
+  }
+  section.append(heading, list);
+  return section;
 }
 function renderIntegrations(value) {
   if (!value || typeof value !== "object") throw new Error("Не вдалося прочитати інтеграції. Натисни «Оновити».");
   integrationData = value;
   $("integration-scope").textContent = value.scope === "telegram" ? "Можливості сесії «" + selectedName() + "»" : "Інтеграції середовища Oak. Доступність у вибраній темі перевір у Telegram.";
-  $("integrations-content").replaceChildren(
-    inventoryGroup("Застосунки", value.apps, "Застосунків немає.", renderApp),
-    inventoryGroup("Плагіни", value.plugins, "Плагінів немає.", renderPlugin),
-    inventoryGroup("Сервери інструментів", value.servers, "Серверів інструментів немає.", renderServer)
-  );
+  const servers = value.servers?.available === true && Array.isArray(value.servers.items) ? value.servers.items : [];
+  $("integrations-content").replaceChildren(...[
+    attentionGroup(servers),
+    inventoryGroup("Застосунки", value.apps, "Застосунків немає.", renderApp, ["Працюють", app => app.enabled && app.callable]),
+    inventoryGroup("Плагіни", value.plugins, "Плагінів немає.", renderPlugin, ["Увімкнено", plugin => plugin.status === "enabled"]),
+    inventoryGroup("Сервери інструментів", value.servers, "Серверів інструментів немає.", renderServer, ["Підключено", server => server.runtime_status === "connected"])
+  ].filter(Boolean));
   message("integrations-status", "");
   updateActions();
 }
