@@ -1,4 +1,4 @@
-"""Authenticated web/Mini App front door for the shared Oak event stream."""
+"""Owner-authenticated Oak control panel and compatibility event endpoints."""
 
 import asyncio
 import hashlib
@@ -50,6 +50,11 @@ class WebGateway:
                 id TEXT PRIMARY KEY, owner INTEGER, chat_id INTEGER UNIQUE, title TEXT);
         ''')
         self.db.commit()
+        if 'source' not in {r[1] for r in self.db.execute('PRAGMA table_info(web_sessions)')}:
+            self.db.execute("ALTER TABLE web_sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'telegram'")
+            self.db.commit()
+        from .panel import ControlPanel
+        self.controls = ControlPanel(self)
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -66,6 +71,12 @@ class WebGateway:
             web.get('/', self.static), web.get('/app.js', self.static), web.get('/style.css', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
+            web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
+            web.post('/api/computer', self.computer),
+            web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
+            web.get('/api/integrations', self.integrations),
+            web.post('/api/integrations/apps/{id}/manage', self.manage_app),
+            web.post('/api/integrations/servers/{id}/oauth', self.oauth),
             web.get('/api/conversations', self.conversations), web.post('/api/conversations', self.conversations),
             web.get('/api/events', self.events), web.get('/api/stream', self.stream),
             web.post('/api/input', self.input), web.post('/api/stop', self.stop),
@@ -107,6 +118,13 @@ class WebGateway:
         if not row:
             raise web.HTTPNotFound(text='Conversation not found.')
         return row[0]
+
+    def session_source(self, request):
+        authorization = request.headers.get('Authorization', '')
+        cookie = authorization[7:] if authorization.startswith('Bearer ') else request.cookies.get('oak_session', '')
+        row = self.db.execute('SELECT source FROM web_sessions WHERE hash=?',
+                              (hashlib.sha256(cookie.encode()).hexdigest(),)).fetchone()
+        return row[0] if row else None
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}[request.path]
@@ -156,7 +174,8 @@ class WebGateway:
         cookie = secrets.token_urlsafe(32)
         with self.db:
             self.db.execute('DELETE FROM web_sessions WHERE expires<?', (time.time(),))
-            self.db.execute('INSERT INTO web_sessions VALUES (?,?,?)', (hashlib.sha256(cookie.encode()).hexdigest(), owner, time.time() + 3600))
+            self.db.execute('INSERT INTO web_sessions(hash,owner,expires,source) VALUES (?,?,?,?)',
+                (hashlib.sha256(cookie.encode()).hexdigest(), owner, time.time() + 3600, 'telegram' if data.get('initData') else 'browser'))
         response = web.json_response({'ok': True, 'access_token': cookie})
         secure = request.secure or (self.public_url.startswith('https://') and request.host == urlsplit(self.public_url).netloc)
         response.set_cookie('oak_session', cookie, max_age=3600, httponly=True, secure=secure, samesite='None' if secure else 'Strict')
@@ -165,6 +184,48 @@ class WebGateway:
     async def bootstrap(self, request):
         self.owner(request)
         return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak'})
+
+    async def panel(self, request):
+        return web.json_response(self.controls.summary(self.owner(request)))
+
+    async def computer(self, request):
+        owner = await self.confirmed_owner(request)
+        data = await request.json()
+        if type(data.get('enabled')) is not bool:
+            raise web.HTTPBadRequest(text='Увімкнення потребує логічного значення.')
+        if self.controller.tools is None:
+            raise web.HTTPServiceUnavailable(text='Керування комп’ютером недоступне.')
+        return web.json_response(await self.controller.tools.set_computer_enabled(owner, data['enabled']))
+
+    async def tasks(self, request):
+        return web.json_response(self.controls.tasks(self.owner(request)))
+
+    async def task(self, request):
+        return web.json_response(self.controls.tasks(self.owner(request), request.match_info['id']))
+
+    async def confirmed_owner(self, request):
+        owner = self.owner(request)
+        data = await request.json()
+        if not isinstance(data, dict) or data.get('confirmed') is not True:
+            raise web.HTTPBadRequest(text='Потрібне явне підтвердження власника.')
+        return owner
+
+    async def cancel_task(self, request):
+        owner = await self.confirmed_owner(request)
+        task = self.controls.tasks(owner, request.match_info['id'])['task']
+        cancelled = self.controller.scheduler.cancel(owner, task['id'])
+        return web.json_response({'cancelled': cancelled, 'active_turn_unchanged': True})
+
+    async def integrations(self, request):
+        return web.json_response(await self.controls.inventory(request, self.owner(request)))
+
+    async def manage_app(self, request):
+        owner = await self.confirmed_owner(request)
+        return web.json_response(await self.controls.manage(owner, request.match_info['id']))
+
+    async def oauth(self, request):
+        owner = await self.confirmed_owner(request)
+        return web.json_response(await self.controls.login(request, owner, request.match_info['id']))
 
     async def conversations(self, request):
         owner = self.owner(request)

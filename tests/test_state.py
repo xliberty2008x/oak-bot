@@ -37,7 +37,7 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
     async def test_desktop_remains_owned_until_the_active_turn_finishes(self):
         from oak.tools import Tools
         with tempfile.TemporaryDirectory() as folder:
-            controller = SimpleNamespace(cwd=folder, active={7: 'first', 8: 'second'})
+            controller = SimpleNamespace(cwd=folder, db=self.db, active={7: 'first', 8: 'second'})
             tools = Tools(controller, {'computer': {'enabled': True, 'display': ':99'}})
             tools.computer.run = AsyncMock(return_value={})
             await tools.execute(7, 'oak_computer', {'action': 'screenshot'}, {'turnId': 'first'})
@@ -46,6 +46,34 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
             controller.active.pop(7)
             await tools.execute(8, 'oak_computer', {'action': 'screenshot'}, {'turnId': 'second'})
             self.assertEqual(tools.computer.run.await_count, 2)
+
+    async def test_desktop_switch_cancels_input_and_persists_owner_permission(self):
+        from oak.tools import Tools
+        with tempfile.TemporaryDirectory() as folder:
+            controller = SimpleNamespace(cwd=folder, db=self.db, active={7: 'first'}, stop=AsyncMock())
+            config = {'computer': {'enabled': True, 'display': ':99'}}
+            tools = Tools(controller, config)
+            running = asyncio.Event()
+
+            async def action(**args):
+                running.set()
+                await asyncio.Event().wait()
+
+            tools.computer.run = action
+            task = asyncio.create_task(tools.execute(7, 'oak_computer', {'action': 'type'}, {'turnId': 'first'}))
+            await running.wait()
+            self.assertFalse((await tools.set_computer_enabled(7, False))['enabled'])
+            self.assertTrue(task.cancelled())
+            controller.stop.assert_awaited_once_with(7)
+            reopened = Tools(controller, config)
+            self.assertFalse(reopened.computer_status(7)['enabled'])
+            self.assertTrue(reopened.computer_status(8)['enabled'])
+            self.db.execute('CREATE TABLE web_conversations (chat_id INTEGER, owner INTEGER)')
+            self.db.execute('INSERT INTO web_conversations VALUES (-10,7)')
+            self.assertFalse(reopened.computer_status(-10)['enabled'])
+            with self.assertRaises(ValueError):
+                await reopened.execute(7, 'oak_computer', {'action': 'click'}, {'turnId': 'first'})
+            self.assertTrue((await reopened.set_computer_enabled(7, True))['enabled'])
 
     async def test_desktop_rejects_invalid_coordinates_before_sending_input(self):
         from oak.computer import ComputerTools

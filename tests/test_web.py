@@ -7,10 +7,12 @@ import unittest
 from unittest.mock import AsyncMock
 from urllib.parse import urlencode
 
-from aiohttp.test_utils import TestClient, TestServer
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from oak.bus import EventBus
 from oak.controller import Controller
+from oak.panel import https_url
 from oak.tools import Tools
 from oak.web import WebGateway, telegram_owner
 
@@ -118,6 +120,158 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         response = await client.get(value['url'], headers=bearer)
         self.assertEqual(response.status, 200)
         self.client.request.assert_not_awaited()
+
+    async def test_panel_redacts_content_and_scopes_task_controls_to_owner(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        request = make_mocked_request('GET', '/api/panel', headers={'Authorization': 'Bearer unit-session'})
+        mine = self.controller.scheduler.add(11, 'PRIVATE_TASK', delay_seconds=60)
+        other = self.controller.scheduler.add(22, 'OTHER_TASK', delay_seconds=60)
+        self.controller.memory.remember(11, 'PRIVATE_MEMORY')
+        self.controller.memory.remember(22, 'OTHER_MEMORY')
+        self.controller.instructions = 'PRIVATE_INSTRUCTIONS'
+        panel = json.loads((await gateway.panel(request)).body)
+        self.assertEqual(panel['memory']['count'], 1)
+        self.assertFalse(panel['session']['initialized'])
+        self.assertEqual(panel['settings']['model'], 'gpt-6.1-sol')
+        tasks = json.loads((await gateway.tasks(request)).body)['tasks']
+        self.assertEqual([task['id'] for task in tasks], [mine])
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO turns VALUES (?,?,?,?)', ('scheduled-run', 'unit-thread', 11, 'failed'))
+            self.controller.db.execute('UPDATE jobs SET turn_id=? WHERE id=?', ('scheduled-run', mine))
+        await self.bus.emit(11, {'type': 'RUN_STARTED', 'runId': 'scheduled-run'})
+        await self.bus.emit(11, {'type': 'RUN_ERROR', 'runId': 'scheduled-run', 'message': 'PRIVATE_PROVIDER_ERROR'})
+        request._match_info['id'] = mine
+        detail = json.loads((await gateway.task(request)).body)
+        self.assertEqual(detail['task']['turn_status'], 'failed')
+        self.assertEqual([e['type'] for e in detail['timeline']], ['RUN_STARTED', 'RUN_ERROR'])
+        self.assertNotIn('PRIVATE_PROVIDER_ERROR', json.dumps(detail))
+        for secret in ('PRIVATE_TASK', 'PRIVATE_MEMORY', 'PRIVATE_INSTRUCTIONS', 'OTHER_TASK', 'OTHER_MEMORY'):
+            self.assertNotIn(secret, json.dumps([panel, tasks]))
+        request._match_info['id'] = other
+        request.json = AsyncMock(return_value={'confirmed': True})
+        with self.assertRaises(web.HTTPNotFound):
+            await gateway.cancel_task(request)
+        request._match_info['id'] = mine
+        request.json.return_value = {'confirmed': False}
+        with self.assertRaises(web.HTTPBadRequest):
+            await gateway.cancel_task(request)
+        self.assertEqual(self.controller.scheduler.list(11)[0]['status'], 'pending')
+        request.json.return_value = {'confirmed': True}
+        result = json.loads((await gateway.cancel_task(request)).body)
+        self.assertTrue(result['cancelled'])
+        self.assertEqual(self.controller.scheduler.list(22)[0]['id'], other)
+        with self.assertRaises(web.HTTPUnauthorized):
+            await gateway.panel(make_mocked_request('GET', '/api/panel'))
+
+    async def test_computer_switch_requires_owner_origin_confirmation_and_boolean(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        client = TestClient(TestServer(gateway.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        headers = {'Authorization': 'Bearer unit-session'}
+        response = await client.post('/api/computer', json={'enabled': False, 'confirmed': True})
+        self.assertEqual(response.status, 401)
+        response = await client.get('/api/panel', headers=headers)
+        self.assertEqual((await response.json())['computer'], {'configured': False, 'enabled': False, 'busy': False})
+        response = await client.post('/api/computer', headers=headers, json={'enabled': True, 'confirmed': True})
+        self.assertEqual(response.status, 400)
+        self.controller.tools.computer = object()  # Configure the contract without operating a desktop.
+        for value in (None, 'false', 0, 1):
+            response = await client.post('/api/computer', headers=headers, json={'enabled': value, 'confirmed': True})
+            self.assertEqual(response.status, 400)
+        response = await client.post('/api/computer', headers=headers, json={'enabled': False})
+        self.assertEqual(response.status, 400)
+        response = await client.post('/api/computer', headers={**headers, 'Origin': 'https://other.example'},
+                                     json={'enabled': False, 'confirmed': True})
+        self.assertEqual(response.status, 403)
+        self.assertTrue(self.controller.tools.computer_status(11)['enabled'])
+        for enabled in (False, True):
+            response = await client.post('/api/computer', headers=headers,
+                                         json={'enabled': enabled, 'confirmed': True, 'owner': 22})
+            self.assertEqual(response.status, 200)
+            self.assertEqual((await response.json())['enabled'], enabled)
+            response = await client.get('/api/panel', headers=headers)
+            self.assertEqual((await response.json())['computer']['enabled'], enabled)
+            self.assertTrue(self.controller.tools.computer_status(22)['enabled'])
+        self.client.request.assert_not_awaited()
+
+    async def test_runtime_inventory_and_oauth_are_real_scoped_and_conservative(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
+        request = make_mocked_request('POST', '/api/integrations', headers={'Authorization': 'Bearer unit-session'})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        self.controller.threads[11] = 'loaded-owner-thread'
+        self.controller.loaded.add('loaded-owner-thread')
+        calls = []
+
+        async def rpc(method, params):
+            calls.append((method, params))
+            if method == 'app/installed':
+                return {'apps': [{'id': 'app-one', 'runtimeName': 'Calendar', 'enabled': True, 'callable': False}]}
+            if method == 'app/read':
+                return {'apps': [{'id': 'app-one', 'name': 'Calendar', 'installUrl': 'https://chatgpt.com/apps/calendar',
+                    'description': 'PRIVATE_DESCRIPTION', 'pluginDisplayNames': [], 'toolSummaries': []}], 'missingAppIds': []}
+            if method == 'plugin/installed':
+                return {'marketplaces': [{'name': 'catalog', 'plugins': [{'id': 'p-one', 'name': 'Calendar plugin',
+                    'installed': True, 'enabled': True, 'authPolicy': 'ON_USE', 'availability': 'DISABLED_BY_ADMIN',
+                    'disabledReason': None}]}], 'marketplaceLoadErrors': []}
+            if method == 'mcpServerStatus/list':
+                return {'data': [{'name': 'calendar', 'authStatus': 'notLoggedIn', 'runtimeStatus': 'authenticationRequired',
+                    'tools': {}, 'resources': [], 'resourceTemplates': [], 'toolsError': 'PRIVATE_ERROR'}], 'nextCursor': None}
+            if method == 'mcpServer/oauth/login':
+                return {'authorizationUrl': 'https://provider.example/authorize?state=synthetic&redirect_uri=https%3A%2F%2Fpanel.example%2Fcallback'}
+            raise AssertionError(method)
+
+        self.client.request.side_effect = rpc
+        inventory = json.loads((await gateway.integrations(request)).body)
+        self.assertFalse(inventory['apps']['items'][0]['callable'])
+        self.assertEqual(inventory['plugins']['items'][0]['status'], 'disabled_by_admin')
+        self.assertNotIn('PRIVATE_', json.dumps(inventory))
+        server = inventory['servers']['items'][0]
+        self.assertEqual(server['runtime_status'], 'authenticationRequired')
+        self.assertIsNone(server['tool_count'])
+        self.assertFalse(server['oauth_available'])  # Telegram/mobile callback has not been configured.
+        request._match_info['id'] = server['id']
+        request.json = AsyncMock(return_value={'confirmed': True})
+        with self.assertRaises(web.HTTPConflict):
+            await gateway.oauth(request)
+        self.assertFalse(any(method == 'mcpServer/oauth/login' for method, _ in calls))
+        self.controller.config['runtime_config'] = {'mcp_oauth_callback_url': 'https://panel.example/callback'}
+        with self.assertRaises(web.HTTPConflict):
+            await gateway.oauth(request)  # A URL alone cannot establish a working callback listener.
+        self.controller.config['runtime_config']['mcp_oauth_callback_port'] = 5555
+        gateway.config['oauth_callback_ready'] = True
+        started = json.loads((await gateway.oauth(request)).body)
+        self.assertEqual(started['state'], 'pending')
+        self.assertTrue(started['url'].startswith('https://provider.example/'))
+        with self.assertRaises(web.HTTPConflict):
+            await gateway.oauth(request)
+        self.assertEqual(sum(method == 'mcpServer/oauth/login' for method, _ in calls), 1)
+        self.assertTrue(all(params.get('threadId') == 'loaded-owner-thread' for method, params in calls if method != 'plugin/installed'))
+        saved = [dict(row) for row in self.controller.db.execute('SELECT * FROM panel_oauth')]
+        self.assertNotIn('provider.example', json.dumps(saved))
+        self.assertNotIn('synthetic', json.dumps(saved))
+
+    def test_connection_urls_reject_credentials_and_unreachable_redirects(self):
+        self.assertEqual(https_url('https://chatgpt.com/apps/calendar', native=True), 'https://chatgpt.com/apps/calendar')
+        for url in ('javascript:alert(1)', 'https://chatgpt.com.evil.example/apps',
+                    'https://user:secret@chatgpt.com/apps', 'https://chatgpt.com/apps?access_token=secret'):
+            self.assertIsNone(https_url(url, native=True))
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {'oauth_callback_ready': True})
+        self.controller.config['runtime_config'] = {'mcp_oauth_callback_url': 'https://panel.example/callback',
+                                                    'mcp_oauth_callback_port': 5555}
+        request = make_mocked_request('POST', '/api/integrations')
+        for redirect in ('http://127.0.0.1:5555/callback', 'https://other.example/callback', 'https://panel.example/wrong'):
+            self.assertFalse(gateway.controls.valid_redirect(request, 11, 'https://provider.example/auth?' + urlencode({'redirect_uri': redirect})))
+        self.assertTrue(gateway.controls.valid_redirect(request, 11, 'https://provider.example/auth?' +
+                         urlencode({'redirect_uri': 'https://panel.example/callback/server-id'})))
 
 
 if __name__ == '__main__':
