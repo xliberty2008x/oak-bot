@@ -4,6 +4,9 @@ const $ = id => document.getElementById(id);
 let sessionToken = "", sessionEpoch = 0, authenticated = false, refreshing = false, mutationBusy = false, telegramLaunch = false;
 let panelData = null, integrationData = null, timezone = "", stopRequestState = "";
 let computerChanging = false;
+let selectedSession = "telegram", sessionsData = null;
+let initialConversation = new URLSearchParams(location.search).get("conversation");
+const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
 const turnLabels = {inProgress: "Виконується", running: "Виконується", completed: "Завершено", interrupted: "Перервано", failed: "Помилка виконання", uncertain: "Результат невідомий"};
@@ -65,6 +68,157 @@ function intervalText(value) {
   return "Кожні " + value + " с";
 }
 
+function selectedName() {
+  return sessionsData?.sessions.find(session => session.id === selectedSession)?.name || (selectedSession === "telegram" ? "Загальна" : "Вибрана тема");
+}
+function renderSelectedSession() {
+  const name = selectedName();
+  $("selected-session").textContent = "Сесія: " + name;
+  $("selected-session").title = name;
+  $("selected-session").hidden = !authenticated;
+  $("status-context").textContent = "Сесія «" + name + "» у Telegram";
+  $("tasks-timezone").textContent = "Задачі сесії «" + name + "»" + (timezone ? ". Часовий пояс: " + timezone : "");
+  $("integration-scope").textContent = integrationData ? integrationData.scope === "telegram" ? "Можливості сесії «" + name + "»" : "Інтеграції середовища Oak. Доступність у вибраній темі перевір у Telegram." : "Можливості сесії «" + name + "»";
+}
+function topicKey(kind, session, name) {
+  return kind === "create" ? "create:" + name : "rename:" + session.id;
+}
+function renderTopicCapability() {
+  const enabled = sessionsData?.topics_enabled === true;
+  $("create-topic").disabled = mutationBusy || refreshing || !enabled || topicBlocked.has(topicKey("create", null, $("topic-name").value.trim()));
+  $("topic-name").disabled = mutationBusy || !enabled;
+  $("topic-capability").textContent = !sessionsData ? "Підтримку тем не вдалося перевірити. Натисни «Оновити»." : !enabled ? "Створення тем недоступне. Власник бота має увімкнути теми в приватних чатах через BotFather; після цього натисни «Оновити»." : sessionsData.users_can_create_topics === false ? "Oak може створити тему. Створення тем самим користувачем у Telegram вимкнено в налаштуваннях бота." : "Тема з’явиться в Telegram. Перейменування змінить її назву і тут, і в Telegram.";
+}
+function renderSessions(value) {
+  if (!value || !Array.isArray(value.sessions) || !value.sessions.some(session => session.id === "telegram")) throw new Error("Не вдалося прочитати сесії.");
+  sessionsData = value;
+  const focused = document.activeElement?.dataset.session;
+  const list = $("sessions-list");
+  list.replaceChildren();
+  for (const session of value.sessions) {
+    if (typeof session.name !== "string" || (session.id !== "telegram" && !/^topic:[1-9][0-9]*$/.test(session.id))) continue;
+    const selected = session.id === selectedSession;
+    const item = element("li", undefined, "item session-item" + (selected ? " selected" : ""));
+    const heading = element("div", undefined, "item-heading");
+    heading.append(element("h3", session.name));
+    if (session.closed) heading.append(element("span", "Тему закрито", "badge warning"));
+    else if (selected) heading.append(element("span", "Вибрана", "badge good"));
+    const state = session.awaiting_confirmation > 0 ? "Чекає на підтвердження" : session.active ? "Oak працює" : session.initialized ? "Очікує повідомлення" : "Розмову ще не розпочато";
+    item.append(heading, element("p", state, "item-description"));
+    const facts = element("dl", undefined, "inventory-facts");
+    fact(facts, "Записів пам’яті", count(session.memory_count));
+    fact(facts, "Задач", count(session.task_count));
+    if (session.awaiting_confirmation > 0) fact(facts, "Підтверджень", count(session.awaiting_confirmation));
+    item.append(facts);
+    const actions = element("div", undefined, "item-actions"), button = element("button", selected ? "Вибрано для перегляду" : "Переглянути сесію", "quiet");
+    button.type = "button";
+    button.dataset.session = session.id;
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-label", "Переглянути сесію «" + session.name + "»");
+    button.addEventListener("click", () => { void selectSession(session.id); });
+    actions.append(button); item.append(actions);
+    if (session.id !== "telegram") {
+      const details = element("details", undefined, "topic-rename"), form = element("form", undefined, "topic-form");
+      const input = element("input"), inputId = "rename-" + session.id.slice(6);
+      input.id = inputId; input.value = session.name; input.maxLength = 128; input.required = true; input.autocomplete = "off"; input.pattern = ".*\\S.*";
+      const inputLabel = element("label", "Нова назва теми"); inputLabel.htmlFor = inputId;
+      const row = element("div", undefined, "topic-form-row"), save = element("button", "Зберегти назву", "quiet");
+      save.type = "submit"; save.dataset.mutation = "rename";
+      save.dataset.locked = topicBlocked.has(topicKey("rename", session)) ? "true" : "false";
+      row.append(input, save); form.append(inputLabel, row);
+      if (save.dataset.locked === "true") form.append(element("p", "Результат перейменування невідомий. Онови список і перевір назву теми в Telegram. Повторний запит заблоковано до перевірки оператором.", "item-description warning"));
+      form.addEventListener("submit", event => { event.preventDefault(); void changeTopic("rename", session, input.value); });
+      details.append(element("summary", "Перейменувати тему"), form); item.append(details);
+    }
+    list.append(item);
+  }
+  message("sessions-status", "");
+  renderSelectedSession();
+  updateActions();
+  if (focused) Array.from(document.querySelectorAll("[data-session]")).find(button => button.dataset.session === focused)?.focus({preventScroll: true});
+}
+async function loadSessions(epoch) {
+  try {
+    const value = await api("/api/sessions");
+    if (epoch !== sessionEpoch) return false;
+    if (initialConversation !== null && Array.isArray(value.sessions)) {
+      const found = value.sessions.some(session => session.id === initialConversation && (session.id === "telegram" || /^topic:[1-9][0-9]*$/.test(session.id)));
+      selectedSession = found ? initialConversation : "telegram";
+      if (!found) message("notice", "Сесію з посилання не знайдено. Показуємо сесію «Загальна».", true);
+      initialConversation = null;
+    }
+    renderSessions(value);
+    return true;
+  } catch {
+    if (epoch === sessionEpoch) {
+      sessionsData = null;
+      $("sessions-list").replaceChildren();
+      message("sessions-status", "Список сесій недоступний. Натисни «Оновити».", true);
+      updateActions();
+    }
+    return false;
+  }
+}
+async function selectSession(id) {
+  if (id === selectedSession || mutationBusy || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
+  sessionEpoch++;
+  initialConversation = null;
+  selectedSession = id;
+  refreshing = false;
+  panelData = integrationData = null;
+  stopRequestState = "";
+  appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
+  $("session-state").textContent = "Перевіряємо стан…";
+  $("session-description").textContent = "Завантажуємо дані вибраної сесії.";
+  $("session-indicator").className = "status-dot";
+  for (const name of ["confirmations", "uncertain-inputs", "memory-count"]) $(name).textContent = "—";
+  $("tasks-list").replaceChildren();
+  $("integrations-content").replaceChildren();
+  $("settings-list").replaceChildren();
+  message("tasks-status", "Завантажуємо задачі вибраної сесії…");
+  message("integrations-status", "Завантажуємо інтеграції вибраної сесії…");
+  message("panel-error", ""); message("notice", "");
+  renderSessions(sessionsData);
+  await refresh();
+}
+async function changeTopic(kind, session, rawName) {
+  const name = rawName.trim(), epoch = sessionEpoch;
+  if (mutationBusy || refreshing || $("workspace").hidden || (kind === "create" && sessionsData?.topics_enabled !== true)) return;
+  if (!name || Array.from(name).length > 128) { message("topic-operation", "Вкажи назву від 1 до 128 символів.", true); message("notice", "Вкажи назву від 1 до 128 символів.", true); return; }
+  const key = topicKey(kind, session, name);
+  if (topicBlocked.has(key)) return;
+  const creating = kind === "create";
+  if (!await confirmAction(creating ? "Створити тему в Telegram?" : "Перейменувати тему в Telegram?", creating ? "Oak створить тему «" + name + "» з окремим контекстом, пам’яттю та задачами." : "Назва теми «" + session.name + "» зміниться на «" + name + "» у Telegram і панелі Oak.", creating ? "Створити тему" : "Зберегти назву") || epoch !== sessionEpoch || $("workspace").hidden) return;
+  mutationBusy = true;
+  updateActions();
+  let dispatched = false;
+  try {
+    const operationId = crypto.randomUUID();
+    topicBlocked.add(key);
+    dispatched = true;
+    const value = await api(creating ? "/api/sessions" : "/api/sessions/" + encodeURIComponent(session.id) + "/rename", {confirmed: true, name, operation_id: operationId});
+    if (epoch !== sessionEpoch) return;
+    if (!value.session || (creating && value.state !== "created")) throw new Error("Результат не підтверджено.");
+    topicBlocked.delete(key);
+    if (creating) $("topic-name").value = "";
+    message("topic-operation", "");
+    message("notice", creating ? "Тему створено в Telegram. Обери її в списку, щоб переглянути стан." : "Назву теми змінено в Telegram.");
+    await loadSessions(epoch);
+  } catch (error) {
+    if (epoch === sessionEpoch) {
+      if (!dispatched || [400, 401, 403, 404, 422].includes(error.status)) topicBlocked.delete(key);
+      const uncertain = topicBlocked.has(key);
+      const text = uncertain ? "Результат зміни невідомий. Онови список і перевір тему в Telegram. Цей запит не повторюємо; для нової спроби з цією темою потрібна перевірка оператором." : "Зміну не прийнято. Перевір назву, доступність тем і натисни «Оновити».";
+      message("topic-operation", text, true);
+      message("notice", text, true);
+      if (sessionsData) renderSessions(sessionsData);
+    }
+  } finally {
+    if (epoch === sessionEpoch) mutationBusy = false;
+    updateActions();
+  }
+}
+
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   sessionEpoch++;
   sessionToken = "";
@@ -76,6 +230,12 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
   stopRequestState = "";
   computerChanging = false;
+  selectedSession = "telegram";
+  sessionsData = null;
+  topicBlocked.clear();
+  $("sessions-list").replaceChildren();
+  $("topic-name").value = "";
+  renderSelectedSession();
   renderComputer(null);
   $("workspace").hidden = true;
   $("login").hidden = false;
@@ -88,7 +248,13 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
 
 async function api(path, data) {
   const epoch = sessionEpoch, controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), path === "/api/integrations" ? 90000 : 15000);
+  const endpoint = path.split("?")[0];
+  if (/^\/api\/(?:panel|tasks(?:\/.*)?|integrations(?:\/.*)?|stop)$/.test(endpoint)) {
+    const url = new URL(path, location.origin);
+    url.searchParams.set("conversation", selectedSession);
+    path = url.pathname + url.search;
+  }
+  const timeout = setTimeout(() => controller.abort(), endpoint === "/api/integrations" ? 90000 : 15000);
   const headers = sessionToken ? {Authorization: "Bearer " + sessionToken} : {};
   const options = {credentials: "same-origin", headers, signal: controller.signal};
   if (data !== undefined) {
@@ -120,6 +286,8 @@ function updateActions() {
   for (const button of document.querySelectorAll("[data-mutation]")) button.disabled = mutationBusy || refreshing || button.dataset.locked === "true";
   $("stop").disabled = mutationBusy || refreshing || !panelData?.session?.active || !!stopRequestState;
   $("computer-switch").disabled = mutationBusy || refreshing || $("computer-switch").dataset.locked !== "false";
+  for (const button of document.querySelectorAll("[data-session]")) button.disabled = mutationBusy || button.dataset.session === selectedSession;
+  renderTopicCapability();
 }
 function confirmAction(title, description, action, danger = false) {
   return new Promise(resolve => {
@@ -135,7 +303,8 @@ function confirmAction(title, description, action, danger = false) {
 }
 async function mutation(title, description, action, work, danger = false) {
   if (mutationBusy || refreshing || $("workspace").hidden) return;
-  if (!await confirmAction(title, description, action, danger) || $("workspace").hidden) return;
+  const requestedEpoch = sessionEpoch;
+  if (!await confirmAction(title, description, action, danger) || requestedEpoch !== sessionEpoch || $("workspace").hidden) return;
   mutationBusy = true;
   updateActions();
   const epoch = sessionEpoch;
@@ -155,7 +324,7 @@ function renderComputer(value) {
   button.dataset.locked = configured ? "false" : "true";
   if (known) button.setAttribute("aria-checked", configured && value.enabled ? "true" : "false");
   $("computer-switch-state").textContent = computerChanging ? "Змінюємо…" : !known ? "Недоступно" : !configured ? "Не налаштовано" : value.enabled ? "Увімкнено" : "Вимкнено";
-  $("computer-status").textContent = computerChanging ? "Змінюємо доступ. Новий стан ще не підтверджено." : !known ? "Стан доступу недоступний. Натисни «Оновити»." : !configured ? "Керування комп’ютером не налаштовано на сервері Oak." : !value.enabled ? "Oak не має дозволу керувати комп’ютером у твоїй розмові." : value.busy ? "Доступ увімкнено. Комп’ютер зараз використовується." : "Доступ увімкнено для твоєї розмови в Telegram.";
+  $("computer-status").textContent = computerChanging ? "Змінюємо доступ. Новий стан ще не підтверджено." : !known ? "Стан доступу недоступний. Натисни «Оновити»." : !configured ? "Керування комп’ютером не налаштовано на сервері Oak." : !value.enabled ? "Oak не має дозволу керувати комп’ютером у твоїх сесіях." : value.busy ? "Доступ увімкнено. Комп’ютер зараз використовується." : "Доступ увімкнено для всіх твоїх сесій у Telegram.";
 }
 
 async function toggleComputer() {
@@ -189,6 +358,7 @@ function renderPanel(value) {
   if (!value || !value.session || !value.settings) throw new Error("Не вдалося прочитати стан Oak. Натисни «Оновити».");
   panelData = value;
   authenticated = true;
+  renderSelectedSession();
   timezone = typeof value.settings.timezone === "string" ? value.settings.timezone : "";
   const session = value.session;
   if (!session.active) stopRequestState = "";
@@ -199,7 +369,7 @@ function renderPanel(value) {
     indicator = "waiting";
   } else if (session.awaiting_confirmation > 0) {
     title = "Чекає на підтвердження";
-    description = "Відповідай на запити Oak у поточній розмові в Telegram.";
+    description = "Відповідай на запити Oak у вибраній темі в Telegram.";
     indicator = "waiting";
   } else if (session.active) {
     title = "Oak працює";
@@ -211,7 +381,7 @@ function renderPanel(value) {
     indicator = "waiting";
   } else {
     title = session.initialized ? "Очікує повідомлення" : "Розмову ще не розпочато";
-    description = session.initialized ? "Поточна розмова в Telegram готова до наступного повідомлення." : "Напиши Oak у Telegram, щоб почати розмову.";
+    description = session.initialized ? "Вибрана тема в Telegram готова до наступного повідомлення." : "Напиши Oak у вибраній темі Telegram, щоб почати розмову.";
   }
   if (session.turn_status && !stopRequestState) description += " Останнє виконання: " + label(turnLabels, session.turn_status).toLocaleLowerCase("uk-UA") + ".";
   $("session-state").textContent = title;
@@ -268,7 +438,7 @@ function taskHistory(task) {
 function renderTasks(value) {
   if (!value || !Array.isArray(value.tasks)) throw new Error("Не вдалося прочитати задачі. Натисни «Оновити».");
   if (typeof value.timezone === "string") timezone = value.timezone;
-  $("tasks-timezone").textContent = "Нагадування та запланована робота Oak" + (timezone ? ". Часовий пояс: " + timezone : "");
+  $("tasks-timezone").textContent = "Задачі сесії «" + selectedName() + "»" + (timezone ? ". Часовий пояс: " + timezone : "");
   const list = $("tasks-list");
   list.replaceChildren();
   message("tasks-status", value.tasks.length ? "" : "Задач у розкладі поки немає. Створи нагадування або заплануй роботу в Telegram.");
@@ -385,7 +555,7 @@ function renderServer(server) {
 function renderIntegrations(value) {
   if (!value || typeof value !== "object") throw new Error("Не вдалося прочитати інтеграції. Натисни «Оновити».");
   integrationData = value;
-  $("integration-scope").textContent = value.scope === "telegram" ? "Можливості поточної розмови в Telegram" : "Інтеграції середовища Oak. Доступність у розмові перевір у Telegram.";
+  $("integration-scope").textContent = value.scope === "telegram" ? "Можливості сесії «" + selectedName() + "»" : "Інтеграції середовища Oak. Доступність у вибраній темі перевір у Telegram.";
   $("integrations-content").replaceChildren(
     inventoryGroup("Застосунки", value.apps, "Застосунків немає.", renderApp),
     inventoryGroup("Плагіни", value.plugins, "Плагінів немає.", renderPlugin),
@@ -458,6 +628,8 @@ async function refresh() {
   $("workspace").setAttribute("aria-busy", "true");
   updateActions();
   try {
+    const sessionsOK = await loadSessions(epoch);
+    if (epoch !== sessionEpoch) return;
     const panelOK = await loadPanel(epoch);
     if (epoch !== sessionEpoch) return;
     if (!panelOK && !authenticated) {
@@ -469,7 +641,7 @@ async function refresh() {
     message("error", "");
     const results = await Promise.allSettled([loadTasks(epoch), loadIntegrations(epoch)]);
     if (epoch !== sessionEpoch) return;
-    const complete = panelOK && results.every(result => result.status === "fulfilled" && result.value);
+    const complete = sessionsOK && panelOK && results.every(result => result.status === "fulfilled" && result.value);
     $("connection").textContent = complete ? "На зв’язку" : "Не всі дані доступні";
     $("last-refresh").textContent = (complete ? "Оновлено о " : "Остання спроба о ") + new Intl.DateTimeFormat("uk-UA", {hour: "2-digit", minute: "2-digit", second: "2-digit"}).format(new Date());
   } finally {
@@ -488,14 +660,17 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
     else navButton.removeAttribute("aria-current");
   }
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== "view-" + view;
+  button.scrollIntoView({block: "nearest", inline: "nearest"});
   $(view + "-heading").focus({preventScroll: true});
 });
+$("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
+$("topic-name").addEventListener("input", renderTopicCapability);
 $("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
-$("stop").addEventListener("click", () => mutation("Зупинити поточну роботу Oak?", "Запит стосується поточної розмови в Telegram. Уже виконані зовнішні дії залишаться виконаними. Заплановані задачі потрібно скасовувати окремо.", "Запитати зупинку", async epoch => {
+$("stop").addEventListener("click", () => mutation("Зупинити поточну роботу Oak?", "Запит стосується вибраної сесії «" + selectedName() + "». Уже виконані зовнішні дії залишаться виконаними. Заплановані задачі потрібно скасовувати окремо.", "Запитати зупинку", async epoch => {
   stopRequestState = "uncertain";
-  const result = await api("/api/stop", {conversation: "telegram"});
+  const result = await api("/api/stop", {conversation: selectedSession});
   if (epoch !== sessionEpoch) return;
   if (result.status === "requested") {
     stopRequestState = "requested";

@@ -72,6 +72,8 @@ class WebGateway:
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
+            web.get('/api/sessions', self.topic_sessions), web.post('/api/sessions', self.create_topic),
+            web.post('/api/sessions/{id}/rename', self.rename_topic),
             web.post('/api/computer', self.computer),
             web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
             web.get('/api/integrations', self.integrations),
@@ -114,6 +116,11 @@ class WebGateway:
         identifier = identifier or request.query.get('conversation', 'telegram')
         if identifier == 'telegram':
             return owner
+        if isinstance(identifier, str) and identifier.startswith('topic:'):
+            scope = self.controller.sessions.lookup(owner, identifier)
+            if scope is None:
+                raise web.HTTPNotFound(text='Сесію не знайдено.')
+            return scope
         row = self.db.execute('SELECT chat_id FROM web_conversations WHERE id=? AND owner=?', (identifier, owner)).fetchone()
         if not row:
             raise web.HTTPNotFound(text='Conversation not found.')
@@ -186,7 +193,19 @@ class WebGateway:
         return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak'})
 
     async def panel(self, request):
-        return web.json_response(self.controls.summary(self.owner(request)))
+        owner = self.owner(request)
+        return web.json_response(self.controls.summary(self.conversation(request, owner)))
+
+    async def topic_sessions(self, request):
+        return web.json_response(await self.controls.sessions(self.owner(request)))
+
+    async def create_topic(self, request):
+        owner = await self.confirmed_owner(request)
+        return web.json_response(await self.controls.topic_action(owner, await request.json()))
+
+    async def rename_topic(self, request):
+        owner = await self.confirmed_owner(request)
+        return web.json_response(await self.controls.topic_action(owner, await request.json(), request.match_info['id']))
 
     async def computer(self, request):
         owner = await self.confirmed_owner(request)
@@ -198,10 +217,12 @@ class WebGateway:
         return web.json_response(await self.controller.tools.set_computer_enabled(owner, data['enabled']))
 
     async def tasks(self, request):
-        return web.json_response(self.controls.tasks(self.owner(request)))
+        owner = self.owner(request)
+        return web.json_response(self.controls.tasks(self.conversation(request, owner)))
 
     async def task(self, request):
-        return web.json_response(self.controls.tasks(self.owner(request), request.match_info['id']))
+        owner = self.owner(request)
+        return web.json_response(self.controls.tasks(self.conversation(request, owner), request.match_info['id']))
 
     async def confirmed_owner(self, request):
         owner = self.owner(request)
@@ -212,20 +233,22 @@ class WebGateway:
 
     async def cancel_task(self, request):
         owner = await self.confirmed_owner(request)
-        task = self.controls.tasks(owner, request.match_info['id'])['task']
-        cancelled = self.controller.scheduler.cancel(owner, task['id'])
+        scope = self.conversation(request, owner)
+        task = self.controls.tasks(scope, request.match_info['id'])['task']
+        cancelled = self.controller.scheduler.cancel(scope, task['id'])
         return web.json_response({'cancelled': cancelled, 'active_turn_unchanged': True})
 
     async def integrations(self, request):
-        return web.json_response(await self.controls.inventory(request, self.owner(request)))
+        owner = self.owner(request)
+        return web.json_response(await self.controls.inventory(request, owner, self.conversation(request, owner)))
 
     async def manage_app(self, request):
         owner = await self.confirmed_owner(request)
-        return web.json_response(await self.controls.manage(owner, request.match_info['id']))
+        return web.json_response(await self.controls.manage(owner, request.match_info['id'], self.conversation(request, owner)))
 
     async def oauth(self, request):
         owner = await self.confirmed_owner(request)
-        return web.json_response(await self.controls.login(request, owner, request.match_info['id']))
+        return web.json_response(await self.controls.login(request, owner, request.match_info['id'], self.conversation(request, owner)))
 
     async def conversations(self, request):
         owner = self.owner(request)
@@ -234,6 +257,8 @@ class WebGateway:
             title = str(data.get('title') or 'Нова розмова').strip()[:100]
             identifier = uuid.uuid4().hex
             chat = -secrets.randbelow(2**60) - 1
+            while self.controller.sessions._occupied(chat):
+                chat = -secrets.randbelow(2**60) - 1
             with self.db:
                 self.db.execute('INSERT INTO web_conversations VALUES (?,?,?,?)', (identifier, owner, chat, title))
             return web.json_response({'id': identifier, 'title': title})
@@ -332,7 +357,8 @@ class WebGateway:
         if not row:
             raise web.HTTPNotFound()
         chat = row[0]
-        if chat != owner and not self.db.execute('SELECT 1 FROM web_conversations WHERE chat_id=? AND owner=?', (chat, owner)).fetchone():
+        if (chat != owner and self.controller.sessions.owner(chat) != owner
+                and not self.db.execute('SELECT 1 FROM web_conversations WHERE chat_id=? AND owner=?', (chat, owner)).fetchone()):
             raise web.HTTPNotFound()
         path = self.bus.artifact_path(chat, identifier)
         response = web.FileResponse(path, headers={'Content-Type': row[1]})
