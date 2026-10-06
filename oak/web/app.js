@@ -67,6 +67,29 @@ function intervalText(value) {
   if (value % 60 === 0) return "Кожні " + value / 60 + " хв.";
   return "Кожні " + value + " с";
 }
+function relativeText(seconds) {
+  const diff = seconds - Date.now() / 1000;
+  if (!Number.isFinite(diff)) return "";
+  const format = new Intl.RelativeTimeFormat("uk-UA", {numeric: "auto"}), size = Math.abs(diff);
+  return size < 3600 ? format.format(Math.round(diff / 60), "minute") : size < 86400 ? format.format(Math.round(diff / 3600), "hour") : format.format(Math.round(diff / 86400), "day");
+}
+function renderTaskSummary(tasks) {
+  const active = Array.isArray(tasks) ? tasks.filter(task => ["pending", "running"].includes(task.status)) : null;
+  $("task-count").textContent = active ? count(active.length) : "—";
+  const next = active?.filter(task => task.status === "pending" && typeof task.due === "number" && Number.isFinite(task.due)).sort((a, b) => a.due - b.due)[0];
+  if (!next) {
+    $("next-task").textContent = active ? "Немає запусків" : "—";
+    $("next-task-meta").textContent = active ? "Створи нагадування або задачу в Telegram" : "Задачі ще не завантажено";
+    return;
+  }
+  $("next-task").replaceChildren(dateNode(next.due));
+  $("next-task-meta").textContent = [next.mode === "remind" ? "Нагадування" : "Задача Oak", intervalText(next.interval), relativeText(next.due)].filter(Boolean).join(" · ");
+}
+function setAttention(id, active) { $(id).parentElement.classList.toggle("attention", active); }
+function setConnection(text, state) {
+  $("connection").textContent = text;
+  $("connection").dataset.state = state;
+}
 
 function selectedName() {
   return sessionsData?.sessions.find(session => session.id === selectedSession)?.name || (selectedSession === "telegram" ? "Загальна" : "Вибрана тема");
@@ -100,7 +123,9 @@ function renderSessions(value) {
     const selected = session.id === selectedSession;
     const item = element("li", undefined, "item session-item" + (selected ? " selected" : ""));
     const heading = element("div", undefined, "item-heading");
-    heading.append(element("h3", session.name));
+    const avatar = element("span", Array.from(session.name.trim())[0]?.toLocaleUpperCase("uk-UA") || "#", "avatar");
+    avatar.setAttribute("aria-hidden", "true");
+    heading.append(avatar, element("h3", session.name));
     if (session.closed) heading.append(element("span", "Тему закрито", "badge warning"));
     else if (selected) heading.append(element("span", "Вибрана", "badge good"));
     const state = session.awaiting_confirmation > 0 ? "Чекає на підтвердження" : session.active ? "Oak працює" : session.initialized ? "Очікує повідомлення" : "Розмову ще не розпочато";
@@ -171,7 +196,8 @@ async function selectSession(id) {
   $("session-state").textContent = "Перевіряємо стан…";
   $("session-description").textContent = "Завантажуємо дані вибраної сесії.";
   $("session-indicator").className = "status-dot";
-  for (const name of ["confirmations", "uncertain-inputs", "memory-count"]) $(name).textContent = "—";
+  for (const name of ["confirmations", "uncertain-inputs", "memory-count"]) { $(name).textContent = "—"; setAttention(name, false); }
+  renderTaskSummary(null);
   $("tasks-list").replaceChildren();
   $("integrations-content").replaceChildren();
   $("settings-list").replaceChildren();
@@ -240,7 +266,8 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   $("workspace").hidden = true;
   $("login").hidden = false;
   $("key").value = "";
-  $("connection").textContent = "Потрібен вхід";
+  renderTaskSummary(null);
+  setConnection("Потрібен вхід", "off");
   if ($("confirmation").open) $("confirmation").close("cancel");
   message("error", text, true);
   message("notice", "");
@@ -390,6 +417,8 @@ function renderPanel(value) {
   $("confirmations").textContent = count(session.awaiting_confirmation);
   $("uncertain-inputs").textContent = count(session.uncertain_inputs);
   $("memory-count").textContent = count(value.memory?.count);
+  setAttention("confirmations", session.awaiting_confirmation > 0);
+  setAttention("uncertain-inputs", session.uncertain_inputs > 0);
   const telegramURL = safeHTTPS(value.telegram_url);
   const canClose = telegramLaunch && typeof window.Telegram?.WebApp?.close === "function";
   $("return-telegram").hidden = !canClose;
@@ -444,6 +473,7 @@ function renderTasks(value) {
   message("tasks-status", value.tasks.length ? "" : "Задач у розкладі поки немає. Створи нагадування або заплануй роботу в Telegram.");
   for (const task of value.tasks) {
     const item = element("li", undefined, "item"), heading = element("div", undefined, "item-heading");
+    if (Object.hasOwn(taskLabels, task.status)) item.dataset.status = task.status;
     const tone = task.status === "uncertain" ? "warning" : task.status === "running" || task.status === "pending" ? "good" : "";
     heading.append(element("h3", task.mode === "remind" ? "Нагадування" : "Задача Oak"), element("span", label(taskLabels, task.status), "badge " + tone));
     const meta = element("p", undefined, "item-meta");
@@ -466,15 +496,17 @@ function renderTasks(value) {
     item.append(taskHistory(task));
     list.append(item);
   }
+  renderTaskSummary(value.tasks);
   updateActions();
 }
 
 function inventoryGroup(title, inventory, emptyText, renderItem) {
-  const section = element("section", undefined, "integration-group");
-  section.append(element("h2", title));
+  const section = element("section", undefined, "integration-group"), heading = element("h2", title);
+  section.append(heading);
   if (!inventory || inventory.available !== true || !Array.isArray(inventory.items)) {
     section.append(element("p", "Дані недоступні. Натисни «Оновити», щоб перевірити доступність.", "inventory-empty"));
   } else {
+    heading.append(" ", element("span", count(inventory.items.length) + (inventory.complete === false ? "+" : ""), "group-count"));
     if (inventory.complete === false) section.append(element("p", "Список неповний: частину даних не вдалося отримати. Натисни «Оновити», щоб перевірити повний список.", "item-description warning"));
     if (!inventory.items.length) section.append(element("p", inventory.complete === false ? "Повний список недоступний." : emptyText, "inventory-empty"));
     else {
@@ -577,7 +609,7 @@ async function loadPanel(epoch) {
       $("session-state").textContent = "Стан недоступний";
       $("session-description").textContent = "Не вдалося перевірити поточну розмову. Натисни «Оновити».";
       $("session-indicator").className = "status-dot";
-      for (const id of ["confirmations", "uncertain-inputs", "memory-count"]) $(id).textContent = "—";
+      for (const id of ["confirmations", "uncertain-inputs", "memory-count"]) { $(id).textContent = "—"; setAttention(id, false); }
       $("settings-list").replaceChildren();
       fact($("settings-list"), "Стан", "Дані недоступні. Натисни «Оновити».");
       renderComputer(null);
@@ -597,6 +629,7 @@ async function loadTasks(epoch) {
   } catch {
     if (epoch === sessionEpoch) {
       $("tasks-list").replaceChildren();
+      renderTaskSummary(null);
       message("tasks-status", "Задачі недоступні. Перевір з’єднання та натисни «Оновити».", true);
     }
     return false;
@@ -624,7 +657,7 @@ async function refresh() {
   if (refreshing || mutationBusy) return;
   refreshing = true;
   const epoch = sessionEpoch;
-  $("connection").textContent = "Оновлюємо…";
+  setConnection("Оновлюємо…", "busy");
   $("workspace").setAttribute("aria-busy", "true");
   updateActions();
   try {
@@ -642,7 +675,7 @@ async function refresh() {
     const results = await Promise.allSettled([loadTasks(epoch), loadIntegrations(epoch)]);
     if (epoch !== sessionEpoch) return;
     const complete = sessionsOK && panelOK && results.every(result => result.status === "fulfilled" && result.value);
-    $("connection").textContent = complete ? "На зв’язку" : "Не всі дані доступні";
+    setConnection(complete ? "На зв’язку" : "Не всі дані доступні", complete ? "ok" : "partial");
     $("last-refresh").textContent = (complete ? "Оновлено о " : "Остання спроба о ") + new Intl.DateTimeFormat("uk-UA", {hour: "2-digit", minute: "2-digit", second: "2-digit"}).format(new Date());
   } finally {
     if (epoch === sessionEpoch) {
@@ -660,7 +693,7 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
     else navButton.removeAttribute("aria-current");
   }
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== "view-" + view;
-  button.scrollIntoView({block: "nearest", inline: "nearest"});
+  window.scrollTo({top: 0});
   $(view + "-heading").focus({preventScroll: true});
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
@@ -697,6 +730,7 @@ $("login").addEventListener("submit", async event => {
 
 function telegramReady() {
   try { window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); } catch {}
+  try { window.Telegram?.WebApp?.setHeaderColor?.("#050a08"); window.Telegram?.WebApp?.setBackgroundColor?.("#050a08"); } catch {}
 }
 $("telegram-sdk").addEventListener("load", telegramReady);
 (async () => {
