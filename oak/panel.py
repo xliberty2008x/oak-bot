@@ -110,7 +110,11 @@ class ControlPanel:
                 raise web.HTTPConflict(text='Ідентифікатор уже використано для іншої дії.')
             if existing['state'] == 'created':
                 row = next((s for s in self.session_rows(owner) if s['id'] == existing['session']), None)
+                if row is None:
+                    raise web.HTTPNotFound(text='Тему вже видалено. Можна створити нову.')
                 return {'session': row, 'state': 'created'}
+            if existing['state'] == 'failed':
+                raise web.HTTPUnprocessableEntity(text='Telegram відхилив попередню дію. Можна повторити запит.')
             raise web.HTTPConflict(text='Стан попередньої дії не підтверджено. Перевір теми в Telegram перед новою спробою.')
         if not capabilities or capabilities['topics_enabled'] is not True:
             raise web.HTTPConflict(text='Threaded mode не підтверджено. Перевір налаштування @BotFather та онови панель.')
@@ -133,6 +137,8 @@ class ControlPanel:
                 session_id = 'topic:' + str(topic_id)
             else:
                 destination = self.controller.sessions.destination(scope)
+                if destination is None:
+                    raise TelegramError('editForumTopic', 400, reason='topic_missing')
                 result = await telegram._api('editForumTopic', {**destination, 'name': name}, timeout=10, rate_limit_attempts=1)
                 if result is not True:
                     raise TelegramError('editForumTopic')
@@ -143,10 +149,38 @@ class ControlPanel:
                 self.db.execute('UPDATE panel_topic_operations SET state=? WHERE owner=? AND operation=?', (state, owner, operation))
             if isinstance(exc, asyncio.CancelledError):
                 raise
+            if exc.reason == 'topic_missing' and scope is not None:
+                await self.controller.retire_topic(scope)
+                raise web.HTTPNotFound(text='Telegram підтвердив, що тему видалено. Список сесій оновлено.') from None
+            if not exc.uncertain:
+                raise web.HTTPUnprocessableEntity(text='Telegram відхилив дію. Онови список тем і спробуй ще раз.') from None
             raise web.HTTPServiceUnavailable(text='Результат дії не підтверджено. Перевір теми в Telegram; автоматичного повтору немає.') from None
         with self.db:
             self.db.execute("UPDATE panel_topic_operations SET state='created',session=? WHERE owner=? AND operation=?", (session_id, owner, operation))
-        return {'session': next(s for s in self.session_rows(owner) if s['id'] == session_id), 'state': 'created'}
+        row = next((s for s in self.session_rows(owner) if s['id'] == session_id), None)
+        if row is None:
+            raise web.HTTPNotFound(text='Тему вже видалено. Онови список сесій.')
+        return {'session': row, 'state': 'created'}
+
+    async def delete_topic(self, owner, session_id):
+        scope = self.controller.sessions.lookup(owner, session_id)
+        if scope is None or scope == owner:
+            raise web.HTTPNotFound(text='Тему не знайдено.')
+        destination = self.controller.sessions.destination(scope)
+        telegram = getattr(self.controller, 'telegram', None)
+        if telegram is None:
+            raise web.HTTPServiceUnavailable(text='Telegram недоступний.')
+        try:
+            result = await telegram._api('deleteForumTopic', destination, timeout=10, rate_limit_attempts=1)
+            if result is not True:
+                raise TelegramError('deleteForumTopic')
+        except TelegramError as exc:
+            if exc.reason != 'topic_missing':
+                if exc.uncertain:
+                    raise web.HTTPServiceUnavailable(text='Видалення не підтверджено. Онови панель і повтори видалення; нову тему ця дія не створює.') from None
+                raise web.HTTPUnprocessableEntity(text='Telegram відхилив видалення. Сесію збережено; можна спробувати ще раз.') from None
+        await self.controller.retire_topic(scope)
+        return {'id': session_id, 'state': 'deleted'}
 
     def summary(self, owner):
         c = self.controller

@@ -268,6 +268,8 @@ class Controller:
 
     async def submit(self, chat_id, text, update_id, attachments=None, idle_only=False):
         """Durably accept text; returns after dispatch, without awaiting generation."""
+        if self.sessions.deleted(chat_id):
+            return False
         attachments = attachments or []
         if not text.strip() and not attachments:
             return False
@@ -291,6 +293,9 @@ class Controller:
             self._status(update_id, 'cancelled')
             raise
         try:
+            if self.sessions.deleted(chat_id):
+                self._status(update_id, 'cancelled')
+                return False
             if idle_only and chat_id in self.active:
                 return False
             with self.db:
@@ -496,6 +501,24 @@ class Controller:
                     if delay is None:
                         return 'not_active'
                     await asyncio.sleep(delay)
+
+    async def retire_topic(self, chat_id):
+        self.sessions.delete(chat_id)
+        if not self.sessions.deleted(chat_id):
+            raise ValueError('Only topic sessions can be deleted.')
+        with self.db:
+            self.db.execute("UPDATE jobs SET status='cancelled' WHERE chat_id=? AND status IN ('pending','running','uncertain')", (chat_id,))
+            self.db.execute("UPDATE inputs SET status='cancelled' WHERE chat_id=? AND status='pending'", (chat_id,))
+        for row in self.db.execute("SELECT DISTINCT thread_id,turn_id FROM interactions WHERE chat_id=? AND status='pending'", (chat_id,)).fetchall():
+            self.interactions.cancel_turn(*row)
+        telegram = getattr(self, 'telegram', None)
+        if telegram is not None:
+            await telegram.discard_topic(chat_id)
+        try:
+            await asyncio.wait_for(self.stop(chat_id), 5)
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
+            with self.db:
+                self.db.execute("UPDATE turns SET status='uncertain' WHERE chat_id=? AND status='inProgress'", (chat_id,))
 
     async def new(self, chat_id):
         async with self._lock(chat_id):

@@ -5,7 +5,7 @@ let sessionToken = "", sessionEpoch = 0, authenticated = false, refreshing = fal
 let panelData = null, integrationData = null, timezone = "", stopRequestState = "";
 let modelsData = null, lastModel = "", modelsUnavailable = false, draftEffort = null, lastEffort = null, draftTurbo = null, lastTurbo = null;
 let computerChanging = false;
-let selectedSession = "telegram", sessionsData = null;
+let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 let initialConversation = new URLSearchParams(location.search).get("conversation");
 const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set();
@@ -282,6 +282,11 @@ function renderSessions(value) {
     button.addEventListener("click", () => { void selectSession(session.id); });
     actions.append(button); item.append(actions);
     if (session.id !== "telegram") {
+      const remove = element("button", "Видалити тему", "danger");
+      remove.type = "button"; remove.dataset.mutation = "delete-topic";
+      remove.setAttribute("aria-label", "Видалити тему «" + session.name + "»");
+      remove.addEventListener("click", () => { void deleteTopic(session); });
+      actions.append(remove);
       const details = element("details", undefined, "topic-rename"), form = element("form", undefined, "topic-form");
       const input = element("input"), inputId = "rename-" + session.id.slice(6);
       input.id = inputId; input.value = session.name; input.maxLength = 128; input.required = true; input.autocomplete = "off"; input.pattern = ".*\\S.*";
@@ -301,19 +306,25 @@ function renderSessions(value) {
   updateActions();
   if (focused) Array.from(document.querySelectorAll("[data-session]")).find(button => button.dataset.session === focused)?.focus({preventScroll: true});
 }
-async function loadSessions(epoch) {
+async function loadSessions(epoch, background = false) {
   try {
     const value = await api("/api/sessions");
-    if (epoch !== sessionEpoch) return false;
+    if (epoch !== sessionEpoch || (background && sessionRefreshBlocked())) return false;
     if (initialConversation !== null && Array.isArray(value.sessions)) {
       const found = value.sessions.some(session => session.id === initialConversation && (session.id === "telegram" || /^topic:[1-9][0-9]*$/.test(session.id)));
       selectedSession = found ? initialConversation : "telegram";
       if (!found) message("notice", "Сесію з посилання не знайдено. Показуємо сесію «Загальна».", true);
       initialConversation = null;
     }
+    if (Array.isArray(value.sessions) && value.sessions.some(session => session.id === "telegram") && !value.sessions.some(session => session.id === selectedSession)) {
+      selectedSession = "telegram";
+      resetSessionView();
+      message("notice", "Вибрану тему видалено. Показуємо сесію «Загальна».");
+    }
     renderSessions(value);
     return true;
   } catch {
+    if (background) return false;
     if (epoch === sessionEpoch) {
       sessionsData = null;
       $("sessions-list").replaceChildren();
@@ -323,12 +334,29 @@ async function loadSessions(epoch) {
     return false;
   }
 }
+function sessionRefreshBlocked() {
+  return !authenticated || document.hidden || $("workspace").hidden || refreshing || mutationBusy || computerChanging || $("confirmation").open || document.activeElement?.closest(".topic-form, #create-session") || document.querySelector(".topic-rename[open]");
+}
+async function syncSessions() {
+  if (syncingSessions || sessionRefreshBlocked()) return;
+  syncingSessions = true;
+  const epoch = sessionEpoch, previousSession = selectedSession;
+  try {
+    await loadSessions(epoch, true);
+    if (epoch === sessionEpoch && previousSession !== selectedSession) await refresh();
+  } finally { syncingSessions = false; }
+}
 async function selectSession(id) {
   if (id === selectedSession || mutationBusy || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
   sessionEpoch++;
   initialConversation = null;
   selectedSession = id;
   refreshing = false;
+  resetSessionView();
+  renderSessions(sessionsData);
+  await refresh();
+}
+function resetSessionView() {
   panelData = integrationData = null;
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
@@ -345,8 +373,6 @@ async function selectSession(id) {
   message("tasks-status", "Завантажуємо задачі вибраної сесії…");
   message("integrations-status", "Завантажуємо інтеграції вибраної сесії…");
   message("panel-error", ""); message("notice", "");
-  renderSessions(sessionsData);
-  await refresh();
 }
 async function changeTopic(kind, session, rawName) {
   const name = rawName.trim(), epoch = sessionEpoch;
@@ -358,7 +384,7 @@ async function changeTopic(kind, session, rawName) {
   if (!await confirmAction(creating ? "Створити тему в Telegram?" : "Перейменувати тему в Telegram?", creating ? "Oak створить тему «" + name + "» з окремим контекстом, пам’яттю та задачами." : "Назва теми «" + session.name + "» зміниться на «" + name + "» у Telegram і панелі Oak.", creating ? "Створити тему" : "Зберегти назву") || epoch !== sessionEpoch || $("workspace").hidden) return;
   mutationBusy = true;
   updateActions();
-  let dispatched = false;
+  let dispatched = false, removed = false;
   try {
     const operationId = crypto.randomUUID();
     topicBlocked.add(key);
@@ -370,10 +396,13 @@ async function changeTopic(kind, session, rawName) {
     if (creating) $("topic-name").value = "";
     message("topic-operation", "");
     message("notice", creating ? "Тему створено в Telegram. Обери її в списку, щоб переглянути стан." : "Назву теми змінено в Telegram.");
+    const previousSession = selectedSession;
     await loadSessions(epoch);
+    removed = selectedSession !== previousSession;
   } catch (error) {
     if (epoch === sessionEpoch) {
-      if (!dispatched || [400, 401, 403, 404, 422].includes(error.status)) topicBlocked.delete(key);
+      if (!dispatched || (error.status >= 400 && error.status < 500 && ![408, 409, 429].includes(error.status))) topicBlocked.delete(key);
+      removed = error.status === 404;
       const uncertain = topicBlocked.has(key);
       const text = uncertain ? "Результат зміни невідомий. Онови список і перевір тему в Telegram. Цей запит не повторюємо; для нової спроби з цією темою потрібна перевірка оператором." : "Зміну не прийнято. Перевір назву, доступність тем і натисни «Оновити».";
       message("topic-operation", text, true);
@@ -384,6 +413,33 @@ async function changeTopic(kind, session, rawName) {
     if (epoch === sessionEpoch) mutationBusy = false;
     updateActions();
   }
+  if (removed && epoch === sessionEpoch) await refresh();
+}
+async function deleteTopic(session) {
+  const epoch = sessionEpoch;
+  if (session.id === "telegram" || mutationBusy || refreshing || $("workspace").hidden) return;
+  if (!await confirmAction("Видалити тему «" + session.name + "»?", "Тема та її повідомлення будуть видалені з Telegram, а сесія зникне з панелі Oak. Цю дію неможливо скасувати.", "Видалити тему", true) || epoch !== sessionEpoch || $("workspace").hidden) return;
+  mutationBusy = true;
+  updateActions();
+  let deleted = false;
+  try {
+    const value = await api("/api/sessions/" + encodeURIComponent(session.id) + "/delete", {confirmed: true});
+    if (epoch !== sessionEpoch) return;
+    if (value?.state !== "deleted" || value.id !== session.id) throw new Error("Видалення не підтверджено.");
+    deleted = true;
+  } catch (error) {
+    if (epoch !== sessionEpoch) return;
+    deleted = error.status === 404;
+    if (!deleted) message("notice", error.status === 409 ? "Тему зараз не можна видалити. Онови стан сесії та повтори спробу після завершення її роботи." : error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status) ? "Видалення відхилено. Онови список і перевір доступ до теми в Telegram." : "Відповідь на видалення не отримано. Онови список і перевір тему в Telegram перед новою спробою.", true);
+  } finally {
+    if (epoch === sessionEpoch) mutationBusy = false;
+    updateActions();
+  }
+  if (epoch !== sessionEpoch || !deleted) return;
+  topicBlocked.delete(topicKey("rename", session));
+  topicBlocked.delete(topicKey("create", null, session.name));
+  await refresh();
+  if (epoch === sessionEpoch) message("notice", "Тему видалено з Telegram і панелі Oak.");
 }
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
@@ -848,6 +904,8 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
 $("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); });
+setInterval(() => { void syncSessions(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) void syncSessions(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });

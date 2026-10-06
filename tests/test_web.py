@@ -369,6 +369,44 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.telegram._api.await_count, 4)
         self.client.request.assert_not_awaited()  # Topic metadata does not start native model sessions.
 
+        # Known rejections are retryable; only a confirmed missing topic retires it.
+        self.controller.telegram.discard_topic = AsyncMock()
+        self.controller.telegram._api.side_effect = TelegramError('createForumTopic', 400)
+        rejected = {**action, 'name': 'Інша', 'operation_id': 'synthetic-create-004'}
+        self.assertEqual((await client.post('/api/sessions', headers=headers, json=rejected)).status, 422)
+        self.controller.telegram._api.side_effect = None
+        self.controller.telegram._api.return_value = {'message_thread_id': 43}
+        self.assertEqual((await client.post('/api/sessions', headers=headers,
+            json={**rejected, 'operation_id': 'synthetic-create-005'})).status, 200)
+        pending_job = self.controller.scheduler.add(scope, 'Cancelled on deletion', delay_seconds=60)
+        self.controller.telegram._api.return_value = True
+        for identifier in ('telegram', 'topic:85'):
+            self.assertEqual((await client.post('/api/sessions/' + identifier + '/delete', headers=headers,
+                json={'confirmed': True})).status, 404)
+        self.assertEqual((await client.post('/api/sessions/topic:42/delete', headers=headers,
+            json={'confirmed': False})).status, 400)
+        self.controller.telegram._api.side_effect = TelegramError('deleteForumTopic')
+        self.assertEqual((await client.post('/api/sessions/topic:42/delete', headers=headers,
+            json={'confirmed': True})).status, 503)
+        self.assertEqual(self.controller.sessions.lookup(11, 'topic:42'), scope)
+        self.controller.telegram._api.side_effect = TelegramError('deleteForumTopic', 400, reason='topic_missing')
+        response = await client.post('/api/sessions/topic:42/delete', headers=headers, json={'confirmed': True})
+        self.assertEqual(await response.json(), {'id': 'topic:42', 'state': 'deleted'})
+        self.controller.telegram._api.assert_awaited_with('deleteForumTopic',
+            {'chat_id': 11, 'message_thread_id': 42}, timeout=10, rate_limit_attempts=1)
+        self.assertEqual(self.controller.db.execute('SELECT status FROM jobs WHERE id=?', (pending_job,)).fetchone()[0], 'cancelled')
+        self.assertIsNone(self.controller.sessions.lookup(11, 'topic:42'))
+        self.assertEqual(self.controller.sessions.resolve(11, 42, name='Old replay'), scope)
+        self.assertIsNone(self.controller.sessions.destination(scope))
+        self.assertEqual(self.controller.sessions.owner(scope), 11)
+        self.assertFalse(await self.controller.submit(scope, 'late input', 1234))
+        self.assertEqual(self.controller.scheduler.list(11)[0]['id'], general_job)
+        self.controller.telegram._api.side_effect = None
+        self.controller.telegram._api.return_value = True
+        self.assertEqual((await client.post('/api/sessions/topic:43/delete', headers=headers,
+            json={'confirmed': True})).status, 200)
+        self.assertEqual([s['id'] for s in self.controller.sessions.list(11)], ['telegram'])
+
     async def test_runtime_inventory_and_oauth_are_real_scoped_and_conservative(self):
         gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
         request = make_mocked_request('POST', '/api/integrations?conversation=topic:42', headers={'Authorization': 'Bearer unit-session'})

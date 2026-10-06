@@ -78,6 +78,7 @@ class WebGateway:
             web.get('/api/models', self.models), web.post('/api/models', self.set_model),
             web.get('/api/sessions', self.topic_sessions), web.post('/api/sessions', self.create_topic),
             web.post('/api/sessions/{id}/rename', self.rename_topic),
+            web.post('/api/sessions/{id}/delete', self.delete_topic),
             web.post('/api/computer', self.computer),
             web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
             web.get('/api/integrations', self.integrations),
@@ -245,6 +246,10 @@ class WebGateway:
     async def rename_topic(self, request):
         owner = await self.confirmed_owner(request)
         return web.json_response(await self.controls.topic_action(owner, await request.json(), request.match_info['id']))
+
+    async def delete_topic(self, request):
+        owner = await self.confirmed_owner(request)
+        return web.json_response(await self.controls.delete_topic(owner, request.match_info['id']))
 
     async def computer(self, request):
         owner = await self.confirmed_owner(request)
