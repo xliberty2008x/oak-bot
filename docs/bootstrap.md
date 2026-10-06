@@ -6,6 +6,10 @@ chat and the HTTPS Mini App control panel. The accompanying
 [agent skill](../.agents/skills/oak-bootstrap/SKILL.md) tells an agent how to finish
 the deployment and distinguish installed components from a verified live bot.
 
+The Mini App also includes [manual remote desktop](remote-desktop.md) for
+browser sign-ins, phone touchpad and desktop keyboard/mouse input. Bootstrap
+installs its `x11vnc` dependency; the repository contains the browser client.
+
 ## Starting point and private inputs
 
 Use Ubuntu 24.04 or Debian 12/13 on amd64, a normal user with `sudo`, Git, and

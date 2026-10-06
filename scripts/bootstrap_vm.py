@@ -26,7 +26,7 @@ RUNTIME_VERSION = '0.159.2'
 PACKAGES = ['ca-certificates', 'curl', 'git', 'python3', 'python3-venv', 'python3-pip',
             'nodejs', 'npm', 'ffmpeg', 'fonts-dejavu-core', 'fonts-noto-color-emoji',
             'openssh-client', 'cron', 'xvfb', 'openbox', 'dbus-x11', 'xauth',
-            'xdotool', 'x11-utils', 'x11-xserver-utils', 'xterm', 'tzdata', 'apparmor']
+            'xdotool', 'x11-utils', 'x11-xserver-utils', 'x11vnc', 'xterm', 'tzdata', 'apparmor']
 
 
 def run(args, **kwargs):
@@ -193,10 +193,15 @@ def verify_live(target, config):
             'Origin': origin, 'Authorization': 'Bearer ' + session['access_token']})
         if panel['settings']['auth'] != 'chatgpt' or not panel['computer']['configured']:
             raise RuntimeError('Runtime or computer is unavailable')
+        remote = request_json(origin + '/api/remote', headers={
+            'Origin': origin, 'Authorization': 'Bearer ' + session['access_token']})
+        if remote.get('configured') is not True:
+            raise RuntimeError('Manual remote desktop is unavailable')
     except Exception:
         raise RuntimeError('Public panel verification failed; inspect HTTPS routing and the private log.') from None
     return {'status': 'ready', 'bot': config['telegram_username'], 'public_url': origin,
             'model': ready['model'], 'computer_enabled': panel['computer']['enabled'],
+            'remote_configured': remote['configured'],
             'telegram_client_verified': False}
 
 

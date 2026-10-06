@@ -381,3 +381,74 @@ dialog p { color: var(--muted); font-size: 15px; }
   .effort-progress::-webkit-progress-value { animation: none !important; }
   .effort-progress::-moz-progress-bar { animation: none !important; }
 }
+
+/* Owner's live desktop */
+.remote-console { padding: 20px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: linear-gradient(150deg, rgba(22, 46, 34, .65), rgba(5, 10, 8, .9)); box-shadow: var(--shadow); }
+.remote-toolbar, .remote-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.remote-toolbar { margin-bottom: 12px; }
+.remote-actions button { min-height: 40px; padding: 9px 15px; font-size: 14px; }
+#remote-message { min-height: 24px; margin-bottom: 16px; }
+#remote-message.error-message { color: var(--red); }
+.remote-display { position: relative; height: clamp(210px, 45vw, 470px); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 14px; background: #020604; }
+#remote-screen { width: 100%; height: 100%; }
+#remote-screen canvas { outline: none; }
+#remote-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 25px; text-align: center; color: var(--muted); background: radial-gradient(ellipse at center, rgba(61, 220, 151, .065), transparent 70%); pointer-events: none; }
+#remote-placeholder > .icon { width: 44px; height: 44px; color: var(--accent-2); opacity: .7; }
+#remote-placeholder > p { color: var(--ink); font-size: 16px; font-weight: 600; }
+#remote-placeholder > span { max-width: 34ch; font-size: 13px; }
+.remote-keys { display: flex; gap: 7px; flex-wrap: wrap; margin: 14px 0; }
+.remote-keys button { padding: 8px 12px; font-size: 13px; min-height: 42px; }
+.remote-text { position: fixed; left: 1px; top: 1px; width: 1px; height: 1px; padding: 0; opacity: .01; pointer-events: none; border: 0; font-size: 16px; }
+.remote-touchpad { height: 158px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(61, 220, 151, .25); border-radius: 16px; color: var(--muted); background: radial-gradient(circle at center, rgba(61, 220, 151, .075), transparent 70%), rgba(255, 255, 255, .025); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.remote-pad-mark { font-size: 30px; line-height: 1; color: var(--accent-2); opacity: .6; }
+.remote-touchpad > span:not(.remote-pad-mark) { font-size: 14px; }
+.remote-touchpad small { font-size: 11px; color: var(--faint); }
+.remote-mouse-buttons { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; margin-top: 8px; }
+.remote-mouse-buttons button { padding: 9px 6px; font-size: 12px; min-height: 44px; border-radius: 12px; }
+.remote-console button[aria-pressed="true"] { color: var(--accent-2); background: var(--accent-soft); border-color: var(--accent); }
+.remote-console:fullscreen { display: flex; flex-direction: column; padding: 14px; border: 0; border-radius: 0; background: var(--bg); overflow: auto; }
+.remote-console:fullscreen .remote-display { flex: 1 1 auto; min-height: 160px; }
+.remote-console:fullscreen #remote-message { margin-bottom: 8px; }
+@media (pointer: fine) and (hover: hover) { .remote-touch-controls { display: none; } }
+@media (max-width: 600px) {
+  .remote-console { padding: 12px; border-radius: 18px; }
+  .remote-display { height: clamp(195px, 55vw, 330px); }
+  .remote-actions { gap: 6px; }
+  .remote-toolbar .connection { font-size: 12px; }
+  .remote-keys { gap: 6px; }
+  .remote-keys button { flex: 1 1 auto; padding: 8px 9px; }
+  .remote-console:fullscreen .remote-touchpad { height: 130px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .remote-console:fullscreen #remote-inputs { display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 12px; }
+  .remote-console:fullscreen .remote-touchpad { height: 70px; }
+  .remote-console:fullscreen .remote-touchpad small, .remote-console:fullscreen .remote-pad-mark { display: none; }
+  .remote-console:fullscreen .remote-display { min-height: 100px; }
+}
+/* Keep the live screen and pad together inside mobile WebViews, which may not
+   support the browser Fullscreen API. Visual viewport sizing handles keyboards. */
+@media (max-width: 959px) {
+  body.remote-active { overflow: hidden; }
+  .remote-active .navigation, .remote-active .page-header { visibility: hidden; }
+  .remote-active .remote-console { position: fixed; z-index: 60; inset: var(--remote-top, 0px) 0 auto; height: var(--remote-height, 100dvh); display: flex; flex-direction: column; padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); border: 0; border-radius: 0; background: var(--bg); overflow: auto; }
+  .remote-active .remote-toolbar { flex: 0 0 auto; margin-bottom: 8px; }
+  .remote-active #remote-message { flex: 0 0 auto; min-height: 0; margin-bottom: 10px; font-size: 12px; line-height: 1.4; }
+  .remote-active .remote-display { flex: 1 1 auto; min-height: 100px; height: auto; }
+  .remote-active #remote-inputs { flex: 0 0 auto; }
+  .remote-active .remote-keys { flex-wrap: nowrap; gap: 5px; margin: 10px 0; overflow-x: auto; }
+  .remote-active .remote-keys button { flex: 1 0 auto; min-height: 40px; padding: 8px; font-size: 12px; }
+  .remote-active .remote-touchpad { height: clamp(95px, 18dvh, 150px); }
+  .remote-active .remote-console[data-keyboard="true"] #remote-message { display: none; }
+  .remote-active .remote-console[data-keyboard="true"] .remote-touchpad { height: 80px; }
+  .remote-active .remote-console[data-keyboard="true"] .remote-pad-mark { display: none; }
+}
+@media (max-width: 959px) and (max-height: 500px) and (orientation: landscape) {
+  .remote-active .remote-console { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 36%); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .remote-active .remote-toolbar { grid-column: 1 / -1; margin: 0; }
+  .remote-active #remote-message { display: none; }
+  .remote-active .remote-display { grid-column: 1; grid-row: 2; min-height: 0; }
+  .remote-active #remote-inputs { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: end; min-width: 0; }
+  .remote-active .remote-keys { flex-wrap: wrap; margin-top: 0; }
+  .remote-active .remote-touchpad { height: 85px; }
+  .remote-active .remote-touchpad small, .remote-active .remote-pad-mark { display: none; }
+}

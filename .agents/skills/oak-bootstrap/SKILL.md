@@ -54,6 +54,10 @@ local port. Otherwise the managed temporary tunnel must be described as temporar
 Check the guide's readiness conditions against the actual deployment: account
 and model, desktop, native model smoke, one ready service, HTTPS panel, owner auth
 and Telegram menu. Keep local checks, model calls and user-device checks distinct.
+The machine packages include `x11vnc`; noVNC is pinned in the repository. Check
+the panel's remote desktop availability and an authenticated connection on the
+configured display. Remote control uses the existing HTTPS gateway and must not
+open a public VNC port or borrow another deployment's browser/account state.
 Have the owner open the current Mini App from Telegram and send a task; do not
 claim their client works from a server-only HTTP check.
 
