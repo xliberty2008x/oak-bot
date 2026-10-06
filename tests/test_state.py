@@ -89,6 +89,18 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 await desktop.run(**args)
         desktop._exec.assert_not_awaited()
 
+    async def test_managed_desktop_is_explicit_and_rejects_bad_configuration(self):
+        from oak.desktop import ManagedDesktop
+        with tempfile.TemporaryDirectory() as folder:
+            config = {'state_dir': folder, 'workspace': folder,
+                      'computer': {'enabled': True, 'display': ':99'}}
+            async with ManagedDesktop(config) as desktop:
+                self.assertFalse(desktop.enabled)
+                self.assertEqual(desktop.processes, [])
+            for settings in ({'display': 'remote:0'}, {'width': 0}, {'height': True}):
+                with self.subTest(settings=settings), self.assertRaises(ValueError):
+                    ManagedDesktop({**config, 'computer': {'enabled': True, 'managed': True, **settings}})
+
     def test_selected_memory_import_is_atomic_and_chat_scoped(self):
         memory = MemoryStore(self.db)
         with tempfile.TemporaryDirectory() as folder:

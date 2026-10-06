@@ -37,8 +37,14 @@ async def doctor(config_path=None):
     computer = {'enabled': bool(config.get('computer', {}).get('enabled'))}
     if computer['enabled']:
         from .computer import ComputerTools
-        desktop = ComputerTools(config['workspace'], config['computer'].get('display'))
-        computer.update(await desktop.status())
+        from .desktop import desktop_environment
+        computer['managed'] = bool(config['computer'].get('managed'))
+        with desktop_environment(config):
+            try:
+                desktop = ComputerTools(config['workspace'], config['computer'].get('display', ':90'))
+                computer.update(await desktop.status())
+            except (RuntimeError, OSError) as exc:
+                computer.update(available=False, detail=str(exc))
     async with RuntimeClient(home=config.get('runtime_home'), config=config.get('runtime_config')) as client:
         models = await client.request('model/list', {})
         available = any(m.get('model') == MODEL or m.get('id') == MODEL for m in models['data'])
@@ -126,6 +132,7 @@ async def run(config_path):
     from .telegram import TelegramGateway
     from .tools import Tools
     from .bus import EventBus
+    from .desktop import ManagedDesktop
     config_file, config = load_config(config_path)
 
     allowed = set(config['allowed_user_ids'])
@@ -149,7 +156,9 @@ async def run(config_path):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise RuntimeError('Another gateway is already using this state directory.') from None
-        async with RuntimeClient(cwd=cwd, sandbox=config.get('sandbox', 'workspace-write'),
+        ready_file = state_dir / 'gateway-ready.json'
+        ready_file.unlink(missing_ok=True)
+        async with ManagedDesktop(config) as desktop, RuntimeClient(cwd=cwd, sandbox=config.get('sandbox', 'workspace-write'),
                                  home=config.get('runtime_home'),
                                  config={'web_search': 'live', **config.get('runtime_config', {})}) as client:
             controller = Controller(client, state_dir / 'state.sqlite', cwd, None,
@@ -186,17 +195,28 @@ async def run(config_path):
                         for owner in allowed:
                             await gateway._api('setChatMenuButton', {'chat_id': owner, 'menu_button': {
                                 'type': 'web_app', 'text': 'Oak', 'web_app': {'url': web_gateway.public_url}}})
-                print(json.dumps({'status': 'ready', 'bot': identity['username'],
+                ready = {'status': 'ready', 'pid': os.getpid(), 'bot': identity['username'],
                                   'auth': 'subscription', 'model': MODEL,
-                                  'web_url': web_gateway.public_url if web_gateway else None}), flush=True)
+                                  'web_url': web_gateway.public_url if web_gateway else None}
                 await controller.recover()
+                with tempfile.NamedTemporaryFile(mode='w', dir=state_dir, delete=False) as receipt:
+                    json.dump(ready, receipt)
+                    receipt.flush()
+                    os.fsync(receipt.fileno())
+                os.replace(receipt.name, ready_file)
+                print(json.dumps(ready), flush=True)
                 async with asyncio.TaskGroup() as group:
                     group.create_task(controller.run_events())
                     group.create_task(gateway.run())
                     group.create_task(controller.scheduler.run())
                     if tunnel:
                         group.create_task(tunnel.wait())
+                    if desktop.enabled:
+                        group.create_task(desktop.wait())
             finally:
+                with suppress(OSError, ValueError):
+                    if json.loads(ready_file.read_text()).get('pid') == os.getpid():
+                        ready_file.unlink()
                 await client.close()
                 if web_gateway:
                     await web_gateway.close()

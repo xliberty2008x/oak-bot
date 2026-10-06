@@ -1,6 +1,8 @@
 # Oak configuration
 
-Copy `config.example.json` to `config.local.json` or use the file bootstrap creates.
+The [VM bootstrap](bootstrap.md) creates a private config at
+`~/.local/share/oak-bot/default/config.json`, or the path supplied to `--config`.
+For manual setup, copy `config.example.json` to `config.local.json`.
 Run commands from the repository with `.venv/bin/python`. Relative deployment
 paths resolve against the configuration file's directory.
 
@@ -108,9 +110,51 @@ without `--browser`. System libraries may be required by [Playwright](https://pl
 ## Computer use
 
 Oak controls a configured Linux X11 desktop using `xdotool`, `xmodmap` and Pillow's
-XCB screen capture. Install these X11 tools with your system package manager and provide
-an existing X11 session (a physical desktop or Xvfb). `./scripts/bootstrap.sh
---computer` checks the dependencies; it does not create or replace a desktop.
+XCB screen capture.
+
+### Managed desktop
+
+The VM bootstrap installs and configures a private Xvfb desktop, window manager
+and headed Chromium. Oak starts these child processes with the service and stops
+its own children on shutdown. A private Xauthority file controls access; the
+display does not listen on TCP. The browser has its own persistent profile and
+does not inherit another browser's signed-in accounts.
+
+```json
+{
+  "computer": {
+    "enabled": true,
+    "managed": true,
+    "display": ":90",
+    "width": 1280,
+    "height": 800
+  }
+}
+```
+
+Choose an unused display. Oak must not take over another application's X server.
+The desktop is a real virtual screen for visual mouse and keyboard control;
+remote desktop access such as VNC is not part of this setup. With the deployment
+stopped, verify it without account credentials using:
+
+```bash
+.venv/bin/python -m oak.desktop \
+  --config ~/.local/share/oak-bot/default/config.json --check
+```
+
+The check starts a disposable desktop on the configured display, tests browser
+input and capture, then stops its own processes. It does not open the deployment's
+saved browser profile. For a running deployment, use `oak doctor` instead.
+
+The Settings switch in the Mini App controls the owner's access to computer use.
+Turning it off persists across restarts and cancels that owner's active desktop
+work. It does not sign out applications running on the desktop.
+
+### Existing desktop
+
+Leave `managed` unset or false to use an existing physical or virtual X11 session.
+Install the X11 dependencies with your package manager; `./scripts/bootstrap.sh
+--computer` checks them without creating or replacing a desktop.
 
 ```json
 {

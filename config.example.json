@@ -19,7 +19,10 @@
   "search_url": null,
   "computer": {
     "enabled": false,
-    "display": null
+    "display": null,
+    "managed": false,
+    "width": 1280,
+    "height": 800
   },
   "web": {
     "enabled": false,

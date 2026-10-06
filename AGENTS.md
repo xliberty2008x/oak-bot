@@ -1,5 +1,6 @@
 # Working on Oak
 
+- For a fresh VM or a complete deployment, read [.agents/skills/oak-bootstrap/SKILL.md](.agents/skills/oak-bootstrap/SKILL.md) and use `scripts/bootstrap-vm.sh`. The skill covers the machine, desktop and Telegram/Mini App gateway, including readiness checks.
 - Keep Oak's core reusable. Deployment personas, memories, tokens and account state stay outside Git.
 - Use the subscription-backed runtime with ChatGPT authentication. Never add API-key billing fallback or silently change `gpt-6.1-sol`.
 - Use Oak names in product text. Name technical dependencies accurately in setup and implementation documentation.
