@@ -19,6 +19,101 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
         self.db = sqlite3.connect(':memory:')
         self.addCleanup(self.db.close)
 
+    async def test_selected_model_persists_per_topic_and_keeps_existing_thread_history(self):
+        client = AsyncMock()
+
+        async def request(method, params):
+            if method == 'model/list':
+                if params.get('cursor'):
+                    return {'data': [{'model': 'synthetic-choice', 'displayName': 'Duplicate', 'hidden': False,
+                                      'defaultReasoningEffort': 'medium'}], 'nextCursor': None}
+                return {'data': [
+                    {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low'},
+                    {'model': 'synthetic-choice', 'displayName': 'Synthetic choice', 'hidden': False, 'defaultReasoningEffort': 'medium'},
+                    {'model': 'hidden-choice', 'displayName': 'Hidden', 'hidden': True}, {'model': 42}], 'nextCursor': 'next'}
+            if method == 'thread/resume':
+                return {'model': params['model'], 'modelProvider': 'openai', 'thread': {'id': params['threadId']}}
+            if method == 'turn/start':
+                return {'turn': {'id': 'selected-turn'}}
+            if method == 'turn/steer':
+                return {}
+            raise AssertionError(method)
+
+        client.request.side_effect = request
+        with tempfile.TemporaryDirectory() as folder:
+            db_path = Path(folder) / 'models.sqlite'
+            controller = Controller(client, db_path, folder, AsyncMock())
+            try:
+                self.assertTrue(hasattr(controller, 'set_model'), 'An explicit model choice must be saved per conversation.')
+                topic = controller.sessions.resolve(7, 12)
+                controller.threads[topic] = 'history-thread'
+                controller.loaded.add('history-thread')
+                with controller.db:
+                    controller.db.execute('INSERT INTO chats(chat_id,thread_id) VALUES (?,?)', (topic, 'history-thread'))
+                catalogue = await controller.model_catalog()
+                self.assertEqual([item['model'] for item in catalogue], ['gpt-6.1-sol', 'synthetic-choice'])
+                self.assertEqual(await controller.set_model(topic, 'synthetic-choice'), {'model': 'synthetic-choice', 'effort': 'medium'})
+                self.assertEqual(controller.model_for(7), 'gpt-6.1-sol')
+                self.assertEqual(controller.model_for(controller.sessions.resolve(8, 12)), 'gpt-6.1-sol')
+                await controller.submit(topic, 'continue existing history', 10)
+                payload = client.request.await_args.args[1]
+                self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'medium'))
+                await controller.submit(topic, 'steer existing work', 11)
+                self.assertEqual(client.request.await_args.args[0], 'turn/steer')
+                self.assertNotIn('model', client.request.await_args.args[1])
+                self.assertNotIn('effort', client.request.await_args.args[1])
+            finally:
+                controller.close()
+            restarted = Controller(client, db_path, folder, AsyncMock())
+            try:
+                self.assertEqual(restarted.model_settings(topic), {'model': 'synthetic-choice', 'effort': 'medium'})
+                await restarted.submit(topic, 'after restart', 12)
+                resume = next(call.args[1] for call in client.request.await_args_list if call.args[0] == 'thread/resume')
+                self.assertEqual((resume['threadId'], resume['model']), ('history-thread', 'synthetic-choice'))
+                self.assertEqual(restarted.threads[topic], 'history-thread')
+            finally:
+                restarted.close()
+
+    async def test_model_changes_reject_unlisted_choices_and_accepted_work(self):
+        client = AsyncMock()
+        client.request.return_value = {'data': [{'model': 'synthetic-choice', 'displayName': 'Choice',
+                                                'hidden': False, 'defaultReasoningEffort': 'medium'}]}
+        controller = Controller(client, ':memory:', '.', AsyncMock())
+        self.addCleanup(controller.close)
+        self.assertTrue(hasattr(controller, 'set_model'), 'Model changes need validation before saving.')
+        for slug in ('', 'not-listed'):
+            with self.assertRaises(ValueError):
+                await controller.set_model(7, slug)
+        controller.active[7] = 'working'
+        with self.assertRaises(RuntimeError):
+            await controller.set_model(7, 'synthetic-choice')
+        controller.active.clear()
+        for status in ('pending', 'dispatching'):
+            with controller.db:
+                controller.db.execute('INSERT OR REPLACE INTO inputs(update_id,chat_id,text,status) VALUES (1,7,?,?)', ('accepted input', status))
+            with self.assertRaises(RuntimeError):
+                await controller.set_model(7, 'synthetic-choice')
+        controller.db.execute('DELETE FROM inputs')
+        job = controller.scheduler.add(7, 'accepted scheduled work', delay_seconds=0, mode='run')
+        controller.db.execute("UPDATE jobs SET status='running' WHERE id=?", (job,))
+        with self.assertRaises(RuntimeError):
+            await controller.set_model(7, 'synthetic-choice')
+        controller.db.execute("UPDATE jobs SET status='done' WHERE id=?", (job,))
+        intake = sqlite3.connect(':memory:')
+        self.addCleanup(intake.close)
+        intake.execute('CREATE TABLE intake(chat_id INTEGER,status TEXT)')
+        controller.telegram = SimpleNamespace(db=intake)
+        for status in ('pending', 'processing'):
+            intake.execute('DELETE FROM intake')
+            intake.execute('INSERT INTO intake VALUES (7,?)', (status,))
+            with self.assertRaises(RuntimeError):
+                await controller.set_model(7, 'synthetic-choice')
+        self.assertEqual(controller.model_settings(7), {'model': 'gpt-6.1-sol', 'effort': None})
+        client.request.side_effect = ConnectionError('synthetic private diagnostics')
+        with self.assertRaises(RpcError) as failed:
+            await controller.model_catalog()
+        self.assertNotIn('private', str(failed.exception))
+
     async def test_telegram_topics_keep_legacy_and_owner_scoped_state_after_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             db_path = Path(folder) / 'state.sqlite'

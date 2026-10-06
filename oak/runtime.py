@@ -107,13 +107,21 @@ class RuntimeClient:
         if method in {"thread/start", "thread/resume", "thread/fork", "turn/start", "turn/steer"}:
             if not self._authenticated:
                 raise RpcError(-32000, "ChatGPT authentication is required before execution.")
+        if method in {"thread/start", "thread/resume", "thread/fork", "turn/start"}:
+            model = params.get('model', MODEL)
+            if not isinstance(model, str) or not model.strip() or model != model.strip():
+                raise RpcError(-32000, 'A non-empty model selection is required.')
+            params['model'] = model
         if method in {"thread/start", "thread/resume", "thread/fork"}:
-            params.update(model=MODEL, modelProvider="openai", sandbox=self.sandbox,
+            params.update(modelProvider="openai", sandbox=self.sandbox,
                           approvalPolicy=self.approval_policy, approvalsReviewer="user")
+            if method == 'thread/start':
+                params['allowProviderModelFallback'] = False
         if method == "turn/start":
             policy = {"type": "readOnly" if self.sandbox == "read-only" else "workspaceWrite",
                       "networkAccess": False}
-            params.update(model=MODEL, approvalPolicy=self.approval_policy,
+            params.pop('modelProvider', None)
+            params.update(approvalPolicy=self.approval_policy,
                           approvalsReviewer="user", sandboxPolicy=policy)
         self._next_id += 1
         request_id = self._next_id
@@ -123,7 +131,7 @@ class RuntimeClient:
             await self._send({"id": request_id, "method": method, "params": params})
             result = await asyncio.wait_for(future, timeout=60)
             if method in {"thread/start", "thread/resume", "thread/fork"}:
-                if result.get("model") != MODEL or result.get("modelProvider") != "openai":
+                if result.get("model") != model or result.get("modelProvider") != "openai":
                     raise RpcError(-32000, "Runtime returned an unexpected model or provider; execution stopped.")
             return result
         finally:

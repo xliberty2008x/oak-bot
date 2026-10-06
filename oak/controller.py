@@ -38,6 +38,8 @@ class Controller:
             CREATE TABLE IF NOT EXISTS turns (
                 turn_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL,
                 chat_id INTEGER NOT NULL, status TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS conversation_models (
+                chat_id INTEGER PRIMARY KEY, model TEXT NOT NULL, effort TEXT);
         """)
         for table, column, definition in (
             ('chats', 'tools_version', "TEXT NOT NULL DEFAULT ''"),
@@ -71,6 +73,71 @@ class Controller:
     def _lock(self, chat_id):
         return self.locks.setdefault(chat_id, asyncio.Lock())
 
+    def model_settings(self, chat_id):
+        row = self.db.execute('SELECT model,effort FROM conversation_models WHERE chat_id=?', (chat_id,)).fetchone()
+        return {'model': row['model'], 'effort': row['effort']} if row else {'model': MODEL, 'effort': None}
+
+    def model_for(self, chat_id):
+        return self.model_settings(chat_id)['model']
+
+    async def model_catalog(self):
+        models, seen, cursors, cursor = [], set(), set(), None
+        try:
+            for _ in range(10):
+                result = await asyncio.wait_for(self.client.request('model/list', {
+                    'limit': 100, 'includeHidden': False, **({'cursor': cursor} if cursor else {})}), 8)
+                if not isinstance(result, dict) or not isinstance(result.get('data'), list):
+                    raise ValueError('Invalid model catalogue.')
+                for row in result['data']:
+                    if not isinstance(row, dict) or row.get('hidden') is not False:
+                        continue
+                    model = row.get('model')
+                    if (not isinstance(model, str) or not 0 < len(model) <= 128
+                            or any(c.isspace() or ord(c) < 32 for c in model) or model in seen):
+                        continue
+                    effort = row.get('defaultReasoningEffort')
+                    if not isinstance(effort, str) or not 0 < len(effort) <= 64 or any(c.isspace() or ord(c) < 32 for c in effort):
+                        effort = None
+                    supported = row.get('supportedReasoningEfforts')
+                    if isinstance(supported, list) and effort not in [item.get('reasoningEffort') for item in supported if isinstance(item, dict)]:
+                        effort = None
+                    name = row.get('displayName')
+                    if not isinstance(name, str) or not name.strip() or len(name) > 128 or any(ord(c) < 32 for c in name):
+                        name = model
+                    models.append({'model': model, 'display_name': name, 'effort': effort})
+                    seen.add(model)
+                cursor = result.get('nextCursor')
+                if cursor is None:
+                    return models
+                if not isinstance(cursor, str) or not cursor or cursor in cursors:
+                    raise ValueError('Invalid model catalogue cursor.')
+                cursors.add(cursor)
+            raise ValueError('Model catalogue exceeds the page limit.')
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError, ValueError):
+            raise RpcError(-32000, 'Перелік моделей зараз недоступний. Спробуй оновити пізніше.') from None
+
+    def model_busy(self, chat_id):
+        if (chat_id in self.active or self.db.execute(
+                "SELECT 1 FROM inputs WHERE chat_id=? AND status IN ('pending','dispatching') LIMIT 1", (chat_id,)).fetchone()
+                or self.db.execute("SELECT 1 FROM jobs WHERE chat_id=? AND status='running' LIMIT 1", (chat_id,)).fetchone()):
+            return True
+        outbox = getattr(getattr(self, 'telegram', None), 'db', None)
+        return bool(outbox is not None and outbox.execute(
+            "SELECT 1 FROM intake WHERE chat_id=? AND status IN ('pending','processing') LIMIT 1", (chat_id,)).fetchone())
+
+    async def set_model(self, chat_id, model):
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError('Обери модель із переліку.')
+        choice = next((item for item in await self.model_catalog() if item['model'] == model), None)
+        if choice is None:
+            raise ValueError('Цієї моделі немає в поточному переліку.')
+        async with self._lock(chat_id):
+            if self.model_busy(chat_id):
+                raise RuntimeError('Дочекайся завершення поточної роботи перед зміною моделі.')
+            with self.db:
+                self.db.execute('INSERT OR REPLACE INTO conversation_models VALUES (?,?,?)', (chat_id, model, choice['effort']))
+            return self.model_settings(chat_id)
+
     def _status(self, update_id, status):
         with self.db:
             self.db.execute('UPDATE inputs SET status=? WHERE update_id=?', (status, update_id))
@@ -79,7 +146,8 @@ class Controller:
         thread_id = self.threads.get(chat_id)
         if thread_id in self.loaded:
             return thread_id
-        params = dict(model=MODEL, modelProvider='openai', cwd=self.cwd)
+        model = self.model_for(chat_id)
+        params = dict(model=model, modelProvider='openai', cwd=self.cwd)
         context = self.instructions
         notes = self.memory.search(chat_id, limit=20)
         if notes:
@@ -122,7 +190,7 @@ class Controller:
         elif self.tools:
             params['dynamicTools'] = self.tools.specs
         result = await self.client.request('thread/resume' if thread_id else 'thread/start', params)
-        if result.get('model') != MODEL or result.get('modelProvider') != 'openai':
+        if result.get('model') != model or result.get('modelProvider') != 'openai':
             raise RuntimeError('Runtime selected an unexpected model/provider; refusing to run.')
         thread_id = result['thread']['id']
         self.threads[chat_id] = thread_id
@@ -206,7 +274,9 @@ class Controller:
                     with self.db:
                         self.db.execute('UPDATE turns SET status=? WHERE turn_id=?',
                                         (previous['status'], turn_id))
-                request = asyncio.create_task(self.client.request('turn/start', {**payload, 'model': MODEL}))
+                settings = self.model_settings(chat_id)
+                request = asyncio.create_task(self.client.request('turn/start', {**payload, 'model': settings['model'],
+                    **({'effort': settings['effort']} if settings['effort'] is not None else {})}))
                 cancelled = False
                 try:
                     result = await asyncio.shield(request)

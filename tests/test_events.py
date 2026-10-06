@@ -106,6 +106,34 @@ class EventTests(unittest.TestCase):
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_explicit_runtime_model_is_preserved_and_provider_mismatch_is_rejected(self):
+        client = RuntimeClient()
+        client._authenticated = True
+        sent = []
+        response = {'model': 'synthetic-choice', 'modelProvider': 'openai', 'thread': {'id': 'history-thread'}}
+
+        async def send(message):
+            sent.append(message)
+            client._pending[message['id']].set_result(response)
+
+        client._send = send
+        for method in ('thread/start', 'thread/resume', 'turn/start'):
+            try:
+                await client.request(method, {'model': 'synthetic-choice', 'modelProvider': 'untrusted-provider'})
+            except RpcError:
+                self.fail('An explicitly requested model must be preserved through the runtime transport.')
+            self.assertEqual(sent[-1]['params']['model'], 'synthetic-choice')
+            if method.startswith('thread/'):
+                self.assertEqual(sent[-1]['params']['modelProvider'], 'openai')
+        response = {'model': 'gpt-6.1-sol', 'modelProvider': 'openai', 'thread': {'id': 'default-thread'}}
+        await client.request('thread/start', {})
+        self.assertEqual(sent[-1]['params']['model'], 'gpt-6.1-sol')
+        response = {'model': 'synthetic-choice', 'modelProvider': 'untrusted-provider', 'thread': {'id': 'history-thread'}}
+        with self.assertRaises(RpcError):
+            await client.request('thread/resume', {'model': 'synthetic-choice'})
+        with self.assertRaises(RpcError):
+            await client.request('thread/start', {'model': ''})
+
     async def test_cancelled_start_retains_acknowledgement_for_stop(self):
         import asyncio
         client = AsyncMock()
