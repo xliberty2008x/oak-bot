@@ -96,6 +96,14 @@ code { padding: 1px 4px; border-radius: 3px; background: var(--soft); color: var
 .inventory-facts dt::after { content: ": "; }
 .inventory-facts dd { display: inline; margin: 0; color: var(--ink); }
 .section-footnote { margin-top: 25px; }
+.computer-control { margin-bottom: 22px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+.computer-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.computer-heading h2 { font-size: 18px; }
+.computer-switch { border-color: var(--line); background: var(--paper); color: var(--ink); min-width: 153px; }
+.computer-switch:hover:not(:disabled) { border-color: #aec3bf; background: var(--paper); }
+.switch-track { display: inline-flex; align-items: center; width: 38px; height: 22px; padding: 3px; border-radius: 12px; background: #849795; flex-shrink: 0; }
+.switch-track::after { content: ""; width: 16px; height: 16px; border-radius: 50%; background: white; }
+.computer-switch[aria-checked="true"] .switch-track { justify-content: flex-end; background: var(--forest); }
 .task-history { margin-top: 16px; font-size: 14px; }
 .task-history summary { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; cursor: pointer; color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
 .task-history summary::before { content: "+"; font-size: 17px; text-decoration: none; }

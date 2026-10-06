@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 let sessionToken = "", sessionEpoch = 0, authenticated = false, refreshing = false, mutationBusy = false, telegramLaunch = false;
 let panelData = null, integrationData = null, timezone = "", stopRequestState = "";
+let computerChanging = false;
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
 const turnLabels = {inProgress: "Виконується", running: "Виконується", completed: "Завершено", interrupted: "Перервано", failed: "Помилка виконання", uncertain: "Результат невідомий"};
@@ -74,6 +75,8 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   integrationData = null;
   appLinks.clear(); oauthLinks.clear(); oauthBlocked.clear();
   stopRequestState = "";
+  computerChanging = false;
+  renderComputer(null);
   $("workspace").hidden = true;
   $("login").hidden = false;
   $("key").value = "";
@@ -116,6 +119,7 @@ function updateActions() {
   $("refresh").disabled = refreshing || mutationBusy;
   for (const button of document.querySelectorAll("[data-mutation]")) button.disabled = mutationBusy || refreshing || button.dataset.locked === "true";
   $("stop").disabled = mutationBusy || refreshing || !panelData?.session?.active || !!stopRequestState;
+  $("computer-switch").disabled = mutationBusy || refreshing || $("computer-switch").dataset.locked !== "false";
 }
 function confirmAction(title, description, action, danger = false) {
   return new Promise(resolve => {
@@ -142,6 +146,43 @@ async function mutation(title, description, action, work, danger = false) {
       message("notice", error.status === 403 ? error.message : "Не вдалося отримати відповідь на дію. Запит міг бути прийнятий. Натисни «Оновити», щоб перевірити стан перед новою спробою.", true);
     }
   } finally { if (epoch === sessionEpoch) mutationBusy = false; updateActions(); }
+}
+
+function renderComputer(value) {
+  const button = $("computer-switch");
+  const known = value && ["configured", "enabled", "busy"].every(key => typeof value[key] === "boolean");
+  const configured = known && value.configured;
+  button.dataset.locked = configured ? "false" : "true";
+  if (known) button.setAttribute("aria-checked", configured && value.enabled ? "true" : "false");
+  $("computer-switch-state").textContent = computerChanging ? "Змінюємо…" : !known ? "Недоступно" : !configured ? "Не налаштовано" : value.enabled ? "Увімкнено" : "Вимкнено";
+  $("computer-status").textContent = computerChanging ? "Змінюємо доступ. Новий стан ще не підтверджено." : !known ? "Стан доступу недоступний. Натисни «Оновити»." : !configured ? "Керування комп’ютером не налаштовано на сервері Oak." : !value.enabled ? "Oak не має дозволу керувати комп’ютером у твоїй розмові." : value.busy ? "Доступ увімкнено. Комп’ютер зараз використовується." : "Доступ увімкнено для твоєї розмови в Telegram.";
+}
+
+async function toggleComputer() {
+  const state = panelData?.computer;
+  if (mutationBusy || refreshing || $("workspace").hidden || !state?.configured || typeof state.enabled !== "boolean") return;
+  const enabled = !state.enabled, epoch = sessionEpoch;
+  mutationBusy = computerChanging = true;
+  renderComputer(state);
+  updateActions();
+  let failure = null;
+  try { await api("/api/computer", {enabled, confirmed: true}); }
+  catch (error) { failure = error; }
+  try {
+    if (epoch !== sessionEpoch) return;
+    const updated = await loadPanel(epoch);
+    if (epoch !== sessionEpoch) return;
+    if (failure) message("notice", failure.status === 403 ? failure.message : updated ? "Відповідь на зміну не отримано. Поточний стан доступу перевірено на сервері." : "Відповідь на зміну не отримано. Стан доступу недоступний; натисни «Оновити» перед новою спробою.", true);
+    else if (!updated) message("notice", "Запит прийнято, але поточний стан доступу перевірити не вдалося. Натисни «Оновити».", true);
+    else if (typeof panelData.computer?.configured !== "boolean" || typeof panelData.computer?.enabled !== "boolean") message("notice", "Стан доступу недоступний. Натисни «Оновити».", true);
+    else message("notice", panelData.computer?.configured ? panelData.computer.enabled ? "Керування комп’ютером увімкнено." : "Керування комп’ютером вимкнено." : "Керування комп’ютером не налаштовано на сервері Oak.");
+  } finally {
+    if (epoch === sessionEpoch) {
+      mutationBusy = computerChanging = false;
+      renderComputer(panelData?.computer);
+    }
+    updateActions();
+  }
 }
 
 function renderPanel(value) {
@@ -193,6 +234,7 @@ function renderPanel(value) {
   fact(list, "Доступ до файлів", ({"workspace-write": "Файли робочої папки", "read-only": "Лише читання", "danger-full-access": "Повний доступ"})[settings.sandbox] || settings.sandbox || "Не повідомлено");
   fact(list, "Підтвердження дій", ({never: "Без інтерактивних підтверджень", "on-request": "За запитом Oak", "on-failure": "У разі обмеження", untrusted: "Для неперевірених дій"})[settings.approval_policy] || settings.approval_policy || "Не повідомлено");
   fact(list, "Транспорт", ({poll: "Опитування", sse: "Потік подій"})[settings.transport] || settings.transport || "Не повідомлено");
+  renderComputer(value.computer);
   message("panel-error", "");
   updateActions();
 }
@@ -368,6 +410,7 @@ async function loadPanel(epoch) {
       for (const id of ["confirmations", "uncertain-inputs", "memory-count"]) $(id).textContent = "—";
       $("settings-list").replaceChildren();
       fact($("settings-list"), "Стан", "Дані недоступні. Натисни «Оновити».");
+      renderComputer(null);
       message("panel-error", error.name === "AbortError" ? "Оновлення затримується. Перевір з’єднання та спробуй ще раз." : error.message, true);
       updateActions();
     }
@@ -449,6 +492,7 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
 });
 $("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
+$("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("stop").addEventListener("click", () => mutation("Зупинити поточну роботу Oak?", "Запит стосується поточної розмови в Telegram. Уже виконані зовнішні дії залишаться виконаними. Заплановані задачі потрібно скасовувати окремо.", "Запитати зупинку", async epoch => {
   stopRequestState = "uncertain";
   const result = await api("/api/stop", {conversation: "telegram"});

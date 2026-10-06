@@ -58,8 +58,13 @@
       </section>
       <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
         <div class="view-heading"><h1 id="settings-heading" tabindex="-1">Налаштування</h1><p>Поточні параметри Oak</p></div>
+        <section class="computer-control" aria-labelledby="computer-label">
+          <div class="computer-heading"><h2 id="computer-label">Керування комп’ютером</h2><button id="computer-switch" type="button" class="computer-switch" role="switch" aria-checked="false" aria-labelledby="computer-label" aria-describedby="computer-description computer-status" disabled><span class="switch-track" aria-hidden="true"></span><span id="computer-switch-state" aria-hidden="true">Перевіряємо…</span></button></div>
+          <p id="computer-description" class="hint">Дозволяє Oak бачити екран і керувати комп’ютером. Вимкнення зупиняє поточну дію на комп’ютері та пов’язану роботу Oak.</p>
+          <p id="computer-status" class="hint" role="status">Завантажуємо стан доступу…</p>
+        </section>
         <dl id="settings-list" class="facts"><div><dt>Стан</dt><dd>Завантажуємо…</dd></div></dl>
-        <p class="hint section-footnote">Ці параметри показано для довідки. Вхід через ChatGPT перевірено під час запуску Oak; доступність відповіді моделі тут не перевіряємо.</p>
+        <p class="hint section-footnote">Решту параметрів показано для довідки. Вхід через ChatGPT перевірено під час запуску Oak; доступність відповіді моделі тут не перевіряємо.</p>
       </section>
     </section>
     <p id="error" class="error" role="alert" hidden></p>

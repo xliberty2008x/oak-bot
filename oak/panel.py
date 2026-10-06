@@ -70,6 +70,7 @@ class ControlPanel:
                 'awaiting_confirmation': waiting, 'turn_status': self.turn_status(turn[0]) if turn else None,
                 'uncertain_inputs': self.db.execute("SELECT count(*) FROM inputs WHERE chat_id=? AND status='uncertain'", (owner,)).fetchone()[0]},
             'memory': {'count': self.db.execute('SELECT count(*) FROM memory_notes WHERE chat_id=?', (owner,)).fetchone()[0]},
+            'computer': c.tools.computer_status(owner) if c.tools else None,
             'settings': {'model': MODEL, 'auth': 'chatgpt' if getattr(c.client, '_authenticated', False) is True else 'unavailable',
                 'timezone': str(c.scheduler.timezone), 'sandbox': c.config.get('sandbox', 'workspace-write'),
                 'approval_policy': c.config.get('runtime_config', {}).get('approval_policy', 'on-request'),

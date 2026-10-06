@@ -2,8 +2,17 @@
 
 The Mini App manages Oak while conversation stays in Telegram. Its four views
 show current Telegram session state, the most recent 100 scheduled tasks,
-installed runtime integrations, and read-only deployment settings. `/new`,
+installed runtime integrations, deployment settings and computer-use permission. `/new`,
 task creation, memory contents and approval answers remain in Telegram.
+
+The Settings switch grants or revokes the owner's computer-use permission.
+It persists across restarts and takes effect without starting a new conversation.
+Turning it off blocks new desktop actions, cancels that owner's outstanding
+computer action, and interrupts the related model turn. Already completed actions
+remain completed. A desktop must first be configured by the operator; the panel
+distinguishes an unconfigured desktop and unavailable status from permission OFF.
+The switch shows the last confirmed state while changing permission, then reloads
+the observed server state after success or failure.
 
 Task controls use the existing scheduler and controller. Cancellation removes
 future scheduled execution; it does not interrupt a turn already running. Stop
@@ -73,7 +82,8 @@ Run the existing unittest suite in an environment that permits local sockets:
 
 Use a separate local port and synthetic state for browser review. Check Telegram
 launch and browser-key sign-in, mobile navigation, task details/cancellation,
-stop request status, unavailable/partial inventories, and returned native links.
+stop request status, computer-use ON/OFF and pending/failed requests,
+unavailable/partial inventories, and returned native links.
 Test a real OAuth callback on a separately authorized deployment; schema/unit
 checks do not establish provider access. Session-selection limitations and
 future native-topic routing requirements are in

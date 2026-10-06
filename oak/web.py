@@ -72,6 +72,7 @@ class WebGateway:
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
+            web.post('/api/computer', self.computer),
             web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
             web.get('/api/integrations', self.integrations),
             web.post('/api/integrations/apps/{id}/manage', self.manage_app),
@@ -186,6 +187,15 @@ class WebGateway:
 
     async def panel(self, request):
         return web.json_response(self.controls.summary(self.owner(request)))
+
+    async def computer(self, request):
+        owner = await self.confirmed_owner(request)
+        data = await request.json()
+        if type(data.get('enabled')) is not bool:
+            raise web.HTTPBadRequest(text='Увімкнення потребує логічного значення.')
+        if self.controller.tools is None:
+            raise web.HTTPServiceUnavailable(text='Керування комп’ютером недоступне.')
+        return web.json_response(await self.controller.tools.set_computer_enabled(owner, data['enabled']))
 
     async def tasks(self, request):
         return web.json_response(self.controls.tasks(self.owner(request)))

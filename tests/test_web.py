@@ -166,6 +166,41 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(web.HTTPUnauthorized):
             await gateway.panel(make_mocked_request('GET', '/api/panel'))
 
+    async def test_computer_switch_requires_owner_origin_confirmation_and_boolean(self):
+        gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11, 22], {})
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO web_sessions(hash,owner,expires) VALUES (?,?,?)',
+                (hashlib.sha256(b'unit-session').hexdigest(), 11, 4102444800))
+        client = TestClient(TestServer(gateway.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        headers = {'Authorization': 'Bearer unit-session'}
+        response = await client.post('/api/computer', json={'enabled': False, 'confirmed': True})
+        self.assertEqual(response.status, 401)
+        response = await client.get('/api/panel', headers=headers)
+        self.assertEqual((await response.json())['computer'], {'configured': False, 'enabled': False, 'busy': False})
+        response = await client.post('/api/computer', headers=headers, json={'enabled': True, 'confirmed': True})
+        self.assertEqual(response.status, 400)
+        self.controller.tools.computer = object()  # Configure the contract without operating a desktop.
+        for value in (None, 'false', 0, 1):
+            response = await client.post('/api/computer', headers=headers, json={'enabled': value, 'confirmed': True})
+            self.assertEqual(response.status, 400)
+        response = await client.post('/api/computer', headers=headers, json={'enabled': False})
+        self.assertEqual(response.status, 400)
+        response = await client.post('/api/computer', headers={**headers, 'Origin': 'https://other.example'},
+                                     json={'enabled': False, 'confirmed': True})
+        self.assertEqual(response.status, 403)
+        self.assertTrue(self.controller.tools.computer_status(11)['enabled'])
+        for enabled in (False, True):
+            response = await client.post('/api/computer', headers=headers,
+                                         json={'enabled': enabled, 'confirmed': True, 'owner': 22})
+            self.assertEqual(response.status, 200)
+            self.assertEqual((await response.json())['enabled'], enabled)
+            response = await client.get('/api/panel', headers=headers)
+            self.assertEqual((await response.json())['computer']['enabled'], enabled)
+            self.assertTrue(self.controller.tools.computer_status(22)['enabled'])
+        self.client.request.assert_not_awaited()
+
     async def test_runtime_inventory_and_oauth_are_real_scoped_and_conservative(self):
         gateway = WebGateway(self.controller, self.bus, 'synthetic-token', [11], {})
         request = make_mocked_request('POST', '/api/integrations', headers={'Authorization': 'Bearer unit-session'})
