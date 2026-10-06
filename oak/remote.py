@@ -156,7 +156,10 @@ class RemoteDesktop:
                 watch.cancel()
             transport = state['transport']
             if transport is not None:
-                transport.close()
+                # Wake the relay without freeing its fd while asyncio still
+                # has selector registrations that could affect new pipes.
+                with contextlib.suppress(OSError):
+                    transport.shutdown(socket.SHUT_RDWR)
             typing = tuple(state.get('typing', ()))
             for task in typing:
                 task.cancel()
@@ -276,6 +279,8 @@ class RemoteDesktop:
                 task.cancel()
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
+            if state['transport'] is not None:
+                state['transport'].close()
             await asyncio.shield(self.finish(state))
 
     async def close(self):
