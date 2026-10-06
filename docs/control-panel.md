@@ -8,6 +8,11 @@ task creation, memory contents and approval answers remain in Telegram.
 In Settings, the owner can confirm a model choice for the selected session.
 The separate Reasoning Effort slider uses that model's advertised levels.
 Its reset button previews the model's default; saving still needs confirmation.
+The emerald slider fills to the selected position and animates only on Ultra;
+reduced-motion preferences disable the animation. The lightning button selects
+Turbo (native Fast) independently of effort, only when the runtime advertises it.
+Turbo remains a draft until confirmed, uses subscription limits faster, and can
+be explicitly turned off to select Standard. An unset choice inherits the runtime.
 Model and effort are saved together and persist across restarts. Unsupported
 levels and changes during accepted work are rejected by the server.
 The list comes from the existing runtime. The next request uses the saved model

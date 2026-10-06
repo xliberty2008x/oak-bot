@@ -90,13 +90,19 @@
               <label for="effort-range">Рівень міркування</label>
               <div id="effort-control" class="effort-control">
                 <div class="effort-heading">
-                  <span class="effort-bolt" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg></span>
-                  <div class="effort-caption"><output id="effort-value" for="effort-range" aria-live="polite">Не визначено</output><p id="effort-model">Перевіряємо модель…</p></div>
+                  <button id="turbo-toggle" type="button" class="effort-bolt" aria-label="Turbo (Fast), чернетка" aria-pressed="mixed" aria-describedby="turbo-status" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg></button>
+                  <div class="effort-caption"><output id="effort-value" for="effort-range" aria-live="polite">Не визначено</output><span id="turbo-badge" class="turbo-badge" hidden>Turbo</span><p id="effort-model">Перевіряємо модель…</p></div>
                   <button id="effort-reset" type="button" class="effort-reset" aria-label="Обрати стандартний рівень міркування цієї моделі для чернетки" title="Обрати стандартний рівень для чернетки; збереження потребує підтвердження" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
                 </div>
-                <input id="effort-range" class="effort-range unselected" type="range" min="0" max="1" step="1" value="0" aria-valuetext="Рівень не визначено" aria-describedby="effort-status model-description" disabled>
+                <div id="effort-slider" class="effort-slider unselected">
+                  <progress id="effort-progress" class="effort-progress" max="1" value="0" aria-hidden="true"></progress>
+                  <div id="effort-ticks" class="effort-ticks" aria-hidden="true"></div>
+                  <span class="effort-particles" aria-hidden="true"></span>
+                  <input id="effort-range" class="effort-range unselected" type="range" min="0" max="1" step="1" value="0" aria-valuetext="Рівень не визначено" aria-describedby="effort-status model-description" disabled>
+                </div>
                 <p id="effort-status" class="hint" role="status">Доступні рівні повідомляє каталог моделей.</p>
               </div>
+              <p id="turbo-status" class="hint" role="status">Підтримку Turbo ще не перевірено.</p>
               <label for="model-select">Обрати модель</label>
               <div class="model-form-row"><select id="model-select" aria-describedby="model-description model-status" disabled><option value="">Завантажуємо каталог…</option></select><button id="model-save" type="submit" disabled>Зберегти вибір</button></div>
             </form>

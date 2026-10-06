@@ -28,9 +28,34 @@ The owner can choose an effort from the model's ordered
 `supportedReasoningEfforts`. The server validates model/effort together; the
 browser never invents additional levels. Untouched sessions display their
 effective deployment default (normally `low`).
+The UI labels `low` as Light and keeps every advertised position, including Max.
+The Ultra animation describes the draft effort; it does not prove a running turn.
 Oak rejects changes while accepted input, a scheduled run or a model turn is
 being processed. Explicit choices persist through restart; untouched sessions
 keep the deployment's default behavior. [Official app-server protocol](https://learn.chatgpt.com/docs/app-server)
+
+The Turbo button selects the native Fast service tier independently of effort.
+It is available only when the model's current `serviceTiers` advertises Fast
+(`priority`); deprecated `additionalSpeedTiers` does
+not enable it. The confirmed choice persists in `conversation_models.service_tier`.
+`experimentalFeature/list` must also report effective `fast_mode.enabled: true`;
+for a loaded conversation, its `threadId` selects the refreshed thread config.
+Unavailable feature state disables Turbo without blocking the model catalogue.
+Each explicit Fast turn rechecks availability and fails before execution when
+support has disappeared, rather than silently running at Standard speed.
+New turns use canonical `serviceTierForTurn: "priority"` or explicit `"default"` when turned
+off. This does not modify the thread's inherited tier or steer a running turn.
+An untouched null preference omits the override and is shown as inherited,
+rather than claiming that Standard has been established.
+The installed per-turn path does not normalize the configuration alias `fast`;
+passing that alias here can silently lose Fast routing. Use the advertised
+canonical request ID instead. [Per-turn tier assignment](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/core/src/session/turn_context.rs#L1092),
+[effective tier resolution](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/core/src/session/mod.rs#L1076),
+[thread-aware feature read](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/app-server/src/request_processors/catalog_processor.rs#L344)
+Fast availability depends on the account and workspace; an advertised tier is
+not proof of a completed inference. Fast uses included subscription limits at
+2.5 times the Standard rate. [Official speed guidance](https://learn.chatgpt.com/docs/agent-configuration/speed),
+[tier alias and configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 
 A catalogue entry does not prove subscription entitlement. Only a completed
 inference request proves that the signed-in account can use a model. Provider
