@@ -70,12 +70,56 @@ class Tools:
         self.browser = BrowserTools(self.workspace)
         self.computer = None
         self._computer_owner = None
+        self._computer_tasks = {}
+        self._computer_settings_lock = asyncio.Lock()
+        with controller.db:
+            controller.db.execute('''CREATE TABLE IF NOT EXISTS computer_access (
+                chat_id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL CHECK(enabled IN (0,1)))''')
         computer = config.get('computer', {})
         if computer.get('enabled'):
             from .computer import ComputerTools
             self.computer = ComputerTools(self.workspace, computer.get('display'))
             self.specs = [*SPECS, COMPUTER_SPEC]
             self.version = 'oak-v2-computer'
+
+    def _computer_account(self, chat_id):
+        if chat_id >= 0:
+            return chat_id
+        db = self.controller.db
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='web_conversations'").fetchone():
+            row = db.execute('SELECT owner FROM web_conversations WHERE chat_id=?', (chat_id,)).fetchone()
+            if row:
+                return row[0]
+        raise ValueError('Власника робочого столу для цієї розмови не визначено.')
+
+    def computer_status(self, chat_id):
+        account = self._computer_account(chat_id)
+        row = self.controller.db.execute('SELECT enabled FROM computer_access WHERE chat_id=?', (account,)).fetchone()
+        owner = self._computer_owner
+        return {'configured': self.computer is not None,
+                'enabled': self.computer is not None and (bool(row[0]) if row else True),
+                'busy': bool(owner and self.controller.active.get(owner[0]) == owner[1])}
+
+    async def set_computer_enabled(self, chat_id, enabled):
+        if type(enabled) is not bool:
+            raise ValueError('Computer-use очікує увімкнено або вимкнено.')
+        if self.computer is None:
+            raise ValueError('Робочий стіл не налаштовано на сервері Oak.')
+        async with self._computer_settings_lock:
+            account = self._computer_account(chat_id)
+            with self.controller.db:
+                self.controller.db.execute('INSERT OR REPLACE INTO computer_access VALUES (?,?)', (account, int(enabled)))
+            if not enabled:
+                tasks = tuple(task for chat, group in self._computer_tasks.items()
+                              if self._computer_account(chat) == account for task in group)
+                for task in tasks:
+                    task.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                owner = self._computer_owner
+                if owner and self._computer_account(owner[0]) == account and self.controller.active.get(owner[0]) == owner[1]:
+                    await self.controller.stop(owner[0])
+            return self.computer_status(chat_id)
 
     def file(self, value):
         path = Path(value).expanduser()
@@ -162,6 +206,8 @@ class Tools:
         if name == 'oak_computer':
             if self.computer is None:
                 raise ValueError('Computer-use не підключений у конфігурації Oak.')
+            if not self.computer_status(chat_id)['enabled']:
+                raise ValueError('Computer-use вимкнено. Увімкни його в панелі керування Oak.')
             turn_id = (metadata or {}).get('turnId')
             if not turn_id:
                 raise ValueError('Computer-use потребує активної задачі.')
@@ -169,5 +215,13 @@ class Tools:
             if owner and owner != (chat_id, turn_id) and c.active.get(owner[0]) == owner[1]:
                 raise RuntimeError('Робочий стіл зайнятий іншою задачею Oak. Спробуй після її завершення.')
             self._computer_owner = (chat_id, turn_id)
-            return await self.computer.run(**args)
+            task = asyncio.current_task()
+            tasks = self._computer_tasks.setdefault(chat_id, set())
+            tasks.add(task)
+            try:
+                return await self.computer.run(**args)
+            finally:
+                tasks.discard(task)
+                if not tasks:
+                    self._computer_tasks.pop(chat_id, None)
         raise ValueError('Unknown Oak tool.')
