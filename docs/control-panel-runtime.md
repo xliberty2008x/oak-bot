@@ -36,17 +36,22 @@ keep the deployment's default behavior. [Official app-server protocol](https://l
 
 The Turbo button selects the native Fast service tier independently of effort.
 It is available only when the model's current `serviceTiers` advertises Fast
-(`priority`, or the native `fast` alias); deprecated `additionalSpeedTiers` does
+(`priority`); deprecated `additionalSpeedTiers` does
 not enable it. The confirmed choice persists in `conversation_models.service_tier`.
 `experimentalFeature/list` must also report effective `fast_mode.enabled: true`;
 for a loaded conversation, its `threadId` selects the refreshed thread config.
 Unavailable feature state disables Turbo without blocking the model catalogue.
 Each explicit Fast turn rechecks availability and fails before execution when
 support has disappeared, rather than silently running at Standard speed.
-New turns use `serviceTierForTurn: "fast"` or explicit `"default"` when turned
+New turns use canonical `serviceTierForTurn: "priority"` or explicit `"default"` when turned
 off. This does not modify the thread's inherited tier or steer a running turn.
 An untouched null preference omits the override and is shown as inherited,
 rather than claiming that Standard has been established.
+The installed per-turn path does not normalize the configuration alias `fast`;
+passing that alias here can silently lose Fast routing. Use the advertised
+canonical request ID instead. [Per-turn tier assignment](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/core/src/session/turn_context.rs#L1092),
+[effective tier resolution](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/core/src/session/mod.rs#L1076),
+[thread-aware feature read](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/app-server/src/request_processors/catalog_processor.rs#L344)
 Fast availability depends on the account and workspace; an advertised tier is
 not proof of a completed inference. Fast uses included subscription limits at
 2.5 times the Standard rate. [Official speed guidance](https://learn.chatgpt.com/docs/agent-configuration/speed),

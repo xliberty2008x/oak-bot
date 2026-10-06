@@ -153,7 +153,7 @@ class Controller:
                         name = model
                     tiers = row.get('serviceTiers')
                     turbo = any(isinstance(tier, dict) and isinstance(tier.get('id'), str)
-                                and tier['id'] in {'priority', 'fast'}
+                                and tier['id'] == 'priority'
                                 for tier in tiers) if isinstance(tiers, list) else False
                     models.append({'model': model, 'display_name': name, 'effort': effort, 'efforts': efforts,
                                    'turbo_available': turbo})
@@ -351,7 +351,7 @@ class Controller:
                         raise RpcError(-32000, 'Турбо зараз недоступне. Обери стандартну швидкість у налаштуваннях сесії.')
                 request = asyncio.create_task(self.client.request('turn/start', {**payload, 'model': settings['model'],
                     **({'effort': settings['effort']} if settings['effort'] is not None else {}),
-                    **({'serviceTierForTurn': tier} if tier is not None else {})}))
+                    **({'serviceTierForTurn': 'priority' if tier == 'fast' else tier} if tier is not None else {})}))
                 cancelled = False
                 try:
                     result = await asyncio.shield(request)

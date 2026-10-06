@@ -83,7 +83,7 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 await controller.submit(topic, 'continue existing history', 10)
                 payload = client.request.await_args.args[1]
                 self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'ultra'))
-                self.assertEqual(payload['serviceTierForTurn'], 'fast')
+                self.assertEqual(payload['serviceTierForTurn'], 'priority')
                 self.assertNotIn('serviceTier', payload)
                 flags = next(call.args[1] for call in reversed(client.request.await_args_list)
                              if call.args[0] == 'experimentalFeature/list')
@@ -102,7 +102,7 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(restarted.turbo_for(topic))
                 await restarted.submit(topic, 'after restart', 12)
                 self.assertEqual(client.request.await_args.args[1]['effort'], 'ultra')
-                self.assertEqual(client.request.await_args.args[1]['serviceTierForTurn'], 'fast')
+                self.assertEqual(client.request.await_args.args[1]['serviceTierForTurn'], 'priority')
                 resume = next(call.args[1] for call in client.request.await_args_list if call.args[0] == 'thread/resume')
                 self.assertEqual((resume['threadId'], resume['model']), ('history-thread', 'synthetic-choice'))
                 self.assertEqual(restarted.threads[topic], 'history-thread')
