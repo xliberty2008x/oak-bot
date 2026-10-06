@@ -59,6 +59,12 @@ inside `web`. Oak starts and supervises the tunnel, discovers its public address
 and forces polling. The address changes on restart and the owner menu button is
 updated. A stable deployment should use its own HTTPS hostname instead.
 
+If that preview hostname is unreachable from a client's network, set
+`"tunnel": "localhost"` to use [localhost.run](https://localhost.run/docs/) through
+OpenSSH instead. Oak uses the service's keyless connection, keeps server host
+keys in the private state directory, and supervises the SSH process. This is
+also a temporary preview address; it requires outbound SSH access.
+
 Web and Telegram can show the same conversation. New conversations created in the
 web interface have separate model sessions. File and voice uploads currently use
 Telegram; the web composer accepts text and displays registered artifacts.

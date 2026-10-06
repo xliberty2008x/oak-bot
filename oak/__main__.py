@@ -171,9 +171,9 @@ async def run(config_path):
                     web_gateway = WebGateway(controller, controller.bus, token, allowed, config['web'])
                     controller.web = web_gateway
                     await web_gateway.start()
-                    if config['web'].get('tunnel') == 'quick':
+                    if config['web'].get('tunnel') in {'quick', 'localhost'}:
                         from .tunnel import PreviewTunnel
-                        tunnel = PreviewTunnel()
+                        tunnel = PreviewTunnel(config['web']['tunnel'], state_dir)
                         web_gateway.public_url = await tunnel.start(config['web'].get('port', 8765))
                         web_gateway.config['transport'] = 'poll'
                     if web_gateway.public_url.startswith('https://'):

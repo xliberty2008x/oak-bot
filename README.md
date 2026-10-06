@@ -32,7 +32,8 @@ local checks are recorded separately from live Telegram results in
 ## Setup
 
 Use Linux, Git, Node/npm, Python 3.11+ with venv/pip, FFmpeg and DejaVu Sans fonts.
-Autostart requires cron with `crontab`; temporary HTTPS preview requires `cloudflared`.
+Autostart requires cron with `crontab`; temporary HTTPS preview uses `cloudflared`
+or OpenSSH, depending on the selected provider.
 The agent-runtime dependency
 is the official `codex` CLI; version `0.159.2` is the initial validated version.
 The signed-in ChatGPT account must have access to `gpt-6.1-sol`.

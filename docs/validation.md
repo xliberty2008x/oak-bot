@@ -61,14 +61,15 @@ or deployed conversation has been verified end to end.
   session state with Codex Desktop.
 - A forced connector-catalog refresh restored app listings after migration.
   This confirms discovery, not every provider operation.
+- The owner confirmed that the Mini App opened on both a phone and Telegram for
+  Mac through the alternate SSH preview endpoint. The previous Cloudflare
+  endpoint was reachable from the server but did not load on the owner's Mac,
+  including in Safari. Changing the HTTPS endpoint resolved this observed issue.
+- After runtime-home migration, a resumed session invoked the registered local
+  image tool and returned a real PNG through the authenticated artifact endpoint.
 
 ## Remaining deployment checks
 
-- Telegram for Mac still shows its native Mini App loading spinner without
-  reaching the Oak interface. The current HTTPS endpoint returns 200; the previous
-  temporary tunnel URL returns 530. A fresh launch button was sent, and the
-  owner's retest is pending. Browser success does not establish native Mini App
-  success.
 - Browser artifact download is not yet verified: the last browser check had no
   existing artifact to download.
 - The cron autostart entry is installed, but startup after an actual machine
@@ -92,8 +93,8 @@ family are outside the current private-conversation interface.
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python -m oak doctor
-.venv/bin/python -m oak smoke
+.venv/bin/python -m oak doctor --config config.local.json
+.venv/bin/python -m oak smoke --config config.local.json
 ```
 
 The smoke command uses the existing subscription login and makes real model
