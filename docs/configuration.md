@@ -40,8 +40,9 @@ Add this object to the private deployment config to enable the web interface:
 }
 ```
 
-Serve the local port through a HTTPS reverse proxy or named tunnel. Preserve SSE
-streaming and disable proxy buffering, or set `transport` to `poll` for JSON long
+Serve the local port through a HTTPS reverse proxy or named tunnel. The control
+panel uses ordinary authenticated JSON requests. The compatibility event API
+supports SSE with proxy buffering disabled, or `transport: "poll"` for JSON long
 polling. Oak registers the HTTPS Mini App menu button only for configured owners.
 Telegram signed launch data authenticates the owner; opening the page directly
 requires that owner's private access key. Oak creates keys in
@@ -50,7 +51,7 @@ selects another private JSON file mapping owner IDs to keys. Never put keys in a
 public URL or commit them.
 
 Embedded clients use a session token held only in page memory, so blocked
-third-party cookies do not prevent authenticated polling or artifact downloads.
+third-party cookies do not prevent authenticated panel requests.
 The official Telegram SDK is cached in the private state directory and served
 from the same origin. Initial authentication has a timeout and shows an error
 instead of leaving the interface hidden indefinitely.
@@ -66,9 +67,11 @@ OpenSSH instead. Oak uses the service's keyless connection, keeps server host
 keys in the private state directory, and supervises the SSH process. This is
 also a temporary preview address; it requires outbound SSH access.
 
-Web and Telegram can show the same conversation. New conversations created in the
-web interface have separate model sessions. File and voice uploads currently use
-Telegram; the web composer accepts text and displays registered artifacts.
+The Mini App is the bot control panel. Conversation, files and voice input stay
+in Telegram; the panel shows session state, task controls, settings and runtime
+integration status. See [control panel connections](control-panel.md) for OAuth
+callback prerequisites and native settings links, and
+[session research](session-switching-research.md) for Telegram history limits.
 
 ## Local Ukrainian voice
 

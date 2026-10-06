@@ -14,7 +14,7 @@ Oak uses ChatGPT subscription authentication and the exact model
 | --- | --- |
 | Conversation | Streaming replies, ongoing-task steering, cancellation and persistent sessions |
 | Telegram | Private-chat allowlist, rich messages, safe classic fallback, typing, photos/files/voice input and durable delivery |
-| Web / Mini App | Authenticated conversations, streamed replies, approvals, artifact downloads and accessible tables |
+| Web / Mini App | Owner-authenticated control panel: Telegram session state, task controls, settings and runtime integration status |
 | Events | Durable AG-UI event stream with independent conversation/run subscribers and separate tool results |
 | Memory | Per-conversation notes, full-text retrieval, forgetting and selected-file import |
 | Scheduling | One-time reminders, recurring reminders and scheduled assistant tasks |
@@ -71,11 +71,13 @@ Edit `config.local.json`: set `telegram_username` and explicit numeric
 outside version control. See [configuration](docs/configuration.md) for voice
 models, memory import and optional integrations.
 
-The optional web interface shares the Telegram conversation and can create
-independent conversations. Enable it in your private config and provide an HTTPS
-endpoint to use it as a Telegram Mini App. See the
+The optional Mini App controls the bot; conversations stay in Telegram. It shows
+the current session, scheduled tasks, memory counts, settings and installed
+integrations. Supported connection links require owner confirmation. Enable it
+in your private config and provide an HTTPS endpoint. See the
 [web configuration](docs/configuration.md#web-and-telegram-mini-app) for standalone
-login and temporary tunnel setup.
+login and temporary tunnel setup, and the [control panel notes](docs/control-panel.md)
+for connection limits.
 
 ```bash
 .venv/bin/python -m oak doctor --config config.local.json

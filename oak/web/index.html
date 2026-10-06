@@ -3,22 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Oak</title>
+  <meta name="theme-color" content="#285647">
+  <title>Oak — панель керування</title>
   <link rel="stylesheet" href="/style.css">
   <script id="telegram-sdk" src="/telegram-web-app.js" async></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
   <main>
-    <header><a class="brand" href="/" aria-label="Oak, головна">Oak<span class="leaf" aria-hidden="true">◒</span></a><span id="connection" role="status">Під’єднуємося…</span></header>
-    <form id="login" hidden><h1>Твій простір для ідей</h1><p>Відкрий Oak із меню Telegram або введи приватний ключ доступу.</p><label for="key">Ключ доступу</label><input id="key" type="password" autocomplete="off" required><button>Увійти</button></form>
-    <section id="workspace" hidden>
-      <nav aria-label="Розмови"><select id="conversation" aria-label="Поточна розмова"></select><button id="new" type="button">Нова розмова</button><button id="stop" type="button" class="quiet">Зупинити</button></nav>
-      <div id="messages" role="log" aria-label="Повідомлення" aria-live="polite"><div id="empty"><h1>Що створимо сьогодні?</h1><p>Напиши ідею, запитай або дай задачу. Під час роботи можна додати уточнення.</p></div></div>
-      <div id="activity" role="status"></div>
-      <form id="compose"><label class="sr-only" for="input">Повідомлення для Oak</label><textarea id="input" placeholder="Напиши Oak…" maxlength="32000" rows="2" required></textarea><button>Надіслати</button></form>
+    <header class="page-header">
+      <a class="brand" href="/" aria-label="Oak, головна">Oak<svg class="leaf" viewBox="0 0 30 36" aria-hidden="true"><path d="M14 33C17 25 21 18 24 8M16 27C7 28 5 23 8 20C1 18 3 12 8 12C5 5 11 3 15 8C17 1 23 2 24 8C30 9 28 15 24 17C29 22 23 27 16 27Z"/></svg></a>
+      <span id="connection" class="connection" role="status">Під’єднуємося…</span>
+    </header>
+    <form id="login" class="login" hidden>
+      <h1>Панель керування Oak</h1>
+      <p>Відкрий Oak із меню Telegram або введи приватний ключ доступу до панелі.</p>
+      <label for="key">Приватний ключ</label>
+      <input id="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      <button id="sign-in" type="submit">Увійти</button>
+      <p class="hint">Ключ потрібен лише для входу в панель. Розмова з Oak залишається в Telegram.</p>
+    </form>
+    <section id="workspace" hidden aria-label="Панель керування Oak">
+      <nav class="navigation" aria-label="Розділи панелі">
+        <button type="button" data-view="status" aria-controls="view-status" aria-current="page">Стан</button>
+        <button type="button" data-view="tasks" aria-controls="view-tasks">Задачі</button>
+        <button type="button" data-view="integrations" aria-controls="view-integrations">Інтеграції</button>
+        <button type="button" data-view="settings" aria-controls="view-settings">Налаштування</button>
+      </nav>
+      <div class="refresh-bar"><span id="last-refresh" class="hint" role="status">Дані ще не оновлено</span><button id="refresh" type="button" class="quiet">Оновити</button></div>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <section id="view-status" class="view" aria-labelledby="status-heading">
+        <div class="view-heading"><h1 id="status-heading" tabindex="-1">Стан Oak</h1><p>Поточна розмова в Telegram</p></div>
+        <p id="panel-error" class="section-error" role="alert" hidden></p>
+        <div class="session-summary"><span id="session-indicator" class="status-dot" aria-hidden="true"></span><div><h2 id="session-state">Перевіряємо стан…</h2><p id="session-description" class="hint">Дані поточної розмови з’являться після оновлення.</p></div></div>
+        <dl class="facts" id="session-facts">
+          <div><dt>Очікують підтвердження</dt><dd id="confirmations">—</dd></div>
+          <div><dt>Запити з невідомим результатом</dt><dd id="uncertain-inputs">—</dd></div>
+          <div><dt>Збережені записи пам’яті</dt><dd id="memory-count">—</dd></div>
+        </dl>
+        <div class="status-actions"><button id="stop" type="button" class="danger" disabled>Зупинити Oak</button><button id="return-telegram" type="button" class="quiet" hidden>Повернутися в Telegram</button><a id="telegram-link" class="button-link" target="_blank" rel="noopener noreferrer" hidden>Відкрити Telegram</a></div>
+        <aside class="telegram-note"><h2>Продовжуй у Telegram</h2><p>Пиши Oak, додавай уточнення та відповідай на запити підтвердження в розмові з ботом.</p><p><code>/new</code> починає нову розмову, <code>/memory</code> показує пам’ять поточної розмови.</p></aside>
+      </section>
+      <section id="view-tasks" class="view" aria-labelledby="tasks-heading" hidden>
+        <div class="view-heading"><h1 id="tasks-heading" tabindex="-1">Задачі</h1><p id="tasks-timezone">Нагадування та запланована робота Oak</p></div>
+        <p id="tasks-status" class="section-message" role="status">Завантажуємо задачі…</p>
+        <ul id="tasks-list" class="item-list" aria-label="Заплановані задачі"></ul>
+        <p class="hint section-footnote">Створюй нагадування й задачі в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
+      </section>
+      <section id="view-integrations" class="view" aria-labelledby="integrations-heading" hidden>
+        <div class="view-heading"><h1 id="integrations-heading" tabindex="-1">Інтеграції</h1><p id="integration-scope">Можливості Oak і доступ до інструментів</p></div>
+        <p id="integrations-status" class="section-message" role="status">Завантажуємо інтеграції…</p>
+        <div id="integrations-content"></div>
+        <p class="hint section-footnote">Авторизація, увімкнення та доступність інструментів — окремі стани. Після входу на зовнішній сторінці повернись і натисни «Оновити».</p>
+      </section>
+      <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
+        <div class="view-heading"><h1 id="settings-heading" tabindex="-1">Налаштування</h1><p>Поточні параметри Oak</p></div>
+        <dl id="settings-list" class="facts"><div><dt>Стан</dt><dd>Завантажуємо…</dd></div></dl>
+        <p class="hint section-footnote">Ці параметри показано для довідки. Вхід через ChatGPT перевірено під час запуску Oak; доступність відповіді моделі тут не перевіряємо.</p>
+      </section>
     </section>
-    <p id="error" role="alert"></p>
+    <p id="error" class="error" role="alert" hidden></p>
   </main>
+  <dialog id="confirmation" aria-labelledby="confirmation-title" aria-describedby="confirmation-description">
+    <form method="dialog"><h2 id="confirmation-title"></h2><p id="confirmation-description"></p><div class="dialog-actions"><button type="submit" value="cancel" class="quiet">Назад</button><button id="confirmation-submit" type="submit" value="confirm">Підтвердити</button></div></form>
+  </dialog>
 </body>
 </html>
