@@ -118,8 +118,14 @@ an Ubuntu kernel enforcing its user-namespace restriction.
   stale-response rejection, and safe rendering of a topic name containing HTML.
   Runtime and Telegram transports used synthetic responses in those checks.
 - Read-only live `getMe` confirmed private topics and user topic management are
-  enabled by the owner. These checks do not establish a real model conversation
-  or approval round-trip inside a live Telegram topic.
+  enabled by the owner. After rollout, the owner created a real topic through
+  the Mini App and confirmed Oak replied inside that topic. Read-only state
+  checks found a separate native model session, one completed turn and one
+  delivered terminal reply. Existing General state survived the restart.
+- Live browser checks at both widths passed all five views and separate
+  General/topic scopes. Owner endpoints returned 200, anonymous sessions 401,
+  with no JavaScript errors or page overflow; cookie-free Bearer refresh passed.
+  Cross-topic live approval and a two-topic memory experiment were not tested.
 
 ## Remaining deployment checks
 
