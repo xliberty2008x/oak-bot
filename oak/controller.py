@@ -18,6 +18,11 @@ from .sessions import SessionStore
 MODEL = "gpt-6.1-sol"
 
 
+def _valid_effort(value):
+    return (isinstance(value, str) and 0 < len(value) <= 64 and value not in {'.', '..'}
+            and not any(c.isspace() or ord(c) < 32 or 127 <= ord(c) <= 159 or c in '/\\' for c in value))
+
+
 class Controller:
     def __init__(self, client, db_path, cwd, emit, instructions='', config=None):
         self.client = client
@@ -80,6 +85,13 @@ class Controller:
     def model_for(self, chat_id):
         return self.model_settings(chat_id)['model']
 
+    def effort_for(self, chat_id):
+        effort = self.model_settings(chat_id)['effort']
+        if effort is None:
+            runtime = self.config.get('runtime_config', {})
+            effort = runtime.get('model_reasoning_effort', 'low') if isinstance(runtime, dict) else None
+        return effort if _valid_effort(effort) else None
+
     async def model_catalog(self):
         models, seen, cursors, cursor = [], set(), set(), None
         try:
@@ -96,15 +108,20 @@ class Controller:
                             or any(c.isspace() or ord(c) < 32 for c in model) or model in seen):
                         continue
                     effort = row.get('defaultReasoningEffort')
-                    if not isinstance(effort, str) or not 0 < len(effort) <= 64 or any(c.isspace() or ord(c) < 32 for c in effort):
+                    if not _valid_effort(effort):
                         effort = None
                     supported = row.get('supportedReasoningEfforts')
-                    if isinstance(supported, list) and effort not in [item.get('reasoningEffort') for item in supported if isinstance(item, dict)]:
+                    efforts = []
+                    for item in supported if isinstance(supported, list) else []:
+                        value = item.get('reasoningEffort') if isinstance(item, dict) else None
+                        if _valid_effort(value) and value not in efforts:
+                            efforts.append(value)
+                    if isinstance(supported, list) and effort not in efforts:
                         effort = None
                     name = row.get('displayName')
                     if not isinstance(name, str) or not name.strip() or len(name) > 128 or any(ord(c) < 32 for c in name):
                         name = model
-                    models.append({'model': model, 'display_name': name, 'effort': effort})
+                    models.append({'model': model, 'display_name': name, 'effort': effort, 'efforts': efforts})
                     seen.add(model)
                 cursor = result.get('nextCursor')
                 if cursor is None:
@@ -125,17 +142,22 @@ class Controller:
         return bool(outbox is not None and outbox.execute(
             "SELECT 1 FROM intake WHERE chat_id=? AND status IN ('pending','processing') LIMIT 1", (chat_id,)).fetchone())
 
-    async def set_model(self, chat_id, model):
+    async def set_model(self, chat_id, model, effort=None):
         if not isinstance(model, str) or not model.strip():
             raise ValueError('Обери модель із переліку.')
         choice = next((item for item in await self.model_catalog() if item['model'] == model), None)
         if choice is None:
             raise ValueError('Цієї моделі немає в поточному переліку.')
+        if effort is not None and (not _valid_effort(effort) or effort not in choice['efforts']):
+            raise ValueError('Обери рівень міркування з переліку цієї моделі.')
         async with self._lock(chat_id):
             if self.model_busy(chat_id):
                 raise RuntimeError('Дочекайся завершення поточної роботи перед зміною моделі.')
+            current = self.model_settings(chat_id)
+            if effort is None:
+                effort = current['effort'] if current['model'] == model else choice['effort']
             with self.db:
-                self.db.execute('INSERT OR REPLACE INTO conversation_models VALUES (?,?,?)', (chat_id, model, choice['effort']))
+                self.db.execute('INSERT OR REPLACE INTO conversation_models VALUES (?,?,?)', (chat_id, model, effort))
             return self.model_settings(chat_id)
 
     def _status(self, update_id, status):

@@ -28,8 +28,11 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                     return {'data': [{'model': 'synthetic-choice', 'displayName': 'Duplicate', 'hidden': False,
                                       'defaultReasoningEffort': 'medium'}], 'nextCursor': None}
                 return {'data': [
-                    {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low'},
-                    {'model': 'synthetic-choice', 'displayName': 'Synthetic choice', 'hidden': False, 'defaultReasoningEffort': 'medium'},
+                    {'model': 'gpt-6.1-sol', 'displayName': 'Default', 'hidden': False, 'defaultReasoningEffort': 'low',
+                     'supportedReasoningEfforts': [{'reasoningEffort': 'low'}]},
+                    {'model': 'synthetic-choice', 'displayName': 'Synthetic choice', 'hidden': False, 'defaultReasoningEffort': 'medium',
+                     'supportedReasoningEfforts': [{'reasoningEffort': value} for value in
+                                                  ['low', 'medium', 'ultra', 'ultra', '../bad', 'bad effort', '\x7f', 'x' * 65, 42]]},
                     {'model': 'hidden-choice', 'displayName': 'Hidden', 'hidden': True}, {'model': 42}], 'nextCursor': 'next'}
             if method == 'thread/resume':
                 return {'model': params['model'], 'modelProvider': 'openai', 'thread': {'id': params['threadId']}}
@@ -52,12 +55,24 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                     controller.db.execute('INSERT INTO chats(chat_id,thread_id) VALUES (?,?)', (topic, 'history-thread'))
                 catalogue = await controller.model_catalog()
                 self.assertEqual([item['model'] for item in catalogue], ['gpt-6.1-sol', 'synthetic-choice'])
+                self.assertEqual(catalogue[1]['efforts'], ['low', 'medium', 'ultra'])
+                self.assertEqual(controller.effort_for(7), 'low')
+                controller.config['runtime_config'] = {'model_reasoning_effort': 'high'}
+                self.assertEqual(controller.effort_for(7), 'high')
+                controller.config['runtime_config']['model_reasoning_effort'] = '/bad/config'
+                self.assertIsNone(controller.effort_for(7))
+                controller.config.clear()
                 self.assertEqual(await controller.set_model(topic, 'synthetic-choice'), {'model': 'synthetic-choice', 'effort': 'medium'})
+                for model, effort in [('synthetic-choice', 'unsupported'), ('gpt-6.1-sol', 'ultra')]:
+                    with self.assertRaises(ValueError):
+                        await controller.set_model(topic, model, effort)
+                self.assertEqual(await controller.set_model(topic, 'synthetic-choice', 'ultra'), {'model': 'synthetic-choice', 'effort': 'ultra'})
+                self.assertEqual(await controller.set_model(topic, 'synthetic-choice'), {'model': 'synthetic-choice', 'effort': 'ultra'})
                 self.assertEqual(controller.model_for(7), 'gpt-6.1-sol')
                 self.assertEqual(controller.model_for(controller.sessions.resolve(8, 12)), 'gpt-6.1-sol')
                 await controller.submit(topic, 'continue existing history', 10)
                 payload = client.request.await_args.args[1]
-                self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'medium'))
+                self.assertEqual((payload['threadId'], payload['model'], payload['effort']), ('history-thread', 'synthetic-choice', 'ultra'))
                 await controller.submit(topic, 'steer existing work', 11)
                 self.assertEqual(client.request.await_args.args[0], 'turn/steer')
                 self.assertNotIn('model', client.request.await_args.args[1])
@@ -66,8 +81,10 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                 controller.close()
             restarted = Controller(client, db_path, folder, AsyncMock())
             try:
-                self.assertEqual(restarted.model_settings(topic), {'model': 'synthetic-choice', 'effort': 'medium'})
+                self.assertEqual(restarted.model_settings(topic), {'model': 'synthetic-choice', 'effort': 'ultra'})
+                self.assertEqual(restarted.effort_for(topic), 'ultra')
                 await restarted.submit(topic, 'after restart', 12)
+                self.assertEqual(client.request.await_args.args[1]['effort'], 'ultra')
                 resume = next(call.args[1] for call in client.request.await_args_list if call.args[0] == 'thread/resume')
                 self.assertEqual((resume['threadId'], resume['model']), ('history-thread', 'synthetic-choice'))
                 self.assertEqual(restarted.threads[topic], 'history-thread')
