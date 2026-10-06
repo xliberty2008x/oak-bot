@@ -194,11 +194,15 @@ class TelegramGateway:
             self._intake_workers[scope] = self._worker_group.create_task(self._intake_worker(scope))
 
     def _save_reply(self, chat_id, reply, status='pending'):
+        if self.sessions.deleted(chat_id):
+            status = 'cancelled'
         with self.db:
             self.db.execute('INSERT OR REPLACE INTO replies VALUES (?,?,?,?)',
                             (chat_id, reply.run_id, json.dumps(asdict(reply)), status))
 
     def _queue_delivery(self, chat_id, method, payload, identifier=None):
+        if self.sessions.deleted(chat_id):
+            return
         with self.db:
             self.db.execute('INSERT OR IGNORE INTO deliveries VALUES (?,?,?,?,?,NULL)',
                             (identifier or uuid.uuid4().hex, chat_id, method,
@@ -298,7 +302,12 @@ class TelegramGateway:
             if method == 'editMessageText' and code == 400 and 'message is not modified' in description:
                 return True
             reason = ''
-            if code == 404 and (description in ('not found', 'method not found')
+            if code == 400 and any(phrase in description for phrase in (
+                    'message thread not found', 'message thread is not found',
+                    'message_thread_id_invalid', 'message_thread_invalid', 'message_thread_not_found',
+                    'topic_id_invalid', 'topic_deleted', 'topic_not_found', 'topic not found', 'topic was deleted')):
+                reason = 'topic_missing'
+            elif code == 404 and (description in ('not found', 'method not found')
                                 or 'unknown method' in description or 'method not found' in description):
                 reason = 'unknown_method'
             elif code == 400 and any(phrase in description for phrase in (
@@ -345,6 +354,8 @@ class TelegramGateway:
 
     async def _deliver(self, method, payload):
         chat_id = payload['chat_id']
+        if self.sessions.deleted(chat_id):
+            raise TelegramError(method, 400, reason='topic_missing')
         payload = self._native_payload(method, payload)
         owner = payload['chat_id']
         async with self._delivery_locks.setdefault(owner, asyncio.Lock()):
@@ -352,10 +363,14 @@ class TelegramGateway:
             if delay > 0:
                 await asyncio.sleep(delay)
             for attempt in range(3):
+                if self.sessions.deleted(chat_id):
+                    raise TelegramError(method, 400, reason='topic_missing')
                 try:
                     result = await self._api(method, payload)
                     break
                 except TelegramError as exc:
+                    if exc.reason == 'topic_missing' and chat_id < 0:
+                        await self.controller.retire_topic(chat_id)
                     if method != 'editMessageText' or exc.code not in (0, 500, 502, 503, 504) or attempt == 2:
                         raise
                     await asyncio.sleep(2)
@@ -496,7 +511,7 @@ class TelegramGateway:
             count = self.db.execute("UPDATE intake SET status='cancelled' WHERE chat_id=? "
                                     "AND status IN ('pending','processing')", (chat_id,)).rowcount
         task = self._intake_tasks.get(chat_id)
-        if task and not task.done():
+        if task and task is not asyncio.current_task() and not task.done():
             task.cancel()
             try:
                 await task
@@ -513,6 +528,17 @@ class TelegramGateway:
             return 'uncertain'
         return 'cancelled' if count else 'idle'
 
+    async def discard_topic(self, chat_id):
+        """Stop local delivery after a topic has been durably tombstoned."""
+        await self._cancel_intake(chat_id)
+        await self._activity_remove(chat_id)
+        self._replies.pop(chat_id, None)
+        self._active.pop(chat_id, None)
+        with self.db:
+            self.db.execute("UPDATE replies SET status='cancelled' WHERE chat_id=? AND status='pending'", (chat_id,))
+            self.db.execute("UPDATE deliveries SET status='cancelled' WHERE chat_id=? AND status IN ('pending','sending')", (chat_id,))
+        self.events.put_nowait(None)
+
     async def handle_update(self, update, *, queued=False):
         update_id = update.get('update_id')
         if type(update_id) is not int or (not queued and update_id < self.offset):
@@ -523,8 +549,9 @@ class TelegramGateway:
             if self._owner(message, callback.get('from') or {}, self.allowed_user_ids):
                 data = callback.get('data', '')
                 match = re.fullmatch(r'(approve|deny):([A-Za-z0-9_.:-]{1,56})', data)
-                if match:
-                    await self._decision(self._message_scope(message), f'/{match[1]} {match[2]}')
+                scope = self._message_scope(message)
+                if match and not self.sessions.deleted(scope):
+                    await self._decision(scope, f'/{match[1]} {match[2]}')
                 try:
                     await self._api('answerCallbackQuery', {'callback_query_id': callback['id']})
                 except TelegramError as exc:
@@ -538,7 +565,7 @@ class TelegramGateway:
         chat_id, user_id = chat.get('id'), sender.get('id')
         if self._owner(message, sender, self.allowed_user_ids):
             chat_id = self._message_scope(message)
-            if self._topic_service(message):
+            if self.sessions.deleted(chat_id) or self._topic_service(message):
                 if not queued:
                     self._checkpoint(update_id + 1)
                 return
@@ -632,6 +659,9 @@ class TelegramGateway:
             await self.handle_update(update)
             return
         chat_id = self._message_scope(message)
+        if self.sessions.deleted(chat_id):
+            self._checkpoint(update_id + 1)
+            return
         # This durable handoff acknowledges receipt without waiting for file
         # download/transcription. Each chat still dispatches its inputs in order.
         with self.db:
@@ -782,6 +812,10 @@ class TelegramGateway:
     def _pending(self):
         pending = []
         for chat_id, queue in list(self._replies.items()):
+            if self.sessions.deleted(chat_id):
+                self._replies.pop(chat_id, None)
+                self._active.pop(chat_id, None)
+                continue
             # A notice should not wait for a long-running model response to end.
             for reply in list(queue):
                 chunks = self._chunks(reply)
@@ -798,9 +832,16 @@ class TelegramGateway:
         return pending
 
     async def _render_one(self, chat_id, reply, chunks):
+        if self.sessions.deleted(chat_id):
+            return
         if len(reply.message_ids) > len(chunks):
-            await self._deliver('deleteMessage', {
-                'chat_id': chat_id, 'message_id': reply.message_ids[-1]})
+            try:
+                await self._deliver('deleteMessage', {
+                    'chat_id': chat_id, 'message_id': reply.message_ids[-1]})
+            except TelegramError as exc:
+                if exc.reason == 'topic_missing' and self.sessions.deleted(chat_id):
+                    return
+                raise
             reply.message_ids.pop()
             reply.sent.pop()
             self._save_reply(chat_id, reply)
@@ -829,6 +870,9 @@ class TelegramGateway:
                 if editing and result is not True and (not isinstance(result, dict) or type(result.get('message_id')) is not int):
                     raise TelegramError(method)
             except TelegramError as exc:
+                if exc.reason == 'topic_missing' and self.sessions.deleted(chat_id):
+                    self._save_reply(chat_id, reply, 'cancelled')
+                    return
                 if chunk['rich'] and exc.reason in ('unknown_method', 'format'):
                     if exc.reason == 'unknown_method':
                         self._rich_supported = False
@@ -865,9 +909,12 @@ class TelegramGateway:
             if not isinstance(result, dict) or type(result.get('message_id')) is not int:
                 raise TelegramError(row['method'])
         except Exception as exc:
-            status = 'uncertain' if isinstance(exc, TelegramError) and exc.uncertain else 'failed'
+            deleted = self.sessions.deleted(row['chat_id'])
+            status = 'cancelled' if deleted else 'uncertain' if isinstance(exc, TelegramError) and exc.uncertain else 'failed'
             with self.db:
                 self.db.execute('UPDATE deliveries SET status=? WHERE id=?', (status, row['id']))
+            if deleted and isinstance(exc, TelegramError) and exc.reason == 'topic_missing':
+                return
             raise
         receipt = {'message_id': result['message_id']}
         for kind in ('document', 'audio', 'voice', 'video', 'photo'):
