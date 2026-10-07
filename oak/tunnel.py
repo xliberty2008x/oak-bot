@@ -13,6 +13,10 @@ import shutil
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 
+class TunnelDisconnected(RuntimeError):
+    """A transient tunnel failure; the local application can keep running."""
+
+
 class PreviewTunnel:
     def __init__(self, provider='quick', state_dir=None):
         if provider not in {'quick', 'localhost'}:
@@ -77,7 +81,7 @@ class PreviewTunnel:
             done, _ = await asyncio.wait((self._url_ready, self._exit), timeout=60,
                                          return_when=asyncio.FIRST_COMPLETED)
             if self._exit in done:
-                raise RuntimeError('HTTPS preview tunnel exited before becoming ready.')
+                raise TunnelDisconnected('HTTPS preview tunnel exited before becoming ready.')
             if self._url_ready not in done:
                 raise TimeoutError('HTTPS preview tunnel did not become ready within 60 seconds.')
             self.url = self._url_ready.result()
@@ -113,11 +117,42 @@ class PreviewTunnel:
                         continue
                     missing = missing + 1 if lost else 0
                     if missing >= 2 and not self._closing:
-                        raise RuntimeError('HTTPS preview tunnel lost its public mapping.')
+                        raise TunnelDisconnected('HTTPS preview tunnel lost its public mapping.')
         code = await asyncio.shield(self._exit)
         if not self._closing:
-            raise RuntimeError(f'HTTPS preview tunnel exited (code {code}).')
+            raise TunnelDisconnected(f'HTTPS preview tunnel exited (code {code}).')
         return code
+
+    async def maintain(self, port, publish):
+        """Repair the owned tunnel without interrupting chats or the desktop."""
+        delay = 1
+        while True:
+            try:
+                if self.process is None:
+                    await self.start(port)
+                    publication = asyncio.create_task(publish(self.url))
+                    watcher = asyncio.create_task(self.wait())
+                    try:
+                        # Watch the replacement even while Telegram is down.
+                        done, _ = await asyncio.wait((publication, watcher),
+                                                     return_when=asyncio.FIRST_COMPLETED)
+                        for task in done:
+                            task.result()
+                        await watcher
+                    finally:
+                        publication.cancel()
+                        watcher.cancel()
+                        await asyncio.gather(publication, watcher, return_exceptions=True)
+                    return
+                delay = 1
+                await self.wait()
+                return
+            except (TunnelDisconnected, OSError, asyncio.TimeoutError) as exc:
+                # Never print transport diagnostics, URLs or credentials.
+                print(f'HTTPS tunnel reconnecting ({type(exc).__name__}); Oak remains running.', flush=True)
+                await self.close()
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30)
 
     async def close(self):
         self._closing = True

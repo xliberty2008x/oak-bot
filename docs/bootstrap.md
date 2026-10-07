@@ -99,9 +99,20 @@ config and the separate diagnostic command.
 Without `--public-url`, Oak supervises a localhost.run SSH tunnel and registers
 its current HTTPS address in the owner's Telegram menu. That is a temporary
 endpoint which may rotate on restart. Older inline links may then be stale;
-open the current menu. For a lasting address, arrange your own HTTPS reverse
+open the current menu. Tunnel recovery keeps the local bot running and updates
+the menus; it cannot repair a page already opened at an expired hostname.
+For a lasting address, arrange your own HTTPS reverse
 proxy or named tunnel, then supply its URL. Supplying a URL does not provision
 a domain, DNS or TLS for you.
+
+A domain purchase is not required: [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel)
+provides a stable `*.ts.net` address. Install Tailscale as a persistent service,
+sign in, and run `tailscale funnel --bg http://127.0.0.1:8765` (use the configured
+Oak port). Complete its account-side HTTPS/Funnel enablement, then supply the
+reported address with `--public-url`. Preserve the node's state across restarts;
+`--bg` persists the proxy configuration but does not start the daemon at boot.
+For an unattended server, disable device key expiry in the Tailscale admin
+console. Only publish the authenticated Oak gateway, not a VNC port.
 
 Full bootstrap verifies bot identity and absence of an existing webhook, checks
 the subscription/model, runs the native smoke check, installs reboot startup
