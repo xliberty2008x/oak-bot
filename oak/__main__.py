@@ -129,7 +129,7 @@ async def smoke(config_path=None):
 
 
 async def run(config_path):
-    from .telegram import TelegramGateway
+    from .telegram import TelegramError, TelegramGateway
     from .tools import Tools
     from .bus import EventBus
     from .desktop import ManagedDesktop
@@ -198,19 +198,50 @@ async def run(config_path):
                 ready = {'status': 'ready', 'pid': os.getpid(), 'bot': identity['username'],
                                   'auth': 'subscription', 'model': MODEL,
                                   'web_url': web_gateway.public_url if web_gateway else None}
+                def save_ready():
+                    with tempfile.NamedTemporaryFile(mode='w', dir=state_dir, delete=False) as receipt:
+                        json.dump(ready, receipt)
+                        receipt.flush()
+                        os.fsync(receipt.fileno())
+                    os.replace(receipt.name, ready_file)
+
+                async def publish_tunnel(url):
+                    web_gateway.public_url = url
+                    # A temporary Telegram failure must not tear down a
+                    # healthy replacement tunnel or restart active turns.
+                    pending = set(allowed)
+                    while pending:
+                        for owner in tuple(pending):
+                            update = asyncio.create_task(gateway._api('setChatMenuButton', {
+                                'chat_id': owner, 'menu_button': {
+                                    'type': 'web_app', 'text': 'Oak', 'web_app': {'url': url}}},
+                                timeout=10, rate_limit_attempts=1))
+                            try:
+                                await asyncio.shield(update)
+                            except asyncio.CancelledError:
+                                # The HTTP call runs in a thread: finish it
+                                # before a newer URL can replace this menu.
+                                with suppress(TelegramError):
+                                    await update
+                                raise
+                            except TelegramError:
+                                continue
+                            pending.remove(owner)
+                        if pending:
+                            await asyncio.sleep(5)
+                    ready['web_url'] = url
+                    save_ready()
+                    print('HTTPS tunnel recovered; Telegram menus updated.', flush=True)
+
                 await controller.recover()
-                with tempfile.NamedTemporaryFile(mode='w', dir=state_dir, delete=False) as receipt:
-                    json.dump(ready, receipt)
-                    receipt.flush()
-                    os.fsync(receipt.fileno())
-                os.replace(receipt.name, ready_file)
+                save_ready()
                 print(json.dumps(ready), flush=True)
                 async with asyncio.TaskGroup() as group:
                     group.create_task(controller.run_events())
                     group.create_task(gateway.run())
                     group.create_task(controller.scheduler.run())
                     if tunnel:
-                        group.create_task(tunnel.wait())
+                        group.create_task(tunnel.maintain(config['web'].get('port', 8765), publish_tunnel))
                     if desktop.enabled:
                         group.create_task(desktop.wait())
             finally:

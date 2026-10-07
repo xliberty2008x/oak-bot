@@ -16,7 +16,7 @@ from oak.controller import Controller
 from oak.panel import https_url
 from oak.runtime import RpcError
 from oak.tools import Tools
-from oak.tunnel import PreviewTunnel
+from oak.tunnel import PreviewTunnel, TunnelDisconnected
 from oak.telegram import TelegramError
 from oak.web import WebGateway, telegram_owner
 
@@ -49,6 +49,38 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.wait_for(tunnel.wait(), 0.1)
         self.assertEqual(session.get.call_count, 4)
         self.assertFalse(tunnel._exit.done())
+
+    async def test_tunnel_reconnect_does_not_end_application_task(self):
+        tunnel = PreviewTunnel('localhost', self.root)
+        tunnel.process = object()
+
+        async def close():
+            tunnel.process = None
+
+        async def start(port):
+            self.assertEqual(port, 8765)
+            tunnel.process = object()
+            tunnel.url = 'https://replacement.lhr.life'
+
+        tunnel.close = AsyncMock(side_effect=close)
+        tunnel.start = AsyncMock(side_effect=start)
+        tunnel.wait = AsyncMock(side_effect=[TunnelDisconnected('lost mapping'),
+                                            TunnelDisconnected('replacement lost'), asyncio.CancelledError()])
+        cancelled = []
+
+        async def pending_publication(url):
+            try:
+                await asyncio.Future()
+            finally:
+                cancelled.append(url)
+
+        publish = AsyncMock(side_effect=pending_publication)
+        with patch('oak.tunnel.asyncio.sleep', AsyncMock()):
+            with self.assertRaises(asyncio.CancelledError):
+                await asyncio.wait_for(tunnel.maintain(8765, publish), 0.2)
+        self.assertEqual(cancelled, ['https://replacement.lhr.life'] * 2)
+        self.assertEqual(tunnel.wait.await_count, 3)
+        self.assertEqual(tunnel.close.await_count, 2)
 
     def test_telegram_auth_signature_freshness_duplicates_and_owner(self):
         token, now = '123:synthetic-test-token', 1800000000
