@@ -332,7 +332,8 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
         interactions.ask = AsyncMock(return_value='{"name":"Oak"}')
         response = await interactions.user_input({'method': 'mcpServer/elicitation/request', 'mode': 'form',
                                                   'message': 'Name', 'requestedSchema': {'type': 'object'}})
-        self.assertEqual(response, {'action': 'accept', 'content': {'name': 'Oak'}})
+        self.assertEqual(response, {'action': 'decline', 'content': None})
+        interactions.ask.assert_not_awaited()
 
     async def test_schedule_claim_cancel_and_recurrence_wait_for_completion(self):
         self.db.execute('CREATE TABLE turns(turn_id TEXT PRIMARY KEY,status TEXT)')

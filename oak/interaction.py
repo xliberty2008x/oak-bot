@@ -83,32 +83,7 @@ class Interactions:
         return {'decision': 'accept' if accepted else 'decline'}
 
     async def user_input(self, metadata):
-        if metadata.get('method') == 'mcpServer/elicitation/request':
-            mode = metadata.get('mode')
-            message = str(metadata.get('message') or metadata.get('description') or '')
-            if mode == 'url':
-                accepted = await self.ask(metadata, 'approval', message + '\n' +
-                    str(metadata.get('url', '')) + '\nПідтверди після виконання дії за посиланням.')
-                return {'action': 'accept' if accepted else 'decline', 'content': None}
-            if mode in ('form', 'openai/form', 'openaiForm'):
-                schema = json.dumps(metadata.get('requestedSchema', {}), ensure_ascii=False)
-                if len(message) + len(schema) <= 3200:
-                    answer = await self.ask(metadata, 'input', message +
-                        '\nВведи JSON-об’єкт відповіді за цією схемою:\n' + schema)
-                    try:
-                        content = json.loads(answer)
-                        if isinstance(content, dict):
-                            return {'action': 'accept', 'content': content}
-                    except (ValueError, TypeError):
-                        pass
-            # Device proofs and oversized forms need a client that implements
-            # that interaction. Never substitute an unrelated answer shape.
-            return {'action': 'decline', 'content': None}
-        questions = metadata.get('questions', [])
-        answers = {}
-        for question in questions:
-            options = question.get('options') or []
-            text = question.get('question', '') + '\n' + '\n'.join(o.get('label', '') for o in options)
-            answer = await self.ask(metadata, 'input', text.strip())
-            answers[question['id']] = {'answers': [answer] if answer else []}
-        return {'answers': answers}
+        requests = getattr(self.controller, 'requests', None)
+        if requests is None:
+            return {'answers': {}} if metadata.get('method') == 'item/tool/requestUserInput' else {'action': 'decline', 'content': None}
+        return await requests.native(metadata)

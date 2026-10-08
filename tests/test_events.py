@@ -193,7 +193,8 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await client._handle_server_request({"id": 7, "method": "item/tool/call", "params": {
             "threadId": "t", "turnId": "r", "callId": "call", "tool": "remember", "arguments": {"text": "hello"}}})
         handler.assert_awaited_once_with({"requestId": 7, "method": "item/tool/call", "threadId": "t",
-                                        "turnId": "r", "callId": "call", "tool": "remember", "arguments": {"text": "hello"}})
+                                        "turnId": "r", "callId": "call", "tool": "remember", "arguments": {"text": "hello"},
+                                        "runtimeEpoch": client.runtime_epoch})
         client._send.assert_awaited_once_with({"id": 7, "result": result})
 
     async def test_approval_failure_declines_without_leaking_handler_details(self):

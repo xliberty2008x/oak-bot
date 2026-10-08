@@ -65,6 +65,8 @@ class Controller:
         self.mapper = EventMapper()
         self.memory = MemoryStore(self.db)
         self.scheduler = Scheduler(self.db, self, self.config.get('timezone', 'Europe/Kyiv'))
+        from .requests import InputRequests
+        self.requests = InputRequests(self)
         self.interactions = Interactions(self.db, self)
         from .a2ui import A2UIStore
         self.a2ui = A2UIStore(self)
@@ -578,6 +580,7 @@ class Controller:
             turn_id = self.active.get(chat_id)
             if not turn_id:
                 return 'idle'
+            self.requests.invalidate_turn(self.threads.get(chat_id), turn_id)
             # turn/start can acknowledge before the runtime activates the turn;
             # completion can also race this request. Retry only that explicit
             # rejection, always targeting the same turn, without claiming success.
@@ -596,6 +599,8 @@ class Controller:
     async def retire_topic(self, chat_id):
         self.sessions.delete(chat_id)
         self.a2ui.invalidate(chat_id)
+        for row in self.db.execute("SELECT DISTINCT thread_id,turn_id FROM input_requests WHERE chat_id=? AND outcome='pending'", (chat_id,)).fetchall():
+            self.requests.invalidate_turn(*row)
         if not self.sessions.deleted(chat_id):
             raise ValueError('Only topic sessions can be deleted.')
         with self.db:
@@ -655,6 +660,7 @@ class Controller:
                     if self.active.get(chat_id) == turn['id']:
                         self.active.pop(chat_id, None)
                     self.interactions.cancel_turn(thread_id, turn['id'])
+                    self.requests.invalidate_turn(thread_id, turn['id'])
                     if turn['status'] in {'interrupted', 'failed'}:
                         self.a2ui.invalidate(chat_id, turn['id'])
                     with self.db:

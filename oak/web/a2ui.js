@@ -27,6 +27,28 @@ function write(model, path, value) {
   parent[keys.at(-1)] = value;
 }
 const resolve = (value, model) => value && typeof value === 'object' ? read(model, value.path) : value;
+
+// Contextual requests reuse the canonical field widgets, with a distinct transport.
+export function renderRequestFields(container, presentation) {
+  if (presentation.catalogId !== CATALOG || presentation.version !== VERSION || !Array.isArray(presentation.fields) || presentation.fields.length > 3) throw new Error('Unsupported request form');
+  container.replaceChildren();
+  const controls = new Map();
+  for (const field of presentation.fields) {
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(field.id)) throw new Error('Invalid request field');
+    const wrapper = node('div', undefined, 'a2ui-field'), label = node('label', field.label);
+    const control = node(field.options ? 'select' : 'input');
+    control.id = 'request-field-' + field.id; label.htmlFor = control.id; control.required = true;
+    if (field.options) {
+      const empty = node('option', 'Обери варіант'); empty.value = ''; control.append(empty);
+      for (const value of field.options) { const option = node('option', value); option.value = value; control.append(option); }
+    } else { control.type = 'text'; control.maxLength = 2000; control.autocomplete = 'off'; }
+    wrapper.append(label, control); container.append(wrapper); controls.set(field.id, control);
+  }
+  return () => {
+    for (const control of controls.values()) if (!control.reportValidity()) return null;
+    return Object.fromEntries([...controls].map(([key, control]) => [key, control.value]));
+  };
+}
 function reconcile(parent, children) {
   children.forEach((child, index) => { if (parent.children[index] !== child) parent.insertBefore(child, parent.children[index] || null); });
   while (parent.children.length > children.length) parent.lastElementChild.remove();
