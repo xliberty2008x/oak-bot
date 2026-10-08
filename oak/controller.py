@@ -248,6 +248,23 @@ class Controller:
                         'are delivered automatically. Use connected Figma/Canva apps for their tasks; ask before '
                         'publishing, purchases or destructive external actions. Be honest about unavailable services. '
                         'Remember explicit owner preferences with oak_memory_remember; search memory when needed.')
+            if self.web_app_url(chat_id):
+                context += ('\n\nUse oak_a2ui proactively when a task needs several structured preferences or '
+                            'a choice the owner may want to revise, such as a plan with a topic, pace and duration. '
+                            'Do not wait for the owner to mention forms or the Mini App. Collect the missing choices '
+                            'in one compact form instead of a sequence of questions. Keep simple questions, ordinary '
+                            'answers and requests with enough information in Telegram; honor a preference to answer in chat. '
+                            'Read the catalogue before composing a form. Publish the initial fields and values together, '
+                            'with a clear submit button and a cancel action named cancel. Use a fresh surface ID for a new task. '
+                            'The harness sends your Ukrainian fallback with a button opening the correct form and conversation. '
+                            'Tell the owner what to choose and that they can also answer here; do not send them searching '
+                            'through panel sections, invent links, or repeat the same fallback in your final reply. '
+                            'After submission, continue the requested task and update that card with the result and an edit '
+                            'option when useful. On cancel, delete the card without performing the task. If the owner answers '
+                            'in Telegram instead, use that answer and update or close the obsolete form. '
+                            'Form choices are task input, not authorization for unrelated external actions. '
+                            'If the form cannot be published or no UI link is available, continue with a concise text '
+                            'question in Telegram; never claim an unavailable form is ready.')
             if getattr(self.tools, 'computer', None) is not None:
                 context += (' Use oak_computer for visual interaction with the configured VM desktop. '
                             'Inspect its returned screenshots to choose coordinates and verify results; '
@@ -486,6 +503,27 @@ class Controller:
         self.interactions.resolve(chat_id, request_id, text, 'input')
         return 'Відповідь передано.'
 
+    def web_app_url(self, chat_id, surface=None):
+        app = getattr(self, 'web', None)
+        url = getattr(app, 'public_url', '')
+        parsed = urlsplit(url)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or any(ord(char) < 33 for char in url)):
+            return None
+        destination = self.sessions.destination(chat_id)
+        if not destination:
+            return None
+        conversation = ('topic:' + str(destination['message_thread_id'])
+                        if 'message_thread_id' in destination else 'telegram')
+        query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+                 if key not in {'conversation', 'surface'}]
+        query.append(('conversation', conversation))
+        if surface is not None:
+            from .a2ui import identifier
+            identifier(surface)
+            query.append(('surface', surface))
+        return urlunsplit(parsed._replace(query=urlencode(query), fragment=''))
+
     async def command(self, chat_id, text, update_id):
         name, _, argument = text.strip().partition(' ')
         name = name.split('@')[0]
@@ -498,16 +536,9 @@ class Controller:
         if name == '/status':
             return 'Oak працює. ' + ('Є активна задача.' if chat_id in self.active else 'Готовий до нової задачі.')
         if name == '/web':
-            app = getattr(self, 'web', None)
-            if not app or not app.public_url.startswith('https://'):
+            url = self.web_app_url(chat_id)
+            if not url:
                 return 'Вебінтерфейс ще не під’єднаний. Використовуй цей чат.'
-            url = app.public_url
-            destination = self.sessions.destination(chat_id)
-            if destination and 'message_thread_id' in destination:
-                parsed = urlsplit(url)
-                query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != 'conversation']
-                query.append(('conversation', 'topic:' + str(destination['message_thread_id'])))
-                url = urlunsplit(parsed._replace(query=urlencode(query)))
             await self.emit(chat_id, {'type': 'CUSTOM', 'name': 'web_app_link',
                                      'value': {'url': url, 'label': 'Відкрити Oak'}})
             return None

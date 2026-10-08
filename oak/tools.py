@@ -15,9 +15,11 @@ def _spec(name, description, properties, required=()):
 STRING = {'type': 'string'}
 NUMBER = {'type': 'number'}
 SPECS = [
-    _spec('oak_a2ui', 'Compose interactive forms/cards inside the existing Oak Mini App. Call action=catalog first '
+    _spec('oak_a2ui', 'Use compact interactive forms when collecting several preferences or revisable choices for a task. '
+          'Simple questions and ordinary replies stay in Telegram. Compose cards inside the existing Oak Mini App. Call action=catalog first '
           'for the pinned A2UI v0.9.1 Oak catalogue and example. Publish declarative JSON only; no code, URLs or styles. '
-          'Include a useful Ukrainian Telegram fallback. Owner interactions return in this conversation; '
+          'Include a useful Ukrainian Telegram fallback; the harness adds a button opening this form in this conversation. '
+          'Owner interactions return in this conversation; '
           'updateDataModel/updateComponents incrementally, deleteSurface to close. This is not approval for external actions.',
           {'action': {'type': 'string', 'enum': ['catalog', 'publish']},
            'messages_json': STRING, 'fallback': STRING}, ['action']),
@@ -179,7 +181,13 @@ class Tools:
                         'instructions': 'Use root ID root. Publish messages_json as a JSON array and a meaningful Telegram fallback. '
                         'Fields bind to object paths. ChoicePicker is single choice with a string[] value. '
                         'Every button uses action.event with optional bound context. Functions/theme/URLs are unsupported. '
-                        'Forms expire after one hour. After an action update or delete the surface.'}
+                        'updateComponents merges by ID; omitted components remain. Reuse the existing layout parent '
+                        'when changing its children. To replace a layout, deleteSurface and recreate it in one batch '
+                        'so detached old parents do not share children with the new layout. '
+                        'Forms expire after one hour. Use a fresh surface ID for each new task. '
+                        'Include submit and cancel buttons; name the cancel event cancel. The fallback is sent to Telegram '
+                        'with a form button when a public Mini App is available. Offer answering in chat as well. '
+                        'After an action update or delete the surface; if the owner answers in chat, use that answer too.'}
             if args.get('action') != 'publish':
                 raise ValueError('Unsupported A2UI action.')
             return await c.a2ui.publish(chat_id, json.loads(args['messages_json']), args['fallback'], metadata)

@@ -32,10 +32,10 @@ function reconcile(parent, children) {
   while (parent.children.length > children.length) parent.lastElementChild.remove();
 }
 
-export function createA2UIPanel({api, available, epoch, busy, setBusy}) {
+export function createA2UIPanel({api, available, epoch, busy, setBusy, target = () => null, targetHandled = () => {}}) {
   const section = document.getElementById('a2ui-panel'), content = document.getElementById('a2ui-surfaces'), status = document.getElementById('a2ui-status');
   const surfaces = new Map();
-  let loading = false, actionBusy = false, generation = 0, serverBusy = false;
+  let loading = false, actionBusy = false, generation = 0, serverBusy = false, targetNotice = '';
   function notice(text, error = false) { status.textContent = text; status.classList.toggle('error-message', error); }
   function disable() {
     for (const surface of surfaces.values()) for (const control of surface.element.querySelectorAll('button,input,select')) {
@@ -132,19 +132,36 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy}) {
         if (!/^[A-Za-z0-9_-]{1,64}$/.test(incoming.id) || !Number.isSafeInteger(incoming.revision) || incoming.revision < 1 || !incoming.components || !incoming.dataModel) throw new Error('Invalid surface');
         ids.add(incoming.id);
         let surface = surfaces.get(incoming.id);
-        if (!surface) { surface = {id: incoming.id, element: node('div'), nodes: new Map(), inputs: {}}; surfaces.set(incoming.id, surface); }
+        if (!surface) {
+          surface = {id: incoming.id, element: node('div'), nodes: new Map(), inputs: {}};
+          surface.element.id = 'a2ui-surface-' + incoming.id; surface.element.tabIndex = -1;
+          surface.element.setAttribute('role', 'group'); surface.element.setAttribute('aria-label', 'Картка від Oak');
+          surfaces.set(incoming.id, surface);
+        }
         if (surface.revision !== incoming.revision) {
           Object.assign(surface, incoming, {inputs: {}}); render(surface);
           notice(serverBusy ? 'Oak ще працює…' : 'Форма для вибраної сесії. Відповідь повернеться Oak у Telegram.');
         } else { surface.consumed ||= incoming.consumed; surface.expires = incoming.expires; }
       }
       for (const [id, surface] of surfaces) if (!ids.has(id)) { surface.element.remove(); surfaces.delete(id); }
-      reconcile(content, [...surfaces.values()].map(surface => surface.element)); section.hidden = surfaces.size === 0; disable();
+      reconcile(content, [...surfaces.values()].map(surface => surface.element));
+      const requested = target(), linked = requested ? surfaces.get(requested) : null;
+      if (requested) {
+        targetHandled();
+        if (!linked || Date.now() / 1000 >= linked.expires) targetNotice = 'Картка з посилання недоступна або її термін дії минув. Попроси Oak надіслати нову картку в Telegram.';
+      }
+      section.hidden = surfaces.size === 0 && !targetNotice;
+      if (targetNotice) notice(targetNotice, true);
+      disable();
+      if (requested && !targetNotice && !document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !document.querySelector('dialog[open]')) {
+        linked.element.focus({preventScroll: true});
+        linked.element.scrollIntoView({block: 'start'});
+      }
     } catch {
-      if (epoch() === startEpoch && generation === startGeneration && available()) { serverBusy = true; disable(); notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
+      if (epoch() === startEpoch && generation === startGeneration && available()) { serverBusy = true; disable(); if (target()) section.hidden = false; notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
     } finally { if (generation === startGeneration) loading = false; }
   }
-  function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
+  function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
   const timer = setInterval(() => { void refresh(); }, 3000);
   window.addEventListener('pagehide', () => clearInterval(timer), {once: true});
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });

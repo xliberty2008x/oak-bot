@@ -8,7 +8,9 @@ let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
-let initialConversation = new URLSearchParams(location.search).get("conversation");
+const launchParams = new URLSearchParams(location.search);
+let initialConversation = launchParams.get("conversation");
+let surfaceLaunch = launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
 const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set(), openIntegrations = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
@@ -322,13 +324,22 @@ async function loadSessions(epoch, background = false) {
   try {
     const value = await api("/api/sessions");
     if (epoch !== sessionEpoch || (background && sessionRefreshBlocked())) return false;
-    if (initialConversation !== null && Array.isArray(value.sessions)) {
-      const found = value.sessions.some(session => session.id === initialConversation && (session.id === "telegram" || /^topic:[1-9][0-9]*$/.test(session.id)));
+    if (!value || !Array.isArray(value.sessions) || !value.sessions.some(session => session.id === "telegram")) throw new Error("Не вдалося прочитати сесії.");
+    if (surfaceLaunch && (!/^[A-Za-z0-9_-]{1,64}$/.test(surfaceLaunch.id) || (surfaceLaunch.conversation !== "telegram" && !/^topic:[1-9][0-9]*$/.test(surfaceLaunch.conversation)))) {
+      surfaceLaunch = null;
+      message("notice", "Посилання на картку недійсне. Відкрий нове посилання від Oak у Telegram.", true);
+    }
+    if (initialConversation !== null) {
+      const found = value.sessions.some(session => session.id === initialConversation && typeof session.name === "string" && (session.id === "telegram" || /^topic:[1-9][0-9]*$/.test(session.id)));
       selectedSession = found ? initialConversation : "telegram";
-      if (!found) message("notice", "Сесію з посилання не знайдено. Показуємо сесію «Загальна».", true);
+      if (!found) {
+        surfaceLaunch = null;
+        message("notice", "Сесія з посилання недоступна або її видалено. Картку не відкрито. Показуємо сесію «Загальна».", true);
+      }
       initialConversation = null;
     }
     if (Array.isArray(value.sessions) && value.sessions.some(session => session.id === "telegram") && !value.sessions.some(session => session.id === selectedSession)) {
+      surfaceLaunch = null;
       selectedSession = "telegram";
       resetSessionView();
       message("notice", "Вибрану тему видалено. Показуємо сесію «Загальна».");
@@ -356,12 +367,14 @@ async function syncSessions() {
   try {
     await loadSessions(epoch, true);
     if (epoch === sessionEpoch && previousSession !== selectedSession) await refresh();
+    else if (epoch === sessionEpoch && surfaceLaunch && sessionsData) void dynamicPanel();
   } finally { syncingSessions = false; }
 }
 async function selectSession(id) {
   if (id === selectedSession || mutationBusy || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
   sessionEpoch++;
   initialConversation = null;
+  surfaceLaunch = null;
   selectedSession = id;
   refreshing = false;
   resetSessionView();
@@ -456,6 +469,7 @@ async function deleteTopic(session) {
 }
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
+  if (surfaceLaunch) { initialConversation = surfaceLaunch.conversation; surfaceLaunch.opened = false; }
   remotePanel?.reset();
   a2uiPanel?.reset();
   sessionEpoch++;
@@ -1012,27 +1026,42 @@ async function desktopPanel() {
 }
 
 async function dynamicPanel() {
+  if (surfaceLaunch && initialConversation === null && sessionsData && authenticated && !$("workspace").hidden && !surfaceLaunch.opened) {
+    surfaceLaunch.opened = true;
+    if (!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !$("confirmation").open) showView("status", false);
+  }
   if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
     a2uiPanel = module.createA2UIPanel({api,
-      available: () => authenticated && !$("workspace").hidden && !$("view-status").hidden && !document.hidden,
+      available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden,
       epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
+      target: () => surfaceLaunch?.conversation === selectedSession ? surfaceLaunch.id : null,
+      targetHandled: () => { surfaceLaunch = null; },
       setBusy: value => { mutationBusy = value; updateActions(); }});
     return a2uiPanel;
-  }).catch(() => { a2uiLoading = null; return null; });
+  }).catch(() => {
+    a2uiLoading = null;
+    if (surfaceLaunch) message("notice", "Картку не вдалося завантажити. Перевір з’єднання та натисни «Оновити».", true);
+    return null;
+  });
   const panel = await a2uiLoading;
   await panel?.refresh();
 }
 
-for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
-  const view = button.dataset.view;
+function showView(view, focus = true) {
   if (view !== "desktop") remotePanel?.leave();
   for (const navButton of document.querySelectorAll("[data-view]")) {
-    if (navButton === button) navButton.setAttribute("aria-current", "page");
+    if (navButton.dataset.view === view) navButton.setAttribute("aria-current", "page");
     else navButton.removeAttribute("aria-current");
   }
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== "view-" + view;
-  window.scrollTo({top: 0});
-  $(view + "-heading").focus({preventScroll: true});
+  if (focus) {
+    window.scrollTo({top: 0});
+    $(view + "-heading").focus({preventScroll: true});
+  }
+}
+for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
+  const view = button.dataset.view;
+  showView(view);
   if (view === "desktop") void desktopPanel();
   if (view === "status") void dynamicPanel();
 });

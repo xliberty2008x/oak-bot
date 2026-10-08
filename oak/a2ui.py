@@ -370,8 +370,23 @@ class A2UIStore:
         # The existing durable bus delivers the same messages to other AG-UI consumers.
         await c.emit(chat, {'type': 'CUSTOM', 'name': 'a2ui',
                            'value': {'messages': messages, 'revisions': revisions}})
-        await c.notice(chat, fallback)
-        return {'published': True, 'protocol': VERSION, 'revisions': revisions}
+        url = None
+        for key in sorted(revisions):
+            try:
+                row = self.row(chat, key)
+            except StaleSurface:
+                continue
+            # Streaming surfaces become useful once the renderer has a root.
+            if 'root' in json.loads(row['state'])['components']:
+                url = c.web_app_url(chat, surface=key)
+                break
+        if url:
+            await c.emit(chat, {'type': 'CUSTOM', 'name': 'web_app_link',
+                               'value': {'url': url, 'label': fallback, 'button_label': 'Відкрити форму'}})
+        else:
+            await c.notice(chat, fallback)
+        return {'published': True, 'protocol': VERSION, 'revisions': revisions, 'ui_available': bool(url),
+                **({'web_app_url': url} if url else {})}
 
     def invalidate(self, chat, run=None):
         with self.db:

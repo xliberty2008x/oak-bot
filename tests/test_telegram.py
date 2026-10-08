@@ -100,6 +100,15 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         await restored._render_delivery(restored._deliveries()[0])
         self.assertEqual(restored._api.await_args.args[1]['chat_id'], 7)
         self.assertEqual(restored._api.await_args.args[1]['message_thread_id'], 12)
+        url = 'https://oak.example.test/?conversation=topic%3A12&surface=lesson-plan'
+        await restored.emit(scope, {'type': 'CUSTOM', 'name': 'web_app_link', 'value': {
+            'url': url, 'label': 'Обери тему або напиши тут.', 'button_label': 'Відкрити форму'}})
+        await restored._render_delivery(restored._deliveries()[0])
+        payload = restored._api.await_args.args[1]
+        self.assertEqual((payload['chat_id'], payload['message_thread_id']), (7, 12))
+        self.assertEqual(payload['text'], 'Обери тему або напиши тут.')
+        self.assertEqual(payload['reply_markup']['inline_keyboard'][0][0],
+                         {'text': 'Відкрити форму', 'web_app': {'url': url}})
         await restored.emit(-1, {'type': 'RUN_STARTED', 'runId': 'browser-only'})
         self.assertNotIn(-1, restored._replies)
 

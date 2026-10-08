@@ -97,7 +97,7 @@ def validate_event(event):
             'artifact': {'id': 512, 'name': 512, 'mime': 128, 'url': 8192},
             'approval_request': {'id': 128, 'summary': 16000},
             'user_input_request': {'id': 128, 'question': 16000},
-            'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 512},
+            'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 2000},
             'activity': {'activityId': 512},
             'a2ui': {},
         }
@@ -110,6 +110,8 @@ def validate_event(event):
                 raise ValueError('Invalid A2UI revisions.')
         for field, limit in custom[name].items():
             _string(value.get(field), f'value.{field}', limit)
+        if name == 'web_app_link' and 'button_label' in value:
+            _string(value['button_label'], 'value.button_label', 128)
         for field, limit in {'caption': 16000, 'toolCallId': 512, 'status': 128}.items():
             if field in value:
                 _string(value[field], f'value.{field}', limit, empty=field == 'caption')
