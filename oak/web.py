@@ -61,6 +61,10 @@ class WebGateway:
         self.controls = ControlPanel(self)
         from .remote import RemoteDesktop
         self.remote = RemoteDesktop(self)
+        self.signin = None
+        if config.get('credential_broker'):
+            from .signin import SignInBridge
+            self.signin = SignInBridge(self, config['credential_broker'])
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -101,6 +105,7 @@ class WebGateway:
             web.get('/api/a2ui', self.a2ui_snapshot), web.post('/api/a2ui/action', self.a2ui_action),
             web.get('/api/requests/{id}', self.input_request),
             web.post('/api/requests/{id}', self.input_request_decision),
+            web.post('/api/requests/{id}/signin', self.signin_start),
             web.get('/api/artifacts/{id}', self.artifact),
         ])
 
@@ -132,6 +137,7 @@ class WebGateway:
                 socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
             "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
+        response.headers['Content-Security-Policy'] += '; frame-src ' + (self.signin.origin if self.signin else "'none'")
         return response
 
     def owner(self, request):
@@ -451,6 +457,17 @@ class WebGateway:
             raise web.HTTPConflict(text='Запит завершений або недоступний.') from None
         return web.json_response(result)
 
+    async def signin_start(self, request):
+        from .requests import RequestUnavailable
+        owner, chat, _ = self.request_scope(request)
+        if not self.signin or await request.json() != {}:
+            raise web.HTTPBadRequest(text='Канал входу недоступний.')
+        try:
+            value = await self.signin.start(owner, chat, request.match_info['id'], request)
+        except RequestUnavailable:
+            raise web.HTTPConflict(text='Запит входу недоступний або вже розпочатий.') from None
+        return web.json_response(value)
+
     async def a2ui_action(self, request):
         from .a2ui import StaleSurface
         owner = self.owner(request)
@@ -513,6 +530,8 @@ class WebGateway:
         await web.TCPSite(self.runner, self.config.get('host', '127.0.0.1'), int(self.config.get('port', 8765))).start()
 
     async def close(self):
+        if self.signin:
+            await self.signin.close()
         if self.runner:
             await self.runner.cleanup()
             self.runner = None

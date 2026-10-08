@@ -66,6 +66,7 @@ class InputRequests:
         epoch = getattr(controller.client, 'runtime_epoch', None)
         self.epoch = epoch if isinstance(epoch, str) else uuid.uuid4().hex
         self.waiters = {}
+        self.broker = None
         self.db.executescript('''
             CREATE TABLE IF NOT EXISTS input_requests (
                 id TEXT PRIMARY KEY, owner INTEGER NOT NULL, chat_id INTEGER NOT NULL,
@@ -119,8 +120,14 @@ class InputRequests:
         else:
             response = {'outcome': outcome, 'values': values or {}}
             if row['kind'] == 'sign_in':
-                response = {'outcome': outcome, 'provider': 'instagram', 'authenticated': False,
-                            'reason': 'trusted_channel_unavailable'}
+                provider = json.loads(row['form']).get('provider', 'instagram')
+                simulated = provider == 'oak_synthetic'
+                response = {'outcome': outcome, 'provider': provider,
+                            'authenticated': simulated and outcome == 'authenticated',
+                            'reason': 'synthetic_login_verified' if simulated and outcome == 'authenticated'
+                                      else ('synthetic_login_' + outcome if simulated else 'trusted_channel_unavailable')}
+                if simulated:
+                    response['simulated'] = True
         return response
 
     def _terminal(self, row, outcome, values=None):
@@ -131,6 +138,8 @@ class InputRequests:
         future = self.waiters.get(row['id'])
         if changed and future is not None and not future.done():
             future.set_result(response)
+        if changed and self.broker:
+            self.broker.revoke(row['id'])
 
     async def _ask(self, metadata, adapter, presentation, kind='ordinary'):
         chat = self.controller.chat_for_thread(metadata.get('threadId'))
@@ -154,7 +163,8 @@ class InputRequests:
         try:
             await self.controller.emit(chat, {'type': 'CUSTOM', 'name': 'input_request',
                                               'value': {'id': identifier, 'kind': kind,
-                                                        'summary': 'Oak потребує уточнення.' if kind == 'ordinary' else 'Потрібен вхід в Instagram.'}})
+                                                        'summary': 'Oak потребує уточнення.' if kind == 'ordinary' else
+                                                                   ('Тестовий запит входу Oak.' if presentation.get('simulated') else 'Потрібен вхід в Instagram.')}})
             try:
                 return await asyncio.wait_for(asyncio.shield(future), TTL)
             except asyncio.TimeoutError:
@@ -167,8 +177,15 @@ class InputRequests:
             with self.db:
                 self.db.execute("UPDATE input_requests SET outcome='cancelled',delivery='abandoned' "
                                 "WHERE id=? AND outcome='pending'", (identifier,))
+            if self.broker:
+                self.broker.revoke(identifier)
 
     async def template(self, metadata, name):
+        if name == 'synthetic_sign_in' and self.broker:
+            # Explicit fixture only; not advertised as a production model tool.
+            return await self._ask(metadata, 'tool', {'provider': 'oak_synthetic',
+                                   'destination': 'synthetic loopback provider', 'capability': True,
+                                   'simulated': True, 'handoff': 'trusted_user_required'}, 'sign_in')
         if name == 'instagram_sign_in':
             return await self._ask(metadata, 'tool', {'provider': 'instagram', 'destination': 'https://www.instagram.com',
                                    'capability': False, 'reason': 'trusted_channel_unavailable',
@@ -245,8 +262,11 @@ class InputRequests:
             elif not self._live(row):
                 self.invalidate_turn(row['thread_id'], row['turn_id'])
             row = self.row(owner, chat, identifier)
-        return {'id': row['id'], 'kind': row['kind'], 'revision': 1, 'expires': row['expires'],
-                'outcome': row['outcome'], 'delivery': row['delivery'], 'form': json.loads(row['form'])}
+        result = {'id': row['id'], 'kind': row['kind'], 'revision': 1, 'expires': row['expires'],
+                  'outcome': row['outcome'], 'delivery': row['delivery'], 'form': json.loads(row['form'])}
+        if row['kind'] == 'sign_in' and self.broker and result['form'].get('provider') == 'oak_synthetic':
+            result['broker'] = self.broker.snapshot(identifier)
+        return result
 
     async def decide(self, owner, chat, identifier, data):
         if not isinstance(data, dict) or data.get('decision') not in {'submit', 'cancel'}:
@@ -292,6 +312,8 @@ class InputRequests:
                 self.db.execute('INSERT INTO input_request_receipts VALUES (?,?,?,?)',
                                 (identifier, action_id, fingerprint, bounded(result)))
             self.waiters[identifier].set_result(response)
+            if self.broker:
+                self.broker.revoke(identifier)
             return result
 
     def delivered(self, epoch, native_id, status):
@@ -309,3 +331,5 @@ class InputRequests:
             future = self.waiters.get(row['id'])
             if future is not None and not future.done():
                 future.cancel()
+            if self.broker:
+                self.broker.revoke(row['id'])
