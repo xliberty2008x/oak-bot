@@ -25,6 +25,10 @@ This Markdown workflow is usable by other agents without a skill loader.
   deployed elsewhere. A successful `getMe` and empty webhook cannot prove another
   machine is not polling. Stop the previous deployment as part of an authorized
   migration; do not silently run both.
+- For attachments above 20 MB, provision the official local Telegram Bot API
+  using [large-file setup](../../../docs/configuration.md#large-telegram-files).
+  Reuse only explicitly available app credentials, never another account session.
+  Configure the endpoint for the whole deployment, not individual conversations.
 
 ## Run the bootstrap
 

@@ -4,6 +4,7 @@
 import argparse
 import fcntl
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,7 @@ import tempfile
 import time
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from zoneinfo import ZoneInfo
 
 REPO = Path(__file__).resolve().parent.parent
@@ -111,14 +112,31 @@ def locked(path):
             return True
 
 
-def request_json(url, data=None, headers=None):
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def request_json(url, data=None, headers=None, *, follow_redirects=True):
     request = Request(url, data=json.dumps(data).encode() if data is not None else None,
                       headers={'Content-Type': 'application/json', **(headers or {})})
-    with urlopen(request, timeout=25) as response:
+    open_request = urlopen if follow_redirects else build_opener(NoRedirect()).open
+    with open_request(request, timeout=25) as response:
         return json.load(response)
 
 
 def telegram(config, method, data):
+    endpoint = config.get('telegram_api_url', 'https://api.telegram.org')
+    parsed = urlsplit(endpoint)
+    try:
+        local = ipaddress.ip_address(parsed.hostname or '').is_loopback and parsed.port is not None
+    except ValueError:
+        local = False
+    if (parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment
+            or parsed.path not in ('', '/')
+            or not (endpoint.rstrip('/') == 'https://api.telegram.org'
+                    or (local and parsed.scheme in ('http', 'https')))):
+        raise ValueError('Telegram verification requires the official HTTPS or an explicit loopback endpoint.')
     path = Path(config['telegram_token_file'])
     if path.stat().st_mode & 0o077:
         raise ValueError('Telegram token must be private (chmod 600).')
@@ -126,7 +144,8 @@ def telegram(config, method, data):
     if not re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]+', token):
         raise ValueError('Invalid Telegram token file; its contents were not printed.')
     try:
-        result = request_json('https://api.telegram.org/bot' + token + '/' + method, data)
+        result = request_json(endpoint.rstrip('/') + '/bot' + token + '/' + method, data,
+                              follow_redirects=False)
     except Exception:
         raise RuntimeError('Telegram verification failed; check the token file and network.') from None
     if not result.get('ok'):

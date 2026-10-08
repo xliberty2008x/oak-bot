@@ -19,7 +19,7 @@ from .context import load_context
 def load_config(config_path):
     config_file = Path(config_path).expanduser().resolve()
     config = json.loads(config_file.read_text())
-    for name in ('state_dir', 'workspace', 'runtime_home', 'telegram_token_file', 'piper_model', 'vosk_model', 'whisper_model'):
+    for name in ('state_dir', 'workspace', 'runtime_home', 'telegram_token_file', 'telegram_api_directory', 'piper_model', 'vosk_model', 'whisper_model'):
         value = config.get(name)
         if value:
             path = Path(value).expanduser()
@@ -167,7 +167,9 @@ async def run(config_path):
             client.tool_handler = controller.tools.handle
             client.approval_handler = controller.interactions.approval
             client.request_input_handler = controller.interactions.user_input
-            gateway = TelegramGateway(controller, token, allowed, state_dir)
+            gateway = TelegramGateway(controller, token, allowed, state_dir,
+                                      api_url=config.get('telegram_api_url', 'https://api.telegram.org'),
+                                      local_directory=config.get('telegram_api_directory'))
             controller.bus = EventBus(controller)
             controller.bus.add_sink(gateway.emit)
             controller.emit = controller.bus.emit

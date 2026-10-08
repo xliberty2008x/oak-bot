@@ -4,12 +4,14 @@ import asyncio
 from collections import deque
 from dataclasses import asdict, dataclass, field
 import json
+import ipaddress
 import math
 import mimetypes
 import os
 from pathlib import Path, PurePosixPath
 import re
 import sqlite3
+import stat
 import tempfile
 import time
 import urllib.error
@@ -20,7 +22,6 @@ import uuid
 from .media import ToolUnavailable
 from .rendering import render_markdown
 
-MAX_DOWNLOAD = 20 * 1024 * 1024
 MAX_UPLOAD = 50 * 1024 * 1024
 CONTROL_COMMANDS = {'/start', '/help', '/status', '/web', '/remember', '/memory', '/remind', '/tasks',
                     '/cancel', '/image', '/preview', '/speak', '/research', '/browse'}
@@ -79,9 +80,32 @@ class _Reply:
 
 
 class TelegramGateway:
-    def __init__(self, controller, token: str, allowed_user_ids: set[int], state_dir: Path):
+    def __init__(self, controller, token: str, allowed_user_ids: set[int], state_dir: Path,
+                 *, api_url='https://api.telegram.org', local_directory=None):
         if not token or not allowed_user_ids or any(type(n) is not int or n <= 0 for n in allowed_user_ids):
             raise ValueError('Telegram requires a token and explicit positive numeric user IDs.')
+        parsed = urllib.parse.urlsplit(api_url)
+        try:
+            local = ipaddress.ip_address(parsed.hostname or '').is_loopback
+            port = parsed.port
+        except ValueError:
+            local, port = False, None
+        if (parsed.username is not None or parsed.password is not None
+                or parsed.query or parsed.fragment or parsed.path not in ('', '/')
+                or not ((api_url.rstrip('/') == 'https://api.telegram.org')
+                        or (local and parsed.scheme in ('http', 'https') and port is not None))):
+            raise ValueError('Telegram API must use the official HTTPS endpoint or an explicit loopback endpoint.')
+        self.api_url = api_url.rstrip('/')
+        self.local_directory = None
+        if local:
+            if local_directory is None:
+                raise ValueError('A local Telegram API requires its shared file directory.')
+            root = Path(local_directory).absolute()
+            if root.resolve(strict=True) != root or not root.is_dir():
+                raise ValueError('The local Telegram directory must be a real directory without symlinks.')
+            self.local_directory = root
+        elif local_directory is not None:
+            raise ValueError('A local Telegram directory requires a loopback API endpoint.')
         self.controller = controller
         self.controller.telegram = self
         self.sessions = controller.sessions
@@ -261,7 +285,7 @@ class TelegramGateway:
         data, content_type = (self._multipart(payload, method) if '_upload' in payload
                               else (json.dumps(payload).encode(), 'application/json'))
         request = urllib.request.Request(
-            f'https://api.telegram.org/bot{self._token}/{method}',
+            f'{self.api_url}/bot{self._token}/{method}',
             data=data, headers={'Content-Type': content_type}, method='POST')
         try:
             try:
@@ -302,7 +326,9 @@ class TelegramGateway:
             if method == 'editMessageText' and code == 400 and 'message is not modified' in description:
                 return True
             reason = ''
-            if code == 400 and any(phrase in description for phrase in (
+            if method == 'getFile' and code == 400 and 'file is too big' in description:
+                reason = 'file_too_big'
+            elif code == 400 and any(phrase in description for phrase in (
                     'message thread not found', 'message thread is not found',
                     'message_thread_id_invalid', 'message_thread_invalid', 'message_thread_not_found',
                     'topic_id_invalid', 'topic_deleted', 'topic_not_found', 'topic not found', 'topic was deleted')):
@@ -404,24 +430,49 @@ class TelegramGateway:
             if event.get('type') in ('RUN_FINISHED', 'RUN_ERROR'):
                 await self._activity_remove(chat_id, 'run:' + run_id if run_id else None)
 
+    def _local_attachment(self, remote_path):
+        """Open only regular files beneath the explicitly shared Bot API root."""
+        path = Path(remote_path)
+        if self.local_directory is None or not path.is_relative_to(self.local_directory):
+            raise ValueError('Telegram attachment is outside its shared directory.')
+        parts = path.relative_to(self.local_directory).parts
+        if not parts or self.local_directory.resolve(strict=True) != self.local_directory:
+            raise ValueError('Telegram attachment directory is invalid.')
+        directory = os.open(self.local_directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            for part in parts[:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                os.close(directory)
+                directory = child
+            fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+            source = os.fdopen(fd, 'rb')
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                source.close()
+                raise ValueError('Telegram attachment must be a regular file.')
+            return source
+        finally:
+            os.close(directory)
+
     def _download_sync(self, remote_path, destination):
-        parsed = PurePosixPath(remote_path)
-        if (parsed.is_absolute() or any(part in {'.', '..'} for part in remote_path.split('/'))
-                or not re.fullmatch(r'[A-Za-z0-9_./-]+', remote_path)):
+        if (not isinstance(remote_path, str) or not remote_path
+                or any(part in {'.', '..'} for part in remote_path.split('/'))):
+            raise ValueError('Telegram returned an invalid attachment path.')
+        local = PurePosixPath(remote_path).is_absolute()
+        if (local and self.local_directory is None) or (not local and not re.fullmatch(r'[A-Za-z0-9_./-]+', remote_path)):
             raise ValueError('Telegram returned an invalid attachment path.')
         destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if destination.parent.is_symlink() or destination.parent.resolve() != destination.parent:
             raise ValueError('Attachment inbox must not be a symlink.')
         fd, temporary = tempfile.mkstemp(prefix='.download-', dir=destination.parent)
         try:
-            request = urllib.request.Request(f'https://api.telegram.org/file/bot{self._token}/{remote_path}')
             with os.fdopen(fd, 'wb') as output:
-                with urllib.request.build_opener(_NoRedirect()).open(request, timeout=40) as source:
-                    total = 0
+                if local:
+                    source = self._local_attachment(remote_path)
+                else:
+                    request = urllib.request.Request(f'{self.api_url}/file/bot{self._token}/{remote_path}')
+                    source = urllib.request.build_opener(_NoRedirect()).open(request, timeout=120)
+                with source:
                     while chunk := source.read(65536):
-                        total += len(chunk)
-                        if total > MAX_DOWNLOAD:
-                            raise ValueError('Attachment exceeds the 20 MiB limit.')
                         output.write(chunk)
                 output.flush()
                 os.fsync(output.fileno())
@@ -452,11 +503,8 @@ class TelegramGateway:
             mime = item.get('mime_type') or mimetypes.guess_type(name)[0] or 'video/mp4'
         else:
             return []
-        if item.get('file_size', 0) > MAX_DOWNLOAD:
-            raise ValueError('Файл завеликий: максимум 20 MiB.')
-        info = await self._api('getFile', {'file_id': item['file_id']})
-        if info.get('file_size', 0) > MAX_DOWNLOAD:
-            raise ValueError('Файл завеликий: максимум 20 MiB.')
+        info = await self._api('getFile', {'file_id': item['file_id']},
+                               timeout=3600 if self.local_directory else 40)
         destination = self.state_dir.resolve() / 'inbox' / f'{update_id}-{name}'
         await asyncio.to_thread(self._download_sync, info['file_path'], destination)
         return [{'path': str(destination), 'mime': mime, 'name': name}]
@@ -615,8 +663,13 @@ class TelegramGateway:
                 try:
                     try:
                         attachments = await self._attachments(message, update_id)
-                    except ValueError:
-                        await self._notice(chat_id, 'Не вдалося прийняти файл. Надішли зображення, аудіо або документ до 20 MiB.')
+                    except (ValueError, TelegramError) as exc:
+                        if isinstance(exc, TelegramError) and exc.reason != 'file_too_big':
+                            raise
+                        text = ('Хмарний Telegram Bot API не віддає боту цей великий файл. Потрібне локальне підключення Telegram.'
+                                if isinstance(exc, TelegramError) else
+                                'Не вдалося прийняти файл. Спробуй надіслати його повторно як документ.')
+                        await self._notice(chat_id, text)
                         if not queued:
                             self._checkpoint(update_id + 1)
                         return
