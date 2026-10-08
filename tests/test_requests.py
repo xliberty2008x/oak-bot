@@ -7,6 +7,7 @@ import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlsplit
 
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -292,7 +293,7 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
         task, identifier = await self.begin()
         delivery = json.loads(telegram.db.execute("SELECT payload FROM deliveries WHERE id=?", (f'11:input_request:{identifier}',)).fetchone()[0])
         url = delivery['reply_markup']['inline_keyboard'][0][0]['web_app']['url']
-        self.assertEqual(url, 'https://oak.example.test?request=' + identifier + '&conversation=telegram')
+        self.assertEqual(parse_qs(urlsplit(url).query), {'request': [identifier], 'conversation': ['telegram']})
         response = await client.get('/api/requests/' + identifier, headers=one)
         self.assertEqual(response.status, 200)
         self.assertEqual((await response.json())['conversation'], 'telegram')
@@ -305,3 +306,17 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
         response = await client.post('/api/requests/' + identifier + '?conversation=telegram', headers=one, json=self.payload('cancel', 'cancel'))
         self.assertEqual(response.status, 200)
         self.assertEqual((await task)['outcome'], 'cancelled')
+
+    async def test_general_and_topic_launches_have_one_authoritative_target(self):
+        self.c.web = SimpleNamespace(public_url='https://oak.example.test/?conversation=stale&surface=old&request=old&keep=1#old')
+        topic = self.c.sessions.resolve(11, 12)
+        for chat, conversation in ((11, 'telegram'), (topic, 'topic:12')):
+            for kind, value in (('surface', 'plan'), ('request', 'a' * 32)):
+                target = self.c.web_app_url(chat, **{kind: value})
+                self.assertEqual(parse_qs(urlsplit(target).query),
+                                 {'keep': ['1'], 'conversation': [conversation], kind: [value]})
+                self.assertEqual(urlsplit(target).fragment, '')
+        with self.assertRaises(ValueError):
+            self.c.web_app_url(11, surface='plan', request='a' * 32)
+        with self.assertRaises(ValueError):
+            self.c.web_app_url(11, request='invalid')

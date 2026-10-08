@@ -104,6 +104,7 @@ and leaves dependencies and state unchanged.
 | `--public-url https://oak.example.com` | Use an existing HTTPS proxy to the local gateway |
 | `--prepare-only` | Install local components, build the Bot API image, write private config and check the desktop without credentials or starting a live bot |
 | `--verify-broker` | Also run local Chromium ordinary submit/cancel and synthetic login/OTP/cancel; requires no provider account |
+| `--check-platform` | Report separate OS/architecture/Python eligibility reasons before config or provisioning; installs nothing |
 | `--skip-voice` | Omit local speech model preparation |
 | `--skip-system` | Reuse system dependencies already provisioned by the operator |
 | `--skip-autostart` | Leave reboot startup unconfigured |
@@ -158,12 +159,28 @@ evidence, not a signature or an OS isolation attestation. Rerunning bootstrap
 against a running service remains check-only and does not launch fixtures or
 reinstall dependencies; `local_feature_checks: null` means not rerun.
 
+Run `./scripts/bootstrap-vm.sh --check-platform` with an existing Python 3
+interpreter for a read-only eligibility report. The wrapper does not use sudo,
+install Python or reject root when this diagnostic flag is present. Direct
+`python3 scripts/bootstrap_vm.py --check-platform` also exits before reading
+config, requesting credentials, building Docker images or starting services.
+`eligible` means the installer matrix matches; it never means a deployment or
+credential isolation was verified. Normal installation retains the matrix guard.
+
 The supported matrix is still Ubuntu 24.04 or Debian 12/13 amd64. The selected
 Oracle host was inspected read-only as Ubuntu 22.04.5 ARM64; no installer, package
 change or service start was performed there. ARM support requires its own tested
 bootstrap and broker isolation design rather than removing the platform guard.
-When integrating with upstream PR19, retain its local Telegram Bot API build,
-cache and migration hooks; these feature checks do not replace them.
+The local integration uses main `56642238838c5ab13d00063c117e291ee9b01850`,
+including PR19's local Bot API build/cache/migration hooks and PR20's
+endpoint-scoped update cursor. Feature checks supplement these hooks.
+
+Playwright's [vendor matrix](https://playwright.dev/python/docs/intro#system-requirements)
+includes Ubuntu 22.04 ARM64. That is dependency support, not Oak acceptance:
+the selected Python must be 3.11+, and native Bot API build, pinned runtime,
+system libraries, Chromium sandbox, desktop, voice, cleanup and reboot still
+need tests on the actual ARM host before expanding the guard. This diagnostic
+and its unit matrix perform none of those host checks.
 
 The managed desktop uses private Xauthority and a persistent headed browser
 profile. It supplies the virtual screen, mouse and keyboard Oak needs; it does

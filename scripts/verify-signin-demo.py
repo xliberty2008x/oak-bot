@@ -82,9 +82,12 @@ async def verify(port, output=None):
             response = await page.request.post(base+'/demo/request/task_details')
             assert response.status == 200
             identifier = (await response.json())['id']
-            await page.goto(base+'?conversation=telegram&request='+identifier,
+            # A stale surface/conversation must never retarget the authenticated request.
+            await page.goto(base+'?conversation=topic%3A999&surface=stale&request='+identifier,
                             wait_until='domcontentloaded',timeout=60000)
             await expect(page.locator('#request-field-details')).to_be_visible()
+            assert await page.evaluate('selectedSession') == 'telegram'
+            assert await page.evaluate('surfaceLaunch') is None
             assert await page.locator('#input-request-fields input[type=password]').count() == 0
             return identifier
 

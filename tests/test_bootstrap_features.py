@@ -136,7 +136,7 @@ class BootstrapFeatureTests(unittest.TestCase):
             with self.subTest(running=running), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 config = {'state_dir': str(root / 'state'), 'workspace': str(root / 'work'),
-                          'runtime_home': str(root / 'runtime')}
+                          'runtime_home': str(root / 'runtime'), 'telegram_api_url': 'http://127.0.0.1:8081'}
                 with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '24.04'}), \
                         patch.object(self.vm.platform, 'machine', return_value='x86_64'), \
                         patch.object(self.vm.os, 'geteuid', return_value=1000), \
@@ -145,6 +145,8 @@ class BootstrapFeatureTests(unittest.TestCase):
                         patch.object(self.vm, 'locked', return_value=running), \
                         patch.object(self.vm.shutil, 'which', return_value='/synthetic/codex'), \
                         patch.object(self.vm, 'private_json'), \
+                        patch.object(self.vm, 'prepare_telegram_image', return_value=(Mock(), 'synthetic-image')) as image, \
+                        patch.object(self.vm, 'setup_telegram_api', side_effect=AssertionError('account action')) as setup, \
                         patch.object(self.vm, 'run') as run, \
                         patch.object(self.vm, 'verify_features', return_value={'status': 'verified'}) as verify, \
                         patch.object(self.vm, 'verify_live', return_value={'status': 'ready'}) as live, \
@@ -154,14 +156,80 @@ class BootstrapFeatureTests(unittest.TestCase):
                         redirect_stdout(io.StringIO()):
                     self.vm.main()
                 if running:
+                    image.assert_not_called()
                     run.assert_not_called()
                     verify.assert_not_called()
                     live.assert_called_once()
                 else:
+                    image.assert_called_once_with(root / 'config.json')
                     verify.assert_called_once_with(False)
                     live.assert_not_called()
                     commands = [list(map(str, call.args[0])) for call in run.call_args_list]
                     self.assertFalse(any('login' in command or 'service' in command or 'smoke' in command for command in commands))
+                setup.assert_not_called()
+
+    def test_platform_matrix_separates_os_architecture_and_python(self):
+        cases = [
+            ('ubuntu', '22.04', 'aarch64', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('ubuntu', '22.04', 'x86_64', (3, 12), ['unsupported_os']),
+            ('ubuntu', '24.04', 'aarch64', (3, 12), ['unsupported_architecture']),
+            ('ubuntu', '24.04', 'x86_64', (3, 10), ['python_below_3_11']),
+            ('ubuntu', '24.04', 'x86_64', (3, 11), []),
+            ('debian', '13', 'x86_64', (3, 13), []),
+        ]
+        for distro, version, arch, python, reasons in cases:
+            with self.subTest(distro=distro, version=version, arch=arch, python=python):
+                result = self.vm.compatibility_report({'ID': distro, 'VERSION_ID': version}, arch, python)
+                self.assertEqual(result['reasons'], reasons)
+                self.assertEqual(result['status'], 'blocked' if reasons else 'eligible')
+                self.assertFalse(result['deployment_verified'])
+                self.assertFalse(result['credential_isolation_verified'])
+
+    def test_check_platform_never_reads_config_or_provisions_even_as_root(self):
+        output = io.StringIO()
+        with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '22.04'}), \
+                patch.object(self.vm.platform, 'machine', return_value='aarch64'), \
+                patch.object(self.vm.os, 'geteuid', return_value=0), \
+                patch.object(self.vm, 'settings') as settings, patch.object(self.vm, 'run') as run, \
+                patch.object(self.vm, 'prepare_telegram_image') as image, \
+                patch.object(self.vm, 'setup_telegram_api') as setup, \
+                patch.object(self.vm, 'private_json') as write, \
+                patch.object(self.vm.getpass, 'getpass') as prompt, \
+                patch.object(sys, 'argv', ['bootstrap_vm', '--check-platform', '--config', '/synthetic/unread']), \
+                redirect_stdout(output):
+            self.vm.main()
+        self.assertEqual(json.loads(output.getvalue())['reasons'], ['unsupported_os', 'unsupported_architecture'])
+        for action in (settings, run, image, setup, write, prompt):
+            action.assert_not_called()
+
+    def test_missing_os_release_fails_closed_without_details(self):
+        with patch.object(self.vm.platform, 'freedesktop_os_release', side_effect=OSError('synthetic-canary')), \
+                patch.object(self.vm.platform, 'machine', return_value='x86_64'):
+            result = self.vm.current_compatibility()
+        self.assertEqual(result['reasons'], ['unsupported_os'])
+        self.assertNotIn('synthetic-canary', json.dumps(result))
+
+    def test_diagnostic_wrapper_never_installs_python_or_rejects_root(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name, body in (
+                    ('dirname', '/usr/bin/dirname "$@"'),
+                    ('id', 'printf "0\\n"'),
+                    ('sudo', 'exit 99'),
+                    ('python3', 'printf "%s\\n" "$@"')):
+                path = root / name
+                path.write_text('#!/bin/sh\n' + body + '\n')
+                path.chmod(0o700)
+            command = ['/bin/bash', str(REPO / 'scripts/bootstrap-vm.sh'), '--config', '/synthetic/unread', '--check-platform']
+            result = subprocess.run(command, env={'PATH': str(root)}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.splitlines(),
+                             ['scripts/bootstrap_vm.py', '--config', '/synthetic/unread', '--check-platform'])
+            (root / 'python3').unlink()
+            result = subprocess.run(command, env={'PATH': str(root)}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('nothing was installed', result.stderr)
+            self.assertNotIn('deployment user', result.stderr)
 
     def test_unsupported_oracle_platform_is_rejected_before_provisioning(self):
         with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '22.04'}), \

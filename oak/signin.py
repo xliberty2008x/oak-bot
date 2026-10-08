@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+from pathlib import Path
 import re
 import time
 
@@ -18,7 +19,15 @@ class SignInBridge:
                 or not config['socket'].startswith('/')):
             raise ValueError('Only an explicit synthetic broker is supported.')
         self.gateway, self.c, self.db = gateway, gateway.controller, gateway.db
-        self.socket = config['socket']
+        socket = Path(config['socket']).resolve()
+        # An import-path guard, never an OS isolation claim. Model workspace
+        # and Telegram cache/inbox cannot contain the trusted control socket.
+        roots = [Path(self.c.cwd).resolve(), (Path(self.c.config['state_dir']) / 'inbox').resolve()]
+        if self.c.config.get('telegram_api_directory'):
+            roots.append(Path(self.c.config['telegram_api_directory']).resolve())
+        if any(socket.is_relative_to(root) for root in roots):
+            raise ValueError('Broker control must stay outside model and Telegram import directories.')
+        self.socket = str(socket)
         self.origin = origin(config['origin'], loopback=True)
         self.tasks = set()
         self.db.executescript('''CREATE TABLE IF NOT EXISTS signin_attempts (

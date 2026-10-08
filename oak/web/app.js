@@ -9,10 +9,11 @@ let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
+if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 const launchParams = new URLSearchParams(location.search);
 let initialConversation = launchParams.get("conversation");
-let surfaceLaunch = launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
+let surfaceLaunch = !initialRequest && launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
 const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set(), openIntegrations = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
@@ -360,7 +361,7 @@ async function loadSessions(epoch, background = false) {
   }
 }
 function sessionRefreshBlocked() {
-  return !authenticated || document.hidden || $("workspace").hidden || refreshing || mutationBusy || computerChanging || $("confirmation").open || document.activeElement?.closest(".topic-form, #create-session") || document.querySelector(".topic-rename[open]");
+  return !authenticated || document.hidden || $("workspace").hidden || refreshing || mutationBusy || computerChanging || document.querySelector("dialog[open]") || document.activeElement?.closest(".topic-form, #create-session") || document.querySelector(".topic-rename[open]");
 }
 async function syncSessions() {
   if (syncingSessions || sessionRefreshBlocked()) return;
@@ -1064,13 +1065,14 @@ async function desktopPanel() {
 }
 
 async function dynamicPanel() {
+  if (document.querySelector("dialog[open]")) return;
   if (surfaceLaunch && initialConversation === null && sessionsData && authenticated && !$("workspace").hidden && !surfaceLaunch.opened) {
     surfaceLaunch.opened = true;
     if (!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !$("confirmation").open) showView("status", false);
   }
   if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
     a2uiPanel = module.createA2UIPanel({api,
-      available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden,
+      available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden && !document.querySelector("dialog[open]"),
       epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
       target: () => surfaceLaunch?.conversation === selectedSession ? surfaceLaunch.id : null,
       targetHandled: () => { surfaceLaunch = null; },
@@ -1183,7 +1185,7 @@ $("telegram-sdk").addEventListener("load", telegramReady);
     if (!initialRequest) {
       const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('tgWebAppStartParam') || '';
       const match = /^request_([a-f0-9]{32})$/.exec(start);
-      if (match) initialRequest = match[1]; // Locator only; the backend authenticates owner/scope.
+      if (match) { initialRequest = match[1]; surfaceLaunch = null; } // Locator only; the backend authenticates owner/scope.
     }
     const fragment = new URLSearchParams(location.hash.slice(1));
     const initData = window.Telegram?.WebApp?.initData || fragment.get("tgWebAppData");

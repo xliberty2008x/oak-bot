@@ -43,6 +43,28 @@ def run(args, **kwargs):
     return subprocess.run([str(arg) for arg in args], cwd=REPO, check=True, **kwargs)
 
 
+def compatibility_report(release, machine, python_version):
+    """Pure installer eligibility; vendor artifacts do not verify a deployment."""
+    reasons = []
+    if (release.get('ID'), release.get('VERSION_ID')) not in {
+            ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}:
+        reasons.append('unsupported_os')
+    if machine != 'x86_64':
+        reasons.append('unsupported_architecture')
+    if tuple(python_version[:2]) < (3, 11):
+        reasons.append('python_below_3_11')
+    return {'status': 'blocked' if reasons else 'eligible', 'reasons': reasons,
+            'deployment_verified': False, 'credential_isolation_verified': False}
+
+
+def current_compatibility():
+    try:
+        release = platform.freedesktop_os_release()
+    except OSError:
+        release = {}
+    return compatibility_report(release, platform.machine(), sys.version_info)
+
+
 def managed_check(args, timeout, cleanup_timeout, capture_output, text):
     """Own the verifier process group; give cancellation time to close fixtures."""
     command = [str(arg) for arg in args]
@@ -554,16 +576,16 @@ def main():
     parser.add_argument('--port', type=int)
     parser.add_argument('--timezone')
     parser.add_argument('--public-url')
-    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart', 'migrate-telegram-api', 'verify-broker'):
+    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart', 'migrate-telegram-api', 'verify-broker', 'check-platform'):
         parser.add_argument('--' + flag, action='store_true')
     args = parser.parse_args()
+    if args.check_platform:
+        print(json.dumps(current_compatibility()))
+        return
     os.umask(0o077)
     if os.geteuid() == 0:
         raise ValueError('Run as a normal deployment user with sudo, not root.')
-    release = platform.freedesktop_os_release()
-    if ((release.get('ID'), release.get('VERSION_ID')) not in
-            {('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}
-            or platform.machine() != 'x86_64' or sys.version_info < (3, 11)):
+    if current_compatibility()['status'] != 'eligible':
         raise ValueError('Supported: Ubuntu 24.04 or Debian 12/13 on amd64, Python 3.11+.')
     if args.owner_id is not None and args.owner_id <= 0:
         raise ValueError('Use a positive numeric Telegram owner ID.')

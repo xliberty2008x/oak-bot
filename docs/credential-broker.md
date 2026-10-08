@@ -44,12 +44,13 @@ The demo starts no Codex process, Telegram poller or external provider page.
 
 ## Gate before an Instagram implementation can run
 
-The user selected ORACLE-VM. A read-only SSH check through the existing route
-`ubuntu@130.61.215.238` with strict existing host-key trust returned
-`Connection refused` on port 22. Current OS/process/service identity could not
-be established. Historical Ubuntu ARM64 identity is not a current verification.
-The separate Kira gateway at `/home/ubuntu/telegram-gateway-runtime` is not Oak
-and must not be modified or reused as broker state.
+The user selected ORACLE-VM. A later read-only check through existing host-key
+trust established Ubuntu 22.04.5 on aarch64. No installer, service change or
+isolation activation was performed. The current Oak bootstrap matrix rejects
+that OS and architecture; `--check-platform` separates both reasons before any
+config or provisioning. Other agents' gateway/tool/account state must not be
+modified, copied or reused as broker state. Source and synthetic tests do not
+verify the actual Oracle launcher, browser sandbox or secret isolation.
 
 The next deployment review must cover these concrete changes before applying
 them: separate runtime UID and fixed launcher; immutable trusted UI/policy;
@@ -87,34 +88,50 @@ remain separate decisions, excluded from this implementation.
 
 ## Current-main integration requirements
 
-Read-only pinned comparisons against PR16 main
-`d3d8ba9b871955a665299ed1de28d5e748f81b8f` and PR17 main
-`8e7f86bab6016fcc2cf521499218ceb57f67e634` confirmed integration work remains.
-No merge/rebase was performed. Before integration:
+The local branch integrates pinned main
+`56642238838c5ab13d00063c117e291ee9b01850` (PR19 and PR20). It retains:
 
 1. Keep proactive A2UI from PR16, but use native InputRequest for required data
    that must resume the current request; authentication never uses A2UI fields.
-2. Centralize launch URLs and strip all reserved keys
-   `conversation/surface/request`; emit one authoritative target.
-3. Preserve both surface launch and authenticated request-scope resolution.
-   Do not switch A2UI focus/views under an open request dialog.
+2. One launch builder strips every reserved key
+   `conversation/surface/request` and emits one authoritative target. Mixed
+   incoming links prioritize the owner-verified request scope.
+3. Surface launch and authenticated request-scope resolution both work.
+   Automatic A2UI view/focus and background session switching wait while a
+   dialog is open, preserving entered request values.
 4. Retain main's 2000-character link fallback limit/button-label validation,
    publish-to-Telegram form links and streamed-placeholder fixes.
-5. Run shared general/topic launch, stale mixed target, session switch,
-   placeholder, fallback and original-native-response regression tests.
-6. Accept PR17's optional Telegram `api_url/local_directory`, streaming
-   downloads, path checks and bounded file previews while preserving input
-   notification and lifecycle hooks. Keep the cloud endpoint as the default;
-   this feature does not authorize activating or migrating a local Bot API.
+5. Shared general/topic launch, stale mixed target, placeholder/fallback and
+   original-native-response regression coverage accompanies the integration.
+6. Telegram `api_url/local_directory`, streaming downloads, path checks,
+   bounded previews and endpoint-bound cursors remain. PR19 bootstrap retains
+   its local API image preparation, private cache and explicit durable cloud
+   migration checkpoint. No actual migration or API activation was performed
+   by this local integration.
 7. Keep broker configuration and state separate from Telegram import roots:
    `telegram_api_directory`, `state_dir/inbox` and workspace. Those paths can
    expose files to model tools and must never contain a browser profile or
-   trusted broker state.
+   trusted broker state. The bridge rejects control socket paths inside those
+   roots, including symlink aliases. This path guard is not OS isolation.
 
-Pinned upstream comparison:
-[PR17 changes](https://github.com/xliberty2008x/oak-bot/compare/d3d8ba9b871955a665299ed1de28d5e748f81b8f...8e7f86bab6016fcc2cf521499218ceb57f67e634).
+Pinned upstream sources:
+[PR19 bootstrap](https://github.com/xliberty2008x/oak-bot/commit/f79597ea855fb6d23803f609a8cc8976ca1cde08),
+[PR20 cursor scope](https://github.com/xliberty2008x/oak-bot/commit/56642238838c5ab13d00063c117e291ee9b01850).
+
+Ordinary free text uses only server-owned templates; native/MCP choices are
+bounded and validated. Secret flags, unsupported free-text schemas and auth
+elicitation URLs are rejected before storage/events. Chat and generic A2UI are
+not credential channels. A sensitive-word filter is additional protection, not
+a guarantee that an owner cannot paste an arbitrary secret into ordinary text.
 
 ## Validation gates
+
+Current integrated local validation: **156 tests passed, one optional Pillow
+skip**; bootstrap-owned verifier passed **65 mandatory tests** and real local
+Chromium ordinary submit/cancel plus synthetic login/OTP/cancel, with four
+original native responses, no new turn and confirmed cleanup. See the
+[revision-bound receipt](contextual-input-validation.md#інтеграція-з-актуальним-main-2026-10-08).
+These results do not activate or attest a real credential channel.
 
 Synthetic tests cover owner and exact origin, replay, ticket expiry, rejected
 credential/success payloads on ordinary endpoints, navigation epoch, cancel,
@@ -123,14 +140,15 @@ uncertain dispatch/native delivery and secret canaries excluded from SQLite,
 durable events and native output. The Chromium UI check is a separate local
 fixture check, not live Telegram or Instagram verification.
 
-Local validation on 2026-10-08: all 20 broker tests passed. The real Chromium
+Historical validation of pre-integration commit `fef84c4` on 2026-10-08:
+all 20 broker tests passed. The real Chromium
 fixture check completed login plus OTP and owner cancellation; each returned
 to its original native RPC, browser cleanup was confirmed and no new
 `turn/start` was sent. Ignored evidence is in `output/playwright/`: an empty
 login view, terminal view and a status-only JSON report. No entered credential
 frame was saved. Both JavaScript files passed `node --check`.
 
-The full default suite ran 128 tests with one pre-existing tunnel reconnect
+That revision's full default suite ran 128 tests with one pre-existing tunnel reconnect
 timeout and one optional Pillow skip. The tunnel test passed alone (0.016s).
 A diagnostic full run then passed all 128 tests with the same Pillow skip
 (12.141s): only the `asyncio` warning logger was set to `ERROR` to avoid slow

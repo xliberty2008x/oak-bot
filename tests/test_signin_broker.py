@@ -239,6 +239,22 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SignInIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_broker_socket_cannot_be_imported_by_workspace_inbox_or_local_api(self):
+        from oak.signin import SignInBridge
+        cache = self.root / 'telegram-api-cache'
+        cache.mkdir()
+        alias = self.root / 'cache-alias'
+        alias.symlink_to(cache, target_is_directory=True)
+        external_inbox = self.root / 'external-inbox'
+        external_inbox.mkdir()
+        (self.root / 'inbox').symlink_to(external_inbox, target_is_directory=True)
+        self.c.config['telegram_api_directory'] = str(cache)
+        for directory in (Path(self.c.cwd), self.root / 'inbox', external_inbox, cache, alias):
+            with self.subTest(directory=directory), self.assertRaisesRegex(ValueError, 'outside model and Telegram'):
+                SignInBridge(self.gateway, {'socket': str(directory / 'control.sock'),
+                    'origin': self.broker.human_origin, 'synthetic_only': True})
+        self.assertIs(self.c.requests.broker, self.gateway.signin)
+
     async def asyncSetUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
@@ -246,7 +262,7 @@ class SignInIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.runtime = RuntimeClient()
         self.runtime._send = AsyncMock()
         self.runtime.request = AsyncMock()
-        self.c = Controller(self.runtime, self.root / 'state.sqlite', self.root, None,
+        self.c = Controller(self.runtime, self.root / 'state.sqlite', self.root / 'workspace', None,
                             config={'state_dir':str(self.root)})
         self.addCleanup(self.c.close)
         self.bus = EventBus(self.c)

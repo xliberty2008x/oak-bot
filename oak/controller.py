@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import shutil
 import sqlite3
 import uuid
@@ -252,7 +253,11 @@ class Controller:
                         'publishing, purchases or destructive external actions. Be honest about unavailable services. '
                         'Remember explicit owner preferences with oak_memory_remember; search memory when needed.')
             if self.web_app_url(chat_id):
-                context += ('\n\nUse oak_a2ui proactively when a task needs several structured preferences or '
+                context += ('\n\nWhen required ordinary data must resume the current native request, use '
+                            'oak_request_input with a server-owned template; it keeps that request waiting. '
+                            'Never collect passwords, OTP, tokens or cookies through chat, A2UI or ordinary forms. '
+                            'instagram_sign_in only shows the unavailable trusted channel and allows cancellation. '
+                            'Use oak_a2ui proactively for nonblocking cards with several structured preferences or '
                             'a choice the owner may want to revise, such as a plan with a topic, pace and duration. '
                             'Do not wait for the owner to mention forms or the Mini App. Collect the missing choices '
                             'in one compact form instead of a sequence of questions. Keep simple questions, ordinary '
@@ -509,7 +514,9 @@ class Controller:
         self.interactions.resolve(chat_id, request_id, text, 'input')
         return 'Відповідь передано.'
 
-    def web_app_url(self, chat_id, surface=None):
+    def web_app_url(self, chat_id, surface=None, request=None):
+        if surface is not None and request is not None:
+            raise ValueError('A launch can target only one surface or request.')
         app = getattr(self, 'web', None)
         url = getattr(app, 'public_url', '')
         parsed = urlsplit(url)
@@ -522,12 +529,16 @@ class Controller:
         conversation = ('topic:' + str(destination['message_thread_id'])
                         if 'message_thread_id' in destination else 'telegram')
         query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True)
-                 if key not in {'conversation', 'surface'}]
+                 if key not in {'conversation', 'surface', 'request'}]
         query.append(('conversation', conversation))
         if surface is not None:
             from .a2ui import identifier
             identifier(surface)
             query.append(('surface', surface))
+        if request is not None:
+            if not isinstance(request, str) or not re.fullmatch(r'[a-f0-9]{32}', request):
+                raise ValueError('Invalid contextual request.')
+            query.append(('request', request))
         return urlunsplit(parsed._replace(query=urlencode(query), fragment=''))
 
     async def command(self, chat_id, text, update_id):

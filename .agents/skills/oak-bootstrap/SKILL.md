@@ -15,6 +15,11 @@ This Markdown workflow is usable by other agents without a skill loader.
 - Inspect the OS, current user, existing Oak config and service before changing
   the machine. The supported starting point is Ubuntu 24.04 or Debian 12/13 amd64,
   a non-root user with sudo, and network access. Keep the clone at a persistent path.
+- Use `./scripts/bootstrap-vm.sh --check-platform` for eligibility before
+  provisioning. It needs existing Python, reads no deployment config, installs
+  nothing and reports OS/architecture/Python separately. Ubuntu 22.04 ARM64
+  remains blocked until actual host acceptance; dependency ARM artifacts and
+  synthetic tests do not verify deployment or credential isolation.
 - Select a reviewed release/commit containing all required features. Do not
   remove the platform guard to claim support for Ubuntu 22.04 ARM64. Preserve
   upstream local Bot API preparation, cache and authorized migration hooks.

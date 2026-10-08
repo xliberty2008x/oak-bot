@@ -811,17 +811,9 @@ class TelegramGateway:
                 identifier = str(value.get('id', ''))
                 if not re.fullmatch(r'[a-f0-9]{32}', identifier):
                     raise ValueError('Invalid contextual request.')
-                url = getattr(getattr(self.controller, 'web', None), 'public_url', '')
-                parsed = urllib.parse.urlsplit(url)
+                target = self.controller.web_app_url(chat_id, request=identifier)
                 payload = {'chat_id': chat_id, 'text': str(value['summary']) + '\nЗапит очікує відповідь у Mini App Oak.'}
-                if (parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password
-                        and not any(ord(char) < 33 for char in url)):
-                    query = [(k, v) for k, v in urllib.parse.parse_qsl(parsed.query) if k not in {'request', 'conversation'}]
-                    query.append(('request', identifier))
-                    destination = self.sessions.destination(chat_id)
-                    query.append(('conversation', 'topic:' + str(destination['message_thread_id'])
-                                  if destination and 'message_thread_id' in destination else 'telegram'))
-                    target = urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query), fragment=''))
+                if target:
                     payload['reply_markup'] = {'inline_keyboard': [[{'text': 'Відкрити запит', 'web_app': {'url': target}}]]}
                 self._queue_delivery(chat_id, 'sendMessage', payload, f'{chat_id}:input_request:{identifier}')
             elif name in {'approval_request', 'user_input_request'}:

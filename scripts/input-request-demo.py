@@ -60,7 +60,9 @@ async def serve_demo(port, broker_enabled=False, browsers_path=None):
         try:
             root = Path(folder)
             runtime = DemoRuntime()
-            controller = Controller(runtime, root / 'state.sqlite', root, None,
+            workspace = root / 'workspace'
+            workspace.mkdir(mode=0o700)
+            controller = Controller(runtime, root / 'state.sqlite', workspace, None,
                                     config={'state_dir': folder, 'timezone': 'Europe/Kyiv'})
             controller.tools = Tools(controller, {})
             runtime.tool_handler = controller.tools.handle

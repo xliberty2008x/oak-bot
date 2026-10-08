@@ -16,7 +16,7 @@
 
 Локальні докази (ігноруються Git): `output/playwright/browser-results.json`, `input-submitted.jpg`, `instagram-blocked.jpg`, `input-uncertain.jpg`, `input-expired.jpg`. Тимчасовий demo server зупиняється після перевірки.
 
-## Bootstrap і відтворення, 2026-10-08
+## Bootstrap і відтворення до інтеграції, 2026-10-08
 
 Наступне доповнення підготовлено поверх локального `fef84c49964b7827fe1731f3ed463c6097cd148b`, у тому самому окремому feature worktree. Upstream PR19 не інтегрувався й не змінювався; його Bot API build/cache/migration hooks мають зберегтися під час інтеграції.
 
@@ -30,3 +30,42 @@ Chromium запуск і завершення використовують [Play
 Перші перевірки в sandbox не могли bind loopback; їх повторено з дозволеним локальним socket access. Dataless залежності в Documents замінено для тестування вже підготовленим тимчасовим runtime, без зміни production state. Нові cancellation та listener/TIME_WAIT failures виправлено перед успішними результатами вище.
 
 Model calls, live Telegram/client, VM install/reboot і broker OS isolation не перевірені цими тестами. Instagram лишається disabled. Oracle read-only inspection показала Ubuntu 22.04.5 ARM64, поза поточною supported matrix; пакети, credentials і сервіси на ньому не змінювалися.
+
+## Інтеграція з актуальним main, 2026-10-08
+
+Окрема локальна гілка `feature/contextual-upstream`, база
+`56642238838c5ab13d00063c117e291ee9b01850`. Public `ls-remote` після тестів
+підтвердив ту саму main-ревізію. Три початкові коміти перенесено через Git;
+збережено PR19 Bot API build/private cache/migration hooks та PR20 endpoint-bound
+cursor. Вихідний checkout і remote refs не змінювалися.
+
+- Чиста upstream-база: **101 tests, OK, 1 optional Pillow skip**, 6.075 s.
+- Фінальна повна suite з установленим тестовим Chromium: **156 tests, OK,
+  1 optional Pillow skip**, 11.041 s. Включає SIGTERM/cleanup, socket alias
+  exclusion і CLI diagnostic без provisioning.
+- Фінальний verifier через реальний `managed_check`: **65 mandatory tests,
+  0 failures/errors/skips**, Chromium ordinary submit/cancel із stale mixed
+  launch, synthetic login/OTP/cancel; **4 original native responses, 0 new
+  turns**, cleanup confirmed. Feature digest:
+  `6e95470491bb3b675c8b811b998c72a2e5e19ad8feb4ba8602577faad7f609c7`.
+- Bash/JavaScript syntax та whitespace checks пройшли. Незалежний read-only
+  review підтвердив URL/dialog/native routing, PR19/20 hooks та останні
+  wrapper/inbox-symlink guards без нових material blockers.
+
+Під час фіналізації local exec transport тимчасово відключився. Попередній
+verifier уже завершився exit 0; до повторного запуску залишкових verifier/fixture
+процесів не було. Останні source правки перевірено після відновлення. Фінальний
+verifier не записував screenshot, frame, request values або account artifacts;
+наявні ignored browser artifacts належать попереднім синтетичним перевіркам.
+
+`--check-platform` читає лише installer eligibility й повертає окремі OS/arch/
+Python причини до config, apt, Docker або account actions. Unit matrix для
+Ubuntu 22.04/aarch64 не є фактичним запуском на ORACLE-VM. Supported matrix
+не розширено; реальний Instagram та credential isolation залишаються false.
+
+Не виконувались push, PR mutation, merge до main, інсталяція/deployment,
+SSH/access/security зміни чи provider account actions. Для production
+залишаються actual ARM toolchain/desktop acceptance, immutable isolated
+launcher і denial probes проти runtime та host adapters, reachable HTTPS
+human origin, перевірений provider adapter, дозволений ephemeral session scope
+та live model/Telegram/client/reboot checks — [детальні gates](credential-broker.md).

@@ -2,6 +2,12 @@
 # Run as the deployment user; only package/service installation uses sudo.
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+for arg in "$@"; do
+  if [[ $arg == --check-platform ]]; then
+    command -v python3 >/dev/null 2>&1 || { printf '%s\n' 'Platform check needs an existing Python 3 interpreter; nothing was installed.' >&2; exit 1; }
+    exec python3 scripts/bootstrap_vm.py "$@"
+  fi
+done
 umask 077
 if [[ $(id -u) == 0 ]]; then
   printf '%s\n' 'Run bootstrap as a normal deployment user with sudo access, not root.' >&2
