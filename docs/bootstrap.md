@@ -19,9 +19,10 @@ because the service and reboot entry refer to it. Full reboot setup expects a
 VM running systemd; a container without an init system is only a limited test
 environment and requires `--skip-autostart`.
 
-The installer supplies Python 3.11+ dependencies, Node/npm as needed, the official
-`codex` runtime, FFmpeg, fonts, Xvfb, X11 input utilities, a window manager and
-Playwright Chromium. Runtime `0.159.2` is the pinned installation version when
+The installer supplies Python 3.11+ dependencies, Node/npm as needed, Docker,
+the official local Telegram Bot API, the `codex` runtime, FFmpeg, fonts, Xvfb,
+X11 input utilities, a window manager and Playwright Chromium.
+Runtime `0.159.2` is the pinned installation version when
 the CLI is absent. It downloads local Piper and Vosk Ukrainian voice models by
 default. No pre-existing desktop, private model path or machine-specific memory
 export is needed.
@@ -41,6 +42,17 @@ hidden terminal prompt. Do not paste a token into an agent conversation. The
 owner must complete ChatGPT login for Oak's isolated account directory and have
 access to `gpt-6.1-sol`. There is no API-key or alternative-model fallback.
 
+The normal installation uses Telegram's local Bot API so every conversation can
+receive large files without the cloud API's 20 MB download limit. Obtain your
+application's `api_id` and `api_hash` from
+[my.telegram.org/apps](https://core.telegram.org/api/obtaining_api_id), and save
+`TELEGRAM_API_ID=...` and `TELEGRAM_API_HASH=...` in a private environment file
+outside Git with mode 600. Pass its path using `--telegram-api-env-file`; without
+that flag, bootstrap uses `telegram-api.env` beside the deployment config. If
+the file is absent, an interactive run requests the missing credentials through
+hidden terminal input. No Telegram user session is required. Never paste these
+credentials into chat or command-line arguments.
+
 Before moving an existing bot to this VM, stop its previous deployment. Telegram
 bot identity and webhook checks cannot detect every other active poller.
 
@@ -52,7 +64,8 @@ cd oak-bot
 ./scripts/bootstrap-vm.sh \
   --owner-id YOUR_NUMERIC_USER_ID \
   --bot-username YOUR_BOT \
-  --token-file /absolute/path/to/private-token
+  --token-file /absolute/path/to/private-token \
+  --telegram-api-env-file /absolute/path/to/private-telegram-api.env
 ```
 
 The default private deployment is `~/.local/share/oak-bot/default/config.json`.
@@ -71,11 +84,15 @@ and leaves dependencies and state unchanged.
 | `--config PATH` | Select a private deployment config |
 | `--owner-id INTEGER`, `--bot-username NAME` | Set the intended Telegram owner and bot identity |
 | `--token-file PATH` | Read a token from a private file without putting it on the command line |
+| `--telegram-api-env-file PATH` | Private Telegram application credentials; defaults to `telegram-api.env` beside the config |
+| `--telegram-api-port INTEGER` | Local Bot API port; defaults to 8081 for a new deployment and preserves an existing local endpoint when omitted |
+| `--telegram-api-host-directory PATH` | Optional bind-mount source on the Docker daemon's host when it differs from Oak's filesystem |
+| `--migrate-telegram-api` | Explicitly migrate a stopped, backed-up legacy deployment from the cloud Bot API |
 | `--display :90` | Choose an unused managed X11 display |
 | `--port 18765` | Choose the loopback gateway port |
 | `--timezone Europe/Kyiv` | Set the deployment's IANA timezone |
 | `--public-url https://oak.example.com` | Use an existing HTTPS proxy to the local gateway |
-| `--prepare-only` | Install local components, write private config and check the desktop without credentials or starting a live bot |
+| `--prepare-only` | Install local components, build the Bot API image, write private config and check the desktop without credentials or starting a live bot |
 | `--skip-voice` | Omit local speech model preparation |
 | `--skip-system` | Reuse system dependencies already provisioned by the operator |
 | `--skip-autostart` | Leave reboot startup unconfigured |
@@ -87,7 +104,9 @@ For unattended machine preparation before account access is available:
 ```
 
 Later rerun without `--prepare-only`, with the bot details. Preparation alone
-does not verify subscription access, model responses, Telegram or public HTTPS.
+does not start the Bot API server or poller, and reports the credentials still
+needed. It does not verify subscription access, model responses, Telegram or
+public HTTPS.
 
 The managed desktop uses private Xauthority and a persistent headed browser
 profile. It supplies the virtual screen, mouse and keyboard Oak needs; it does
@@ -95,6 +114,30 @@ not expose a VNC port. See [computer use](configuration.md#computer-use) for the
 config and the separate diagnostic command.
 
 ## Gateway and service
+
+Bootstrap installs `docker.io` and builds the pinned official Bot API source from
+`Dockerfile.telegram-api`, including the repository's optional MTProto port
+patch. Docker commands reuse existing local access or use `sudo`; no Docker group
+access is granted. The server
+binds only to loopback, uses a private cache outside Git, has Docker logs disabled
+and restarts with `unless-stopped`. Bootstrap writes its endpoint and shared data
+directory into Oak's config. The server's absolute file paths must be visible at
+the same paths to Oak; use `--telegram-api-host-directory` only when a Docker
+daemon outside Oak's container needs a different host-side bind source.
+
+If the network interferes with Telegram's direct media connections on port 443,
+set `OAK_TELEGRAM_MTPROTO_PORT=5222` in the private environment file before
+bootstrap. Without this optional setting, upstream port selection is unchanged.
+Never expose the local Bot API port or its cache publicly.
+
+For an existing cloud deployment, let pending work finish, stop Oak and back up
+its private config and durable state before rerunning bootstrap with `--config`
+and `--migrate-telegram-api`. A running deployment remains check-only. Bootstrap
+checks cloud bot identity and webhook ownership, saves a durable migration
+checkpoint, calls cloud `logOut` once, verifies the local endpoint, then updates
+the config and starts Oak. Rerunning resumes the checkpoint rather than repeating
+the migration; it does not reset the saved update offset or discard updates.
+Telegram prevents returning to its cloud endpoint for ten minutes after `logOut`.
 
 Without `--public-url`, Oak supervises a localhost.run SSH tunnel and registers
 its current HTTPS address in the owner's Telegram menu. That is a temporary
@@ -142,6 +185,9 @@ A complete handoff records the outcomes of these checks:
   its owned browser starts. A package-presence check alone is insufficient.
 - One Oak supervisor is ready with the expected bot identity, owner allowlist
   and durable state. No other machine polls the same bot.
+- The local Bot API is reachable only on loopback, its cache is private and Oak
+  accepts an actual Telegram attachment larger than 20 MB. Installed Docker or a
+  successful local file copy alone does not verify Telegram media downloads.
 - The current HTTPS URL serves the panel, unauthenticated API access is denied,
   owner access succeeds and the Telegram menu points to this address.
 - The owner opens the Mini App from their Telegram client, sends a task and

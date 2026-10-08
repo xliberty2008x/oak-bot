@@ -9,7 +9,7 @@ paths resolve against the configuration file's directory.
 | Key | Purpose |
 | --- | --- |
 | `telegram_token_file` | Private file created with `scripts/set_telegram_token.py` |
-| `telegram_api_url` | Official cloud endpoint (compatibility default) or a local loopback Bot API endpoint |
+| `telegram_api_url` | Local loopback Bot API endpoint configured by full bootstrap; absent on legacy configs, the official cloud endpoint is used |
 | `telegram_api_directory` | Local Bot API data directory, visible at the same absolute path to Oak and the server |
 | `telegram_username` | Expected bot username; set it before starting |
 | `allowed_user_ids` | Explicit positive numeric Telegram user IDs |
@@ -30,24 +30,32 @@ paths resolve against the configuration file's directory.
 
 ## Large Telegram files
 
-Oak does not impose an attachment size limit. Telegram's **cloud Bot API** limits
-`getFile` downloads to 20 MB. To accept larger files in every conversation, run
-the [official local Bot API server](https://github.com/tdlib/telegram-bot-api)
-with `--local`; Telegram documents downloads without a size limit in that mode.
-The sender's Telegram account limits and available VM disk space still apply.
+The normal [VM bootstrap](bootstrap.md) installs and configures the
+[official local Bot API server](https://github.com/tdlib/telegram-bot-api) with
+`--local` for the entire deployment. Oak imposes no attachment size limit;
+Telegram documents downloads without a size limit in local mode. The sender's
+Telegram account limits and available VM disk space still apply. Older configs
+without a local endpoint retain cloud compatibility, whose `getFile` downloads
+are limited to 20 MB.
 
-Build the pinned official source using the supplied production Dockerfile:
+Provide the application credentials through a private environment file:
 
 ```bash
-docker build -f Dockerfile.telegram-api -t oak-telegram-api:local .
+./scripts/bootstrap-vm.sh \
+  --owner-id YOUR_NUMERIC_USER_ID \
+  --bot-username YOUR_BOT \
+  --token-file /absolute/path/to/private-token \
+  --telegram-api-env-file /absolute/path/to/private-telegram-api.env
 ```
 
 Obtain your Telegram application's `api_id` and `api_hash` from
 [my.telegram.org/apps](https://core.telegram.org/api/obtaining_api_id).
-Save `TELEGRAM_API_ID=...` and `TELEGRAM_API_HASH=...` in a private environment
-file outside Git, with mode 600. These are Telegram application credentials;
-no Telegram user login or copied account session is needed. Keep the bot token
-in its existing private file.
+Save `TELEGRAM_API_ID=...` and `TELEGRAM_API_HASH=...` in that environment file
+outside Git, with mode 600. If the file is absent, interactive bootstrap requests
+the credentials through hidden terminal input; the default path is
+`telegram-api.env` beside the deployment config. These are Telegram application
+credentials; no Telegram user login or copied account session is needed. Keep
+the bot token in its existing private file.
 
 If the VM's HTTP gateway interferes with raw Telegram media connections on port
 443, add `OAK_TELEGRAM_MTPROTO_PORT=5222` to that private environment file. The
@@ -56,28 +64,28 @@ port override, including media and CDN connections. Without this variable,
 upstream port selection remains unchanged. HTTP transports and configured
 proxies retain their own ports; invalid override values fail connection setup.
 
-Create a private data directory and start the server, substituting your paths:
+Bootstrap installs `docker.io` when needed, reuses local Docker access or `sudo` without granting group
+access, and builds the pinned source from `Dockerfile.telegram-api`. It starts
+the server with a private cache outside Git, loopback binding, Docker logs
+disabled and `unless-stopped` restart policy. The data directory contains private
+bot credentials and cached attachments; never print or commit its contents.
+`--prepare-only` installs dependencies and builds the image but requests no
+credentials and starts neither the server nor a poller.
 
-```bash
-OAK_TELEGRAM_DIR="$HOME/.local/share/oak-bot/telegram-api/data"
-mkdir -p "$OAK_TELEGRAM_DIR"
-chmod 700 "$OAK_TELEGRAM_DIR"
-docker run -d --name oak-telegram-api --restart unless-stopped \
-  --network host --user "$(id -u):$(id -g)" \
-  --env-file "$HOME/.config/oak-bot/telegram-api.env" \
-  --mount "type=bind,src=$OAK_TELEGRAM_DIR,dst=$OAK_TELEGRAM_DIR" \
-  oak-telegram-api:local --local --http-ip-address=127.0.0.1 \
-  --http-port=8081 --dir="$OAK_TELEGRAM_DIR" --verbosity=0
-```
+The default port is 8081; select another with `--telegram-api-port`. An existing
+configured local endpoint is preserved when the flag is omitted. If Docker runs
+outside Oak's container, `--telegram-api-host-directory` can select the bind
+source on the daemon host. The mounted destination must still be visible at the
+same absolute path to Oak and the server. Do not expose this port publicly.
 
-The data directory contains private bot credentials and cached attachments;
-never print or commit its contents. Do not expose port 8081 publicly.
-
-For an existing bot, stop Oak after pending work has finished, back up its state,
-then call `logOut` **once on the cloud endpoint** using the existing token file.
-This is Telegram's required migration step; do not drop pending updates or reset
-Oak's saved update offset. Telegram prevents returning to the cloud for ten
-minutes after `logOut`. Set these deployment-wide keys in the private config:
+For a legacy cloud deployment, stop Oak after pending work has finished and back
+up its config and state, then rerun bootstrap with `--config` and
+`--migrate-telegram-api`. Bootstrap leaves a running deployment check-only. During
+the explicit migration it verifies cloud bot identity and webhook ownership,
+saves a durable checkpoint, calls cloud `logOut` once, verifies the local server
+and writes these deployment-wide keys. Reruns resume the checkpoint; they do not
+discard pending updates or reset Oak's saved update offset. Telegram prevents
+returning to the cloud for ten minutes after `logOut`.
 
 ```json
 {
@@ -86,9 +94,9 @@ minutes after `logOut`. Set these deployment-wide keys in the private config:
 }
 ```
 
-Restart Oak and check its identity, readiness and owner menu through the selected
-local endpoint. Bootstrap verification respects these settings. All users,
-existing topics and new conversations use this endpoint automatically. Oak
+Bootstrap starts Oak and checks its identity, readiness and owner menu through
+the selected local endpoint. All users, existing topics and new conversations
+use this endpoint automatically. Oak
 streams attachments into its inbox, validates local file paths against the
 configured data directory, and passes large files to agent tools without loading
 the whole file into a chat prompt. Local speech tools retain their own processing
