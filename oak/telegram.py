@@ -117,9 +117,14 @@ class TelegramGateway:
         self.offset = 0
         if self.offset_path.exists():
             try:
-                self.offset = json.loads(self.offset_path.read_text())['offset']
+                checkpoint = json.loads(self.offset_path.read_text())
+                self.offset = checkpoint['offset']
                 if type(self.offset) is not int or self.offset < 0:
                     raise ValueError
+                # Cloud and local Bot API servers have independent update IDs.
+                # Legacy checkpoints belong to the original cloud endpoint.
+                if checkpoint.get('api_url', 'https://api.telegram.org') != self.api_url:
+                    self.offset = 0
             except (ValueError, KeyError, TypeError):
                 raise RuntimeError('Invalid Telegram offset file; inspect it before restarting.') from None
         self.events = asyncio.Queue()
@@ -409,7 +414,7 @@ class TelegramGateway:
         fd, name = tempfile.mkstemp(prefix='.telegram-offset-', dir=self.state_dir)
         try:
             with os.fdopen(fd, 'w') as file:
-                json.dump({'offset': offset}, file)
+                json.dump({'offset': offset, 'api_url': self.api_url}, file)
                 file.flush()
                 os.fsync(file.fileno())
             os.replace(name, self.offset_path)

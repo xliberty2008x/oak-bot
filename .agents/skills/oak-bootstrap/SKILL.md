@@ -76,7 +76,9 @@ then rerun with `--config` and `--migrate-telegram-api`. Bootstrap verifies clou
 identity and webhook ownership, saves its migration checkpoint, calls cloud
 `logOut` once and verifies the local endpoint before updating config and starting
 Oak. Resume that checkpoint after interruption; never repeat `logOut` manually,
-drop pending updates or reset the saved update offset.
+drop pending updates or reuse the cloud cursor for the independent local queue.
+The gateway binds its cursor to the selected API endpoint and preserves it on
+ordinary restarts.
 
 ## Finish the running application
 

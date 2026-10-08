@@ -98,7 +98,29 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         await self.gateway.handle_update(self.update(3, 'changed', edited=True))
         self.assertEqual(self.controller.submit.await_count, 2)
         self.controller.submit.assert_awaited_with(7, 'changed', 3)
-        self.assertEqual(json.loads(self.gateway.offset_path.read_text()), {'offset': 4})
+        self.assertEqual(json.loads(self.gateway.offset_path.read_text()),
+                         {'offset': 4, 'api_url': 'https://api.telegram.org'})
+
+    async def test_cloud_cursor_does_not_skip_local_updates_and_local_restart_keeps_cursor(self):
+        self.gateway.offset_path.write_text(json.dumps({'offset': 693022548}))
+        old = self.update(693022547)
+        with self.gateway.db:
+            self.gateway.db.execute("INSERT INTO intake VALUES (?,?,?,'done')", (old['update_id'], 7, json.dumps(old)))
+        local = Path(self.temp.name) / 'local-api'
+        local.mkdir()
+        gateway = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name),
+                                  api_url='http://127.0.0.1:8081', local_directory=local)
+        self.addCleanup(gateway.db.close)
+        self.assertEqual(gateway.offset, 0)
+        await gateway._ingest(self.update(351159849))
+        self.assertEqual(gateway.offset, 351159850)
+        self.assertEqual([tuple(row) for row in gateway.db.execute(
+            'SELECT update_id,status FROM intake ORDER BY update_id')],
+            [(351159849, 'pending'), (693022547, 'done')])
+        restarted = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name),
+                                    api_url='http://127.0.0.1:8081', local_directory=local)
+        self.addCleanup(restarted.db.close)
+        self.assertEqual(restarted.offset, 351159850)
 
     async def test_topics_route_inputs_commands_callbacks_and_metadata_separately(self):
         gateway = self.gateway
