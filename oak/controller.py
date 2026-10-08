@@ -13,6 +13,7 @@ from .events import EventMapper
 from .memory import MemoryStore
 from .schedule import Scheduler
 from .interaction import Interactions
+from .media import ToolUnavailable
 from .sessions import SessionStore
 
 MODEL = "gpt-6.1-sol"
@@ -476,20 +477,23 @@ class Controller:
             source = Path(attachment['path']).resolve()
             if not source.is_file() or not any(source.is_relative_to(root.resolve()) for root in (workspace, state_inbox)):
                 raise ValueError('Unsupported attachment location.')
-            if source.stat().st_size > 20 * 1024 * 1024:
-                raise ValueError('Attachment exceeds 20 MiB.')
             destination = inbox / source.name
             if source != destination.resolve():
                 await asyncio.to_thread(shutil.copyfile, source, destination)
             mime = attachment.get('mime', '')
             if mime.startswith('image/'):
                 items.append({'type': 'localImage', 'path': str(destination)})
-            elif mime.startswith('audio/') and self.tools:
-                transcript = await asyncio.to_thread(self.tools.media.transcribe, destination)
-                details.append('Голосове повідомлення:\n' + transcript)
+            elif mime.startswith('audio/') and self.tools and destination.stat().st_size <= 100 * 1024 * 1024:
+                try:
+                    transcript = await asyncio.to_thread(self.tools.media.transcribe, destination)
+                except (ValueError, ToolUnavailable):
+                    details.append('Attached audio available to tools: ' + str(destination))
+                else:
+                    details.append('Голосове повідомлення:\n' + transcript)
             elif destination.suffix.lower() in ('.txt', '.md', '.csv', '.json', '.py', '.html'):
-                details.append('Attached file ' + attachment.get('name', destination.name) + ':\n' +
-                               destination.read_text(errors='replace')[:64000])
+                with destination.open(errors='replace') as attached:
+                    details.append('Attached file ' + attachment.get('name', destination.name) + ':\n' +
+                                   attached.read(64000))
             else:
                 details.append('Attached file available to tools: ' + str(destination))
         items.insert(0, {'type': 'text', 'text': '\n\n'.join([text or 'Опрацюй вкладення.', *details])})

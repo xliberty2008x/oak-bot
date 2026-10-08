@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from oak.telegram import MAX_DOWNLOAD, TelegramError, TelegramGateway, split_text
+from oak.telegram import TelegramError, TelegramGateway, split_text
 from oak.sessions import SessionStore
 from oak.controller import Controller
 from oak.interaction import Interactions
@@ -387,7 +387,7 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(''.join(chunks), text)
         self.assertTrue(all(len(part.encode('utf-16-le')) // 2 <= 4096 for part in chunks))
 
-    async def test_owner_attachment_is_downloaded_before_submit_and_oversize_skips(self):
+    async def test_owner_attachment_is_downloaded_before_submit_without_size_cap(self):
         gateway = self.gateway
         gateway._api = AsyncMock(return_value={'file_path': 'documents/file.pdf', 'file_size': 4})
         gateway._download_sync = Mock()
@@ -404,10 +404,46 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(Path(kwargs['attachments'][0]['path']).is_relative_to(Path(self.temp.name) / 'inbox'))
         gateway._download_sync.assert_called_once()
         update['update_id'] = 11
-        message['document']['file_size'] = MAX_DOWNLOAD + 1
+        message['document']['file_size'] = 21 * 1024 * 1024
+        gateway._api.return_value['file_size'] = message['document']['file_size']
+        message['message_thread_id'] = 12
         await gateway.handle_update(update)
-        self.assertEqual(self.controller.submit.await_count, 1)
+        self.assertEqual(self.controller.submit.await_count, 2)
+        self.assertEqual(gateway._download_sync.call_count, 2)
+        self.assertEqual(self.controller.submit.await_args.args[0], self.controller.sessions.resolve(7, 12))
         self.assertEqual(gateway.offset, 12)
+
+    async def test_local_api_copies_large_attachment_and_rejects_unsafe_paths(self):
+        root = Path(self.temp.name) / 'local-api'
+        root.mkdir()
+        source = root / 'large.mp4'
+        with source.open('wb') as file:
+            file.write(b'video')
+            file.truncate(21 * 1024 * 1024)
+        gateway = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name) / 'local-state',
+                                  api_url='http://127.0.0.1:8081', local_directory=root)
+        self.addCleanup(gateway.db.close)
+        gateway._api = AsyncMock(return_value={'file_path': str(source), 'file_size': source.stat().st_size})
+        result = await gateway._attachments({'video': {'file_id': 'large', 'file_size': source.stat().st_size}}, 20)
+        destination = Path(result[0]['path'])
+        self.assertEqual(destination.stat().st_size, source.stat().st_size)
+        with destination.open('rb') as file:
+            self.assertEqual(file.read(5), b'video')
+        gateway._api.assert_awaited_once_with('getFile', {'file_id': 'large'}, timeout=3600)
+        (root / 'link').symlink_to(source)
+        (root / 'linked-directory').symlink_to(root, target_is_directory=True)
+        for path in (root / 'link', root / 'linked-directory' / source.name, root,
+                     root / '..' / 'large.mp4', root.parent / 'outside.mp4'):
+            with self.subTest(path=path.name), self.assertRaises((ValueError, TelegramError)):
+                gateway._download_sync(str(path), destination)
+        self.assertEqual(list(destination.parent.glob('.download-*')), [])
+
+    def test_api_endpoint_rejects_remote_or_credential_bearing_overrides(self):
+        for url in ('http://api.telegram.org', 'https://example.org', 'http://127.0.0.1:8081/path',
+                    'http://user:pass@127.0.0.1:8081', 'http://127.0.0.1:8081?key=value',
+                    'http://127.0.0.1:8081#fragment', 'http://127.0.0.1:8081'):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name), api_url=url)
 
     async def test_approval_callback_checks_sender_and_forwards_decision(self):
         gateway = self.gateway

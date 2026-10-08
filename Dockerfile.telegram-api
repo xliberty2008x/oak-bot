@@ -1,0 +1,37 @@
+# Build the official Telegram Bot API server at a reviewed source revision.
+# Credentials are supplied at runtime through TELEGRAM_API_ID and TELEGRAM_API_HASH.
+FROM debian:13-slim AS build
+
+ARG TELEGRAM_BOT_API_COMMIT=e3e9dd8e5b3d7ab8537cd5a10dc31d5ffa8f82d1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates cmake git gperf libssl-dev zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --recursive https://github.com/tdlib/telegram-bot-api.git /src/telegram-bot-api \
+    && git -C /src/telegram-bot-api checkout --detach "${TELEGRAM_BOT_API_COMMIT}" \
+    && git -C /src/telegram-bot-api submodule update --init --recursive \
+    && test "$(git -C /src/telegram-bot-api rev-parse HEAD)" = "${TELEGRAM_BOT_API_COMMIT}"
+
+RUN cmake -S /src/telegram-bot-api -B /src/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /src/build --target telegram-bot-api -j2 \
+    && install -Dm755 /src/build/telegram-bot-api /out/telegram-bot-api
+
+FROM debian:13-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates libgcc-s1 libssl3t64 libstdc++6 zlib1g \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/lib/telegram-bot-api \
+    && chown 1000:1000 /var/lib/telegram-bot-api
+
+COPY --from=build /out/telegram-bot-api /usr/local/bin/telegram-bot-api
+
+RUN ldd /usr/local/bin/telegram-bot-api \
+    && test -z "$(ldd /usr/local/bin/telegram-bot-api | sed -n '/not found/p')"
+
+WORKDIR /var/lib/telegram-bot-api
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/telegram-bot-api"]

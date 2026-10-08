@@ -1,5 +1,7 @@
 {
   "telegram_token_file": "~/.config/oak-bot/telegram-token",
+  "telegram_api_url": "https://api.telegram.org",
+  "telegram_api_directory": null,
   "telegram_username": null,
   "allowed_user_ids": [],
   "instructions_file": null,

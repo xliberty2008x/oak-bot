@@ -9,6 +9,8 @@ paths resolve against the configuration file's directory.
 | Key | Purpose |
 | --- | --- |
 | `telegram_token_file` | Private file created with `scripts/set_telegram_token.py` |
+| `telegram_api_url` | Official cloud endpoint (compatibility default) or a local loopback Bot API endpoint |
+| `telegram_api_directory` | Local Bot API data directory, visible at the same absolute path to Oak and the server |
 | `telegram_username` | Expected bot username; set it before starting |
 | `allowed_user_ids` | Explicit positive numeric Telegram user IDs |
 | `instructions_file` | Optional private persona or operating instructions |
@@ -25,6 +27,65 @@ paths resolve against the configuration file's directory.
 | `search_url` | Optional public SearXNG `/search` URL with JSON output enabled |
 | `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
+
+## Large Telegram files
+
+Oak does not impose an attachment size limit. Telegram's **cloud Bot API** limits
+`getFile` downloads to 20 MB. To accept larger files in every conversation, run
+the [official local Bot API server](https://github.com/tdlib/telegram-bot-api)
+with `--local`; Telegram documents downloads without a size limit in that mode.
+The sender's Telegram account limits and available VM disk space still apply.
+
+Build the pinned official source using the supplied production Dockerfile:
+
+```bash
+docker build -f Dockerfile.telegram-api -t oak-telegram-api:local .
+```
+
+Obtain your Telegram application's `api_id` and `api_hash` from
+[my.telegram.org/apps](https://core.telegram.org/api/obtaining_api_id).
+Save `TELEGRAM_API_ID=...` and `TELEGRAM_API_HASH=...` in a private environment
+file outside Git, with mode 600. These are Telegram application credentials;
+no Telegram user login or copied account session is needed. Keep the bot token
+in its existing private file.
+
+Create a private data directory and start the server, substituting your paths:
+
+```bash
+OAK_TELEGRAM_DIR="$HOME/.local/share/oak-bot/telegram-api/data"
+mkdir -p "$OAK_TELEGRAM_DIR"
+chmod 700 "$OAK_TELEGRAM_DIR"
+docker run -d --name oak-telegram-api --restart unless-stopped \
+  --network host --user "$(id -u):$(id -g)" \
+  --env-file "$HOME/.config/oak-bot/telegram-api.env" \
+  --mount "type=bind,src=$OAK_TELEGRAM_DIR,dst=$OAK_TELEGRAM_DIR" \
+  oak-telegram-api:local --local --http-ip-address=127.0.0.1 \
+  --http-port=8081 --dir="$OAK_TELEGRAM_DIR" --verbosity=0
+```
+
+The data directory contains private bot credentials and cached attachments;
+never print or commit its contents. Do not expose port 8081 publicly.
+
+For an existing bot, stop Oak after pending work has finished, back up its state,
+then call `logOut` **once on the cloud endpoint** using the existing token file.
+This is Telegram's required migration step; do not drop pending updates or reset
+Oak's saved update offset. Telegram prevents returning to the cloud for ten
+minutes after `logOut`. Set these deployment-wide keys in the private config:
+
+```json
+{
+  "telegram_api_url": "http://127.0.0.1:8081",
+  "telegram_api_directory": "/absolute/path/to/oak-bot/telegram-api/data"
+}
+```
+
+Restart Oak and check its identity, readiness and owner menu through the selected
+local endpoint. Bootstrap verification respects these settings. All users,
+existing topics and new conversations use this endpoint automatically. Oak
+streams attachments into its inbox, validates local file paths against the
+configured data directory, and passes large files to agent tools without loading
+the whole file into a chat prompt. Local speech tools retain their own processing
+limits; those are separate from receiving a file.
 
 ## Web and Telegram Mini App
 
