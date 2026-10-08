@@ -6,7 +6,8 @@ or deployed conversation has been verified end to end.
 
 ## Completed checks
 
-- The latest integrated test suite passed all 71 tests.
+- An earlier integrated validation passed all 71 tests. New feature checks and
+  environment-specific failures are recorded in dated sections below.
 - The control panel passed browser-key authentication, four-view navigation,
   task lifecycle details, cancellation confirmation and computer permission
   changes through its real HTTP endpoints with isolated synthetic state.
@@ -141,6 +142,42 @@ an Ubuntu kernel enforcing its user-namespace restriction.
 - These are operator checks on synthetic content. Native Telegram device
   keyboards, desktop IME, local clipboard integration and provider sign-in are
   not established by these results.
+
+## A2UI у наявному Mini App — 2026-10-08, локальний Mac
+
+- Окремий checkout почато з `303cb892a1478e6157776f6c3be03f7801bb7fe7`,
+  branch `feature/a2ui-miniapp`. Production source/config/state не змінювались.
+- Усі 14 нових стандартних unittest для A2UI пройшли: native tool, form/action,
+  incremental result, text fallback, receipts/repeated requests, stale sessions,
+  cancellation, malformed batches, ownership, signed synthetic Telegram
+  initData, origin guard та crash/recovery без автоматичного replay.
+- Повна suite виконала 94 тести: 91 пройшов, один failure та два errors.
+  Чистий detached checkout початкового commit виконав 80 тестів і мав рівно
+  ті самі три збої. Два існуючі Telegram-тести залежать від різниці Mac paths
+  `/var`/`/private/var`; тест title card потребує Linux DejaVu Sans path.
+  Це не green full suite і не нові A2UI-регресії.
+- Offline validator з `jsonschema==4.25.1` перевірив 8 server messages і
+  1 client action проти незмінених офіційних A2UI v0.9.1 schemas та власного
+  каталогу Oak. Три fixtures з unsupported version/catalog/component відхилено.
+- `node --check` для `app.js` і `a2ui.js`, Python compile та `git diff --check`
+  використані як статичні перевірки; окремий lint/type-check tool у цьому
+  vanilla-JS/standard-library проєкті не налаштований.
+- Ізольований Chromium відкрив справжні frontend/HTTP endpoints local demo.
+  Перевірені form choices → submit → incremental result → edit, повторні
+  натискання, збереження чернетки при навігації, stale HTTP rejection,
+  malformed renderer snapshots та cancellation. Synthetic network rejections
+  перевіряють renderer recovery; серверне відхилення malformed/stale data
+  окремо покрите unittest.
+- Мобільні 390×844, 844×390 та desktop 1440×1000 перевірені без
+  горизонтального overflow чи uncaught JavaScript errors. Картка використовує
+  наявні Living Control Center classes/components. Локальні screenshots/report
+  у `output/playwright/` ігноруються Git і не містять real credentials.
+
+Demo використовує synthetic agent runtime й synthetic signed Telegram launch;
+це не реальний model tool call, Telegram-клієнт або delivery. VM revision,
+live A2UI round-trip і deployed Mini App цією feature task не перевірені.
+Deploy, restart, migration, push, bot-menu changes та external messages не
+виконувались. Rollout і live verification описані в [A2UI](a2ui.md).
 
 ## Remaining deployment checks
 

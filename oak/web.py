@@ -77,6 +77,7 @@ class WebGateway:
         self.app.add_routes([
             web.get('/', self.static), web.get('/app.js', self.static), web.get('/style.css', self.static),
             web.get('/remote.js', self.static), web.get('/vendor/novnc/{path:.+}', self.remote_vendor),
+            web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
@@ -96,6 +97,7 @@ class WebGateway:
             web.get('/api/events', self.events), web.get('/api/stream', self.stream),
             web.post('/api/input', self.input), web.post('/api/stop', self.stop),
             web.post('/api/decision', self.decision), web.post('/api/render', self.render),
+            web.get('/api/a2ui', self.a2ui_snapshot), web.post('/api/a2ui/action', self.a2ui_action),
             web.get('/api/artifacts/{id}', self.artifact),
         ])
 
@@ -160,7 +162,8 @@ class WebGateway:
         return row[0] if row else None
 
     async def static(self, request):
-        name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js'}[request.path]
+        name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
+                '/a2ui.js': 'a2ui.js', '/a2ui-catalog.json': 'a2ui-catalog.json'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
 
     async def remote_vendor(self, request):
@@ -401,6 +404,26 @@ class WebGateway:
         update = -int.from_bytes(digest[:7], 'big') - 1
         await self.controller.submit(chat, text, update)
         return web.json_response({'accepted': True, 'requestId': identifier})
+
+    async def a2ui_snapshot(self, request):
+        owner = self.owner(request)
+        chat = self.conversation(request, owner)
+        return web.json_response(self.controller.a2ui.snapshot(chat))
+
+    async def a2ui_action(self, request):
+        from .a2ui import StaleSurface
+        owner = self.owner(request)
+        data = await request.json()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid A2UI action wrapper.')
+        chat = self.conversation(request, owner, data.get('conversation'))
+        try:
+            result = await self.controller.a2ui.act(chat, data)
+        except StaleSurface as exc:
+            raise web.HTTPConflict(text=str(exc)) from None
+        except (RpcError, ConnectionError, OSError, asyncio.TimeoutError):
+            return web.json_response({'status': 'uncertain'}, status=202)
+        return web.json_response(result)
 
     async def stop(self, request):
         owner = self.owner(request)

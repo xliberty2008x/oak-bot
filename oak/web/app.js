@@ -6,6 +6,7 @@ let panelData = null, integrationData = null, timezone = "", stopRequestState = 
 let modelsData = null, lastModel = "", modelsUnavailable = false, draftEffort = null, lastEffort = null, draftTurbo = null, lastTurbo = null;
 let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
+let a2uiPanel = null, a2uiLoading = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 let initialConversation = new URLSearchParams(location.search).get("conversation");
 const topicBlocked = new Set();
@@ -368,6 +369,7 @@ async function selectSession(id) {
   await refresh();
 }
 function resetSessionView() {
+  a2uiPanel?.reset();
   panelData = integrationData = null;
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
@@ -455,6 +457,7 @@ async function deleteTopic(session) {
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   remotePanel?.reset();
+  a2uiPanel?.reset();
   sessionEpoch++;
   sessionToken = "";
   authenticated = false;
@@ -487,7 +490,7 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
 async function api(path, data) {
   const epoch = sessionEpoch, controller = new AbortController();
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -521,6 +524,7 @@ async function api(path, data) {
 
 function updateActions() {
   remotePanel?.update();
+  a2uiPanel?.disable();
   $("refresh").disabled = refreshing || mutationBusy;
   for (const button of document.querySelectorAll("[data-mutation]")) button.disabled = mutationBusy || refreshing || button.dataset.locked === "true";
   $("stop").disabled = mutationBusy || refreshing || !panelData?.session?.active || !!stopRequestState;
@@ -978,6 +982,7 @@ async function refresh() {
     }
     $("login").hidden = true;
     $("workspace").hidden = false;
+    void dynamicPanel();
     message("error", "");
     const results = await Promise.allSettled([loadTasks(epoch), loadIntegrations(epoch), loadModels(epoch)]);
     if (epoch !== sessionEpoch) return;
@@ -1006,6 +1011,18 @@ async function desktopPanel() {
   if (!$("view-desktop").hidden && !$("workspace").hidden) await panel?.refresh();
 }
 
+async function dynamicPanel() {
+  if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
+    a2uiPanel = module.createA2UIPanel({api,
+      available: () => authenticated && !$("workspace").hidden && !$("view-status").hidden && !document.hidden,
+      epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
+      setBusy: value => { mutationBusy = value; updateActions(); }});
+    return a2uiPanel;
+  }).catch(() => { a2uiLoading = null; return null; });
+  const panel = await a2uiLoading;
+  await panel?.refresh();
+}
+
 for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
   const view = button.dataset.view;
   if (view !== "desktop") remotePanel?.leave();
@@ -1017,10 +1034,11 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
   window.scrollTo({top: 0});
   $(view + "-heading").focus({preventScroll: true});
   if (view === "desktop") void desktopPanel();
+  if (view === "status") void dynamicPanel();
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
-$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); if (!$("view-desktop").hidden) void desktopPanel(); });
+$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) void syncSessions(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
