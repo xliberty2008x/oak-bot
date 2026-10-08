@@ -47,15 +47,21 @@ for the machine, desktop, browser, voice and gateway.
 ```bash
 git clone https://github.com/xliberty2008x/oak-bot.git
 cd oak-bot
-./scripts/bootstrap-vm.sh --owner-id YOUR_NUMERIC_USER_ID --bot-username YOUR_BOT
+./scripts/bootstrap-vm.sh \
+  --owner-id YOUR_NUMERIC_USER_ID \
+  --bot-username YOUR_BOT \
+  --telegram-api-env-file /absolute/path/to/private-telegram-api.env
 ```
 
 The installer requests the Telegram token through hidden terminal input, or
 accepts `--token-file /absolute/private/file`. It uses an isolated ChatGPT login
 for Oak; the account must have access to `gpt-6.1-sol`. It prepares an X11 desktop
 with a visible browser, enables computer use, starts one supervised bot and
-registers its HTTPS Mini App. State and credentials live outside Git. By default,
-HTTPS uses a managed temporary tunnel whose address can change after restart;
+registers its HTTPS Mini App. It also installs the local Telegram Bot API by
+default, allowing large attachments in all conversations. Supply your Telegram
+application's `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` in the private environment
+file, or use the hidden interactive prompts. State and credentials live outside
+Git. By default, HTTPS uses a managed temporary tunnel whose address can change after restart;
 use your own HTTPS endpoint for a lasting address.
 
 To delegate the installation, open this repository with your agent and say:

@@ -11,6 +11,69 @@ from oak.telegram import TelegramError, TelegramGateway, split_text
 from oak.sessions import SessionStore
 from oak.controller import Controller
 from oak.interaction import Interactions
+from scripts import bootstrap_vm
+
+
+class BootstrapTelegramTests(unittest.TestCase):
+    def test_local_api_migration_checkpoints_logout_and_resumes_without_repeating_it(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            environment = root / 'telegram-api.env'
+            environment.write_text('TELEGRAM_API_ID=123\nTELEGRAM_API_HASH=' + 'a' * 32 + '\n')
+            environment.chmod(0o600)
+            target = root / 'config.json'
+            args = SimpleNamespace(telegram_api_port=None, telegram_api_env_file=str(environment),
+                                   telegram_api_host_directory=None)
+            checkpoint = root / 'telegram-api-migration.json'
+            for phase in (None, 'logout-requested', 'logged-out'):
+                with self.subTest(phase=phase):
+                    config = {'telegram_api_url': 'https://api.telegram.org',
+                              'telegram_username': 'example_bot', 'allowed_user_ids': [7, 8],
+                              'workspace': str(root / 'workspace')}
+                    migration = {'phase': phase, 'bot': 'example_bot',
+                                 'api_url': 'http://127.0.0.1:' + ('8082' if phase else '8081'),
+                                 'directory': str(root / 'telegram-api-data')}
+                    if phase:
+                        bootstrap_vm.private_json(checkpoint, migration)
+                    else:
+                        checkpoint.unlink(missing_ok=True)
+                    docker = Mock(side_effect=lambda arguments, **kwargs: SimpleNamespace(
+                        returncode=1 if arguments[0] == 'inspect' and len(arguments) == 2 else 0,
+                        stdout=('true' if '--format' in arguments else
+                                Path(arguments[-1]).read_text() if arguments[:2] == ['run', '--rm'] else '')))
+
+                    def logout(selected, method, payload):
+                        self.assertEqual(json.loads(checkpoint.read_text())['phase'], 'logout-requested')
+                        self.assertEqual(method, 'logOut')
+                        return True
+
+                    with patch.object(bootstrap_vm, 'verify_bot'), patch.object(
+                            bootstrap_vm, 'telegram', side_effect=logout) as telegram, patch.object(
+                            bootstrap_vm.socket, 'socket'), patch.object(bootstrap_vm.socket, 'create_connection'):
+                        bootstrap_vm.setup_telegram_api(args, target, config, docker, 'test-image')
+                        self.assertEqual(telegram.call_count, 0 if phase else 1)
+                        self.assertEqual(config['telegram_api_url'], migration['api_url'])
+                        self.assertEqual(config['allowed_user_ids'], [7, 8])
+                        self.assertEqual(config['workspace'], str(root / 'workspace'))
+                        docker.reset_mock()
+                        bootstrap_vm.setup_telegram_api(args, target, config, docker, 'test-image')
+                        docker.assert_not_called()  # Healthy local server is reused.
+
+    def test_invalid_application_credentials_cannot_start_server_or_migrate_bot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            environment = root / 'telegram-api.env'
+            environment.write_text('TELEGRAM_API_ID=123\nTELEGRAM_API_HASH=invalid\n')
+            environment.chmod(0o600)
+            args = SimpleNamespace(telegram_api_port=None, telegram_api_env_file=str(environment),
+                                   telegram_api_host_directory=None)
+            docker = Mock()
+            config = {'telegram_api_url': 'https://api.telegram.org'}
+            with patch.object(bootstrap_vm, 'telegram') as telegram, self.assertRaises(ValueError):
+                bootstrap_vm.setup_telegram_api(args, root / 'config.json', config, docker, 'test-image')
+            docker.assert_not_called()
+            telegram.assert_not_called()
+            self.assertEqual(config['telegram_api_url'], 'https://api.telegram.org')
 
 
 class TelegramTests(unittest.IsolatedAsyncioTestCase):

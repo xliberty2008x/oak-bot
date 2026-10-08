@@ -1,0 +1,4 @@
+**
+!Dockerfile.telegram-api
+!patches/
+!patches/telegram-mtproto-port.patch

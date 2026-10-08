@@ -19,16 +19,18 @@ This Markdown workflow is usable by other agents without a skill loader.
   Do not overwrite them to make a rerun appear clean. Do not copy desktop/runtime
   credentials or browser profiles from another agent or VM.
 - Obtain only missing inputs: Telegram owner ID, expected bot username, private
-  token file and the account owner's ChatGPT sign-in. Use hidden terminal input
-  or a secure secret field for the token, never chat, a shell argument or Git.
+  token file, Telegram application `api_id`/`api_hash` and the account owner's
+  ChatGPT sign-in. Keep application credentials in a mode-600 environment file
+  outside Git using `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`. Use hidden terminal
+  input or a secure secret field, never chat, shell arguments or Git.
 - Establish that this VM is the intended poller before using a bot already
   deployed elsewhere. A successful `getMe` and empty webhook cannot prove another
   machine is not polling. Stop the previous deployment as part of an authorized
   migration; do not silently run both.
-- For attachments above 20 MB, provision the official local Telegram Bot API
-  using [large-file setup](../../../docs/configuration.md#large-telegram-files).
-  Reuse only explicitly available app credentials, never another account session.
-  Configure the endpoint for the whole deployment, not individual conversations.
+- Full bootstrap provisions the official local Telegram Bot API by default for
+  large attachments in every conversation. Reuse only explicitly available app
+  credentials, never another account session. See
+  [large-file setup](../../../docs/configuration.md#large-telegram-files).
 
 ## Run the bootstrap
 
@@ -38,26 +40,53 @@ Run the full installer when the requested deployment is authorized:
 ./scripts/bootstrap-vm.sh \
   --owner-id YOUR_NUMERIC_USER_ID \
   --bot-username YOUR_BOT \
-  --token-file /absolute/path/to/private-token
+  --token-file /absolute/path/to/private-token \
+  --telegram-api-env-file /absolute/path/to/private-telegram-api.env
 ```
 
 Use `--config` to resume a selected deployment. If sign-in or bot details are not
 yet available, use `--prepare-only` to install and check the local machine, then
 resume full mode when the missing inputs arrive. Preparation is not a live bot.
+It installs Docker and builds the pinned Bot API image without requesting
+credentials or starting its server or poller. Full mode uses `telegram-api.env`
+beside the config unless `--telegram-api-env-file` selects another private file;
+if absent, interactive bootstrap requests application credentials through hidden
+terminal input. The default local API port is 8081; `--telegram-api-port` overrides
+it, while omission preserves an existing configured local endpoint.
+
 The runtime uses isolated ChatGPT subscription authentication and exact
 `gpt-6.1-sol`; do not add API billing or substitute a model when unavailable.
 
 The installer owns OS packages, Python/runtime dependencies, managed desktop,
-browser, voice configuration, service and gateway setup. Inspect a failing step
-and fix its cause; do not create a second manual poller or tunnel as a workaround.
+browser, voice configuration, local Telegram Bot API, service and gateway setup.
+It reuses local Docker access or `sudo` without granting Docker group access, keeps the
+Bot API cache outside Git, binds the server to loopback and disables Docker logs.
+The server uses `unless-stopped` restart policy. For a Docker daemon outside
+Oak's container, use `--telegram-api-host-directory` only to select the host bind
+source; the server and Oak must see the mounted directory at the same absolute
+path. If the network requires it, put `OAK_TELEGRAM_MTPROTO_PORT=5222` in the
+private environment file. Inspect a failing step and fix its cause; do not create
+a second manual poller or tunnel as a workaround.
 For a supplied stable `--public-url`, verify its HTTPS proxy reaches the selected
 local port. Otherwise the managed temporary tunnel must be described as temporary.
+
+An already running deployment is check-only. For a legacy cloud-to-local
+migration, finish pending work, stop Oak and back up its private config and state,
+then rerun with `--config` and `--migrate-telegram-api`. Bootstrap verifies cloud
+identity and webhook ownership, saves its migration checkpoint, calls cloud
+`logOut` once and verifies the local endpoint before updating config and starting
+Oak. Resume that checkpoint after interruption; never repeat `logOut` manually,
+drop pending updates or reset the saved update offset.
 
 ## Finish the running application
 
 Check the guide's readiness conditions against the actual deployment: account
 and model, desktop, native model smoke, one ready service, HTTPS panel, owner auth
 and Telegram menu. Keep local checks, model calls and user-device checks distinct.
+Verify a real Telegram attachment larger than 20 MB; a built image or local file
+copy does not prove Telegram media downloads work. Record a real VM reboot only
+if it was actually performed and verified.
+
 The machine packages include `x11vnc`; noVNC is pinned in the repository. Check
 the panel's remote desktop availability and an authenticated connection on the
 configured display. Remote control uses the existing HTTPS gateway and must not

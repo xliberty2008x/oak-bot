@@ -3,6 +3,7 @@
 
 import argparse
 import fcntl
+import getpass
 import hashlib
 import ipaddress
 import json
@@ -12,6 +13,7 @@ import platform
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -41,7 +43,14 @@ def private_json(path, value):
         with os.fdopen(fd, 'w') as output:
             json.dump(value, output, indent=2)
             output.write('\n')
+            output.flush()
+            os.fsync(output.fileno())
         os.replace(name, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
     finally:
         Path(name).unlink(missing_ok=True)
 
@@ -161,6 +170,201 @@ def verify_bot(config):
         raise ValueError('An existing webhook owns this bot. Migrate it explicitly before starting Oak.')
 
 
+def prepare_telegram_image(target):
+    """Use the local Docker daemon, without granting the user Docker-group access."""
+    env = {key: value for key, value in os.environ.items() if key not in
+           ('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH')}
+    command = ['docker', '--host=unix:///var/run/docker.sock']
+    if not shutil.which('docker'):
+        raise ValueError('Install docker.io, or rerun without --skip-system.')
+    if subprocess.run(command + ['info'], env=env, capture_output=True).returncode:
+        # Managed development containers can expose their local daemon on TCP.
+        # Never send deployment credentials to an arbitrary inherited remote host.
+        configured = urlsplit(os.environ.get('DOCKER_HOST', ''))
+        try:
+            loopback = ipaddress.ip_address(configured.hostname or '').is_loopback
+            tcp_port = configured.port
+        except ValueError:
+            loopback, tcp_port = False, None
+        if (configured.scheme == 'tcp' and loopback and tcp_port and not configured.username
+                and not configured.password and not configured.path and not configured.query and not configured.fragment):
+            command = ['docker', '--host=' + configured.geturl()]
+        else:
+            command = ['sudo', '-n', *command]
+        if subprocess.run(command + ['info'], env=env, capture_output=True).returncode:
+            raise RuntimeError('The local Docker daemon is unavailable; check its service and sudo access.')
+
+    def docker(arguments, **kwargs):
+        kwargs.setdefault('check', True)
+        return subprocess.run(command + [str(arg) for arg in arguments], cwd=REPO, env=env, **kwargs)
+
+    revision = hashlib.sha256((REPO / 'Dockerfile.telegram-api').read_bytes() +
+                              (REPO / 'patches/telegram-mtproto-port.patch').read_bytes()).hexdigest()[:16]
+    image = 'oak-telegram-api:' + revision
+    if docker(['image', 'inspect', image], capture_output=True, check=False).returncode:
+        log = target.parent / 'telegram-api-build.log'
+        fd = os.open(log, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        os.fchmod(fd, 0o600)
+        print('Building the pinned local Telegram API; this can take several minutes. Private log: ' + str(log), flush=True)
+        with os.fdopen(fd, 'w') as output:
+            built = docker(['build', '-f', 'Dockerfile.telegram-api', '-t', image, '.'],
+                           stdout=output, stderr=subprocess.STDOUT, check=False)
+        if built.returncode:
+            raise RuntimeError('Local Telegram API build failed; inspect the private build log.')
+    return docker, image
+
+
+def setup_telegram_api(args, target, config, docker, image):
+    """Provision a deployment-wide local API and checkpoint its one-time migration."""
+    old_endpoint = config.get('telegram_api_url', 'https://api.telegram.org').rstrip('/')
+    cloud = old_endpoint == 'https://api.telegram.org'
+    parsed = urlsplit(old_endpoint)
+    checkpoint = target.parent / 'telegram-api-migration.json'
+    migration = json.loads(checkpoint.read_text()) if cloud and checkpoint.exists() else None
+    if migration and (migration.get('bot') != config['telegram_username']
+                      or migration.get('phase') not in ('logout-requested', 'logged-out')):
+        raise ValueError('Telegram migration checkpoint differs; preserve the selected bot and migration state.')
+    resumed = urlsplit(migration['api_url']) if migration else None
+    if not cloud and (parsed.scheme != 'http' or parsed.hostname != '127.0.0.1'
+                      or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
+        raise ValueError('Managed bootstrap requires a local http://127.0.0.1:PORT Telegram endpoint.')
+    port = args.telegram_api_port or (resumed.port if resumed else parsed.port if not cloud else 8081)
+    if not port or not 1024 <= port <= 65535:
+        raise ValueError('Use a nonprivileged Telegram API port (1024..65535).')
+    if not cloud and args.telegram_api_port and parsed.port != port:
+        raise ValueError('Existing Telegram API port differs; existing deployment was preserved.')
+    directory = Path(config.get('telegram_api_directory') or (migration.get('directory') if migration else None)
+                     or target.parent / 'telegram-api-data').expanduser()
+    directory = (directory if directory.is_absolute() else target.parent / directory).absolute()
+    endpoint = 'http://127.0.0.1:' + str(port)
+    if migration and (migration.get('api_url') != endpoint or migration.get('directory') != str(directory)):
+        raise ValueError('Telegram migration checkpoint differs; preserve its selected endpoint and directory.')
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if directory.resolve() != directory or directory.is_relative_to(REPO) or directory.stat().st_mode & 0o077:
+        raise ValueError('The Telegram API directory must be private, outside Git and without symlinks.')
+    selected = {**config, 'telegram_api_url': endpoint, 'telegram_api_directory': str(directory)}
+    # A deliberately configured, healthy local server may be managed externally.
+    if not cloud:
+        try:
+            verify_bot(selected)
+        except RuntimeError:
+            pass
+        else:
+            return
+
+    environment = absolute(args.telegram_api_env_file or (migration.get('env_file') if migration else None)
+                           or target.parent / 'telegram-api.env', target.parent)
+    if environment.is_relative_to(REPO):
+        raise ValueError('Keep Telegram application credentials outside Git.')
+    if not environment.exists():
+        if not sys.stdin.isatty():
+            raise ValueError('Save TELEGRAM_API_ID and TELEGRAM_API_HASH in a private environment file, then '
+                             'rerun with --telegram-api-env-file ' + shlex.quote(str(environment)))
+        print('Obtain Telegram application credentials at https://my.telegram.org/apps; do not paste them into chat.')
+        values = {'TELEGRAM_API_ID': getpass.getpass('Telegram application ID (hidden): ').strip(),
+                  'TELEGRAM_API_HASH': getpass.getpass('Telegram application hash (hidden): ').strip()}
+    else:
+        if not environment.is_file() or environment.stat().st_mode & 0o077:
+            raise ValueError('Telegram API environment file must be private (chmod 600).')
+        values = {}
+        for line in environment.read_text().splitlines():
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            key, separator, value = line.partition('=')
+            if not separator or key in values:
+                raise ValueError('Invalid Telegram API environment file; use one KEY=value per line.')
+            values[key] = value
+    if (set(values) - {'TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'OAK_TELEGRAM_MTPROTO_PORT'}
+            or not re.fullmatch(r'[1-9][0-9]*', values.get('TELEGRAM_API_ID', ''))
+            or not re.fullmatch(r'[A-Fa-f0-9]{32}', values.get('TELEGRAM_API_HASH', ''))):
+        raise ValueError('Invalid Telegram application credentials; their contents were not printed.')
+    mtproto = values.get('OAK_TELEGRAM_MTPROTO_PORT')
+    if mtproto is not None and (not re.fullmatch(r'[0-9]{1,5}', mtproto) or not 1 <= int(mtproto) <= 65535):
+        raise ValueError('OAK_TELEGRAM_MTPROTO_PORT must be a port in range 1..65535.')
+    if not environment.exists():
+        environment.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd = os.open(environment, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w') as output:
+            output.write(''.join(key + '=' + value + '\n' for key, value in values.items()))
+            output.flush()
+            os.fsync(output.fileno())
+
+    host_input = args.telegram_api_host_directory or (migration.get('host_directory') if migration else None)
+    host_directory = str(Path(host_input).expanduser().absolute()) if host_input else str(directory)
+    # Docker may live outside a development container: prove the bind source
+    # sees this exact private directory before touching any bot authorization.
+    marker = directory / ('.oak-bootstrap-' + os.urandom(12).hex())
+    try:
+        marker.write_text(os.urandom(32).hex())
+        marker.chmod(0o600)
+        mounted = docker(['run', '--rm', '--network', 'none', '--user', str(os.getuid()) + ':' + str(os.getgid()),
+                          '--entrypoint', '/bin/cat', '--mount',
+                          'type=bind,src=' + host_directory + ',dst=' + str(directory), image, marker],
+                         capture_output=True, text=True, check=False)
+        if mounted.returncode or mounted.stdout != marker.read_text():
+            raise ValueError('Docker cannot see the private Telegram directory; use --telegram-api-host-directory '
+                             'for the matching Docker-host path.')
+    finally:
+        marker.unlink(missing_ok=True)
+    name = 'oak-telegram-api-' + hashlib.sha256(str(target).encode()).hexdigest()[:12]
+    inspected = docker(['inspect', name], capture_output=True, text=True, check=False)
+    if inspected.returncode == 0:
+        existing = json.loads(inspected.stdout)[0]
+        if existing['Config'].get('Labels', {}).get('org.oak.config') != str(target):
+            raise ValueError('An unrelated container owns the selected Telegram API name.')
+        # Never replace a cache mount, image or environment beneath a running bot.
+        docker(['stop', '--time', '30', name], capture_output=True)
+        docker(['rm', name], capture_output=True)
+    with socket.socket() as listener:
+        try:
+            listener.bind(('127.0.0.1', port))
+        except OSError:
+            raise ValueError('The selected Telegram API port is already in use; choose another port '
+                             'instead of borrowing another server or its cache.') from None
+    docker(['run', '-d', '--name', name, '--restart', 'unless-stopped', '--network', 'host',
+            '--user', str(os.getuid()) + ':' + str(os.getgid()), '--log-driver', 'none',
+            '--label', 'org.oak.config=' + str(target), '--env-file', environment,
+            '--mount', 'type=bind,src=' + host_directory + ',dst=' + str(directory), image,
+            '--local', '--http-ip-address=127.0.0.1', '--http-port=' + str(port),
+            '--dir=' + str(directory), '--temp-dir=' + str(directory), '--verbosity=0'], capture_output=True)
+    for _ in range(30):
+        running = docker(['inspect', '--format', '{{.State.Running}}', name], capture_output=True, text=True)
+        if running.stdout.strip() != 'true':
+            raise RuntimeError('The managed local Telegram API container stopped before authorization.')
+        try:
+            with socket.create_connection(('127.0.0.1', port), timeout=1):
+                break
+        except OSError:
+            time.sleep(1)
+    else:
+        raise RuntimeError('The managed local Telegram API did not open its loopback listener.')
+    if cloud:
+        if migration is None:
+            verify_bot(config)
+            migration = {'phase': 'logout-requested', 'bot': config['telegram_username'],
+                         'api_url': endpoint, 'directory': str(directory),
+                         'env_file': str(environment), 'host_directory': host_directory}
+            private_json(checkpoint, migration)
+            if telegram(config, 'logOut', {}) is not True:
+                raise RuntimeError('Cloud Telegram logout was not confirmed; do not repeat it blindly.')
+            private_json(checkpoint, {**migration, 'phase': 'logged-out'})
+        # A checkpoint prevents repeating an uncertain or completed external action.
+        # Local identity verification below safely resolves an interrupted migration.
+    for _ in range(30):
+        try:
+            verify_bot(selected)
+            break
+        except RuntimeError:
+            time.sleep(1)
+    else:
+        raise RuntimeError('Local Telegram API is not ready; check Docker, credentials and MTProto connectivity. '
+                           'Preserve the migration checkpoint; cloud logout must not be repeated blindly.')
+    if docker(['inspect', '--format', '{{.State.Running}}', name], capture_output=True, text=True).stdout.strip() != 'true':
+        raise RuntimeError('The managed local Telegram API stopped during identity verification.')
+    config.update(telegram_api_url=endpoint, telegram_api_directory=str(directory))
+    private_json(target, config)
+
+
 def status(target):
     output = run([PYTHON, '-m', 'oak', 'service', 'status', '--config', target],
                  capture_output=True, text=True)
@@ -252,11 +456,14 @@ def main():
     parser.add_argument('--owner-id', type=int)
     parser.add_argument('--bot-username')
     parser.add_argument('--token-file')
+    parser.add_argument('--telegram-api-env-file', help='Private Telegram application credentials file')
+    parser.add_argument('--telegram-api-port', type=int, help='Local Bot API port (default 8081)')
+    parser.add_argument('--telegram-api-host-directory', help='Bind source on the Docker host, if different')
     parser.add_argument('--display')
     parser.add_argument('--port', type=int)
     parser.add_argument('--timezone')
     parser.add_argument('--public-url')
-    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart'):
+    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart', 'migrate-telegram-api'):
         parser.add_argument('--' + flag, action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
@@ -275,6 +482,8 @@ def main():
         raise ValueError('Use a local X11 display such as :90.')
     if args.port is not None and not 1024 <= args.port <= 65535:
         raise ValueError('Use a nonprivileged web port (1024..65535).')
+    if args.telegram_api_port is not None and not 1024 <= args.telegram_api_port <= 65535:
+        raise ValueError('Use a nonprivileged Telegram API port (1024..65535).')
     if args.public_url:
         url = urlsplit(args.public_url)
         if (url.scheme != 'https' or not url.hostname or url.username or url.password
@@ -282,13 +491,23 @@ def main():
             raise ValueError('Use a public HTTPS origin without a path, query or credentials.')
     target, config = settings(args)
     state = Path(config['state_dir'])
+    cloud = config.get('telegram_api_url', 'https://api.telegram.org').rstrip('/') == 'https://api.telegram.org'
     if locked(state / 'gateway.lock') or locked(state / 'oak-service.lock'):
+        if cloud:
+            raise ValueError('This running deployment still uses the 20 MB cloud API. Drain pending work, '
+                             'stop Oak and back up its state; then rerun with --migrate-telegram-api.')
         print(json.dumps(verify_live(target, config)))
         print('Existing deployment is running; dependencies and private state were left unchanged.')
         return
+    if cloud and (state / 'state.sqlite').exists() and not (args.migrate_telegram_api or args.prepare_only):
+        raise ValueError('Back up this stopped deployment, then rerun with --migrate-telegram-api '
+                         'to replace the 20 MB cloud API without resetting its state.')
     if not args.skip_system:
         run(['sudo', 'apt-get', 'update'])
-        run(['sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', *PACKAGES])
+        packages = PACKAGES + ([] if shutil.which('docker') else ['docker.io'])
+        run(['sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', *packages])
+        if Path('/run/systemd/system').is_dir():
+            run(['sudo', 'systemctl', 'enable', '--now', 'docker'])
     local_bin = str(Path.home() / '.local/bin')
     os.environ['PATH'] = local_bin + os.pathsep + os.environ.get('PATH', '')
     if not shutil.which('codex'):
@@ -304,6 +523,8 @@ def main():
         browser_policy()
     for name in ('state_dir', 'workspace', 'runtime_home'):
         Path(config[name]).mkdir(parents=True, exist_ok=True, mode=0o700)
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    docker, telegram_image = prepare_telegram_image(target)
     if not args.skip_voice:
         result = run([PYTHON, 'scripts/setup-voice.py', '--directory', target.parent / 'models'],
                      capture_output=True, text=True)
@@ -315,7 +536,9 @@ def main():
     run([PYTHON, '-m', 'oak.desktop', '--config', target, '--check'])
     if args.prepare_only:
         print(json.dumps({'status': 'prepared', 'config': str(target), 'gateway_started': False,
-                          'requires': ['ChatGPT login', 'Telegram bot token, username and owner ID']}))
+                          'telegram_api_image_prepared': True,
+                          'requires': ['ChatGPT login', 'Telegram bot token, username and owner ID',
+                                       'Private Telegram application API ID and hash']}))
         return
     if (not config.get('telegram_username') or not config.get('allowed_user_ids')
             or any(type(owner) is not int or owner <= 0 for owner in config['allowed_user_ids'])):
@@ -326,7 +549,9 @@ def main():
             raise ValueError('Save the token using scripts/set_telegram_token.py --output ' +
                              shlex.quote(str(token)) + ' in a private interactive terminal, then rerun.')
         run([PYTHON, 'scripts/set_telegram_token.py', '--output', token])
-    verify_bot(config)
+    # Resume an interrupted migration against its local endpoint, never cloud.
+    if cloud and not (target.parent / 'telegram-api-migration.json').exists():
+        verify_bot(config)
     runtime_env = {**os.environ, 'CODEX_HOME': config['runtime_home']}
     login = subprocess.run(['codex', 'login', 'status'], env=runtime_env, capture_output=True)
     if login.returncode:
@@ -336,6 +561,7 @@ def main():
         run(['codex', 'login', '--device-auth'], env=runtime_env)
     run([PYTHON, '-m', 'oak', 'doctor', '--config', target])
     run([PYTHON, '-m', 'oak', 'smoke', '--config', target])
+    setup_telegram_api(args, target, config, docker, telegram_image)
     if not args.skip_autostart:
         if not Path('/run/systemd/system').is_dir():
             raise ValueError('Automatic boot requires systemd/cron. For container-only checks use --skip-autostart.')
