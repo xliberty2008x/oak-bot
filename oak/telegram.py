@@ -770,7 +770,8 @@ class TelegramGateway:
                     raise ValueError('Web App requires a valid public HTTPS URL.')
                 self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id,
                     'text': str(value.get('label') or 'Відкрити Oak'),
-                    'reply_markup': {'inline_keyboard': [[{'text': 'Відкрити Oak', 'web_app': {'url': url}}]]}})
+                    'reply_markup': {'inline_keyboard': [[{'text': str(value.get('button_label') or 'Відкрити Oak'),
+                                                          'web_app': {'url': url}}]]}})
             return
         if kind not in {'RUN_STARTED', 'TEXT_MESSAGE_START', 'TEXT_MESSAGE_CONTENT', 'TEXT_MESSAGE_END', 'RUN_FINISHED', 'RUN_ERROR'}:
             return

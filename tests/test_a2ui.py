@@ -5,9 +5,10 @@ import json
 from pathlib import Path
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -75,6 +76,38 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
         events = [x['event'] for x in self.bus.replay(11)]
         self.assertEqual(sum(e.get('name') == 'a2ui' for e in events), 2)
         self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 2)
+
+    async def test_publish_links_visible_surface_in_general_and_topic(self):
+        self.c.web = SimpleNamespace(public_url='https://oak.example.test/')
+        topic = self.c.sessions.resolve(11, 42)
+        self.c.threads[topic] = 'thread-topic'
+        fallback = 'Обери тему або напиши її тут. ' * 30
+        for chat, conversation in [(11, 'telegram'), (topic, 'topic:42')]:
+            result = await self.c.a2ui.publish(chat, form_messages(), fallback)
+            events = [x['event'] for x in self.bus.replay(chat)]
+            self.assertEqual([e.get('name') for e in events], ['a2ui', 'web_app_link'])
+            link = events[-1]['value']
+            self.assertEqual(link['label'], fallback)
+            self.assertEqual(link['button_label'], 'Відкрити форму')
+            self.assertEqual(parse_qs(urlsplit(link['url']).query),
+                             {'conversation': [conversation], 'surface': ['oak-plan']})
+            self.assertTrue(result['ui_available'])
+            self.assertEqual(result['web_app_url'], link['url'])
+
+    async def test_publish_keeps_text_for_no_https_delete_and_rootless_surface(self):
+        self.c.web = SimpleNamespace(public_url='http://oak.example.test/')
+        result = await self.publish()
+        self.assertFalse(result['ui_available'])
+        self.c.web.public_url = 'https://oak.example.test/'
+        for messages in [[message('deleteSurface', {})],
+                         [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'})]]:
+            result = await self.publish(messages)
+            self.assertTrue(result['published'])
+            self.assertFalse(result['ui_available'])
+            self.assertNotIn('web_app_url', result)
+        events = [x['event'] for x in self.bus.replay(11)]
+        self.assertFalse(any(e.get('name') == 'web_app_link' for e in events))
+        self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 3)
 
     async def test_repeated_requests_single_use_and_fingerprint(self):
         await self.publish()
