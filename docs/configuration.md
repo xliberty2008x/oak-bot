@@ -49,6 +49,13 @@ file outside Git, with mode 600. These are Telegram application credentials;
 no Telegram user login or copied account session is needed. Keep the bot token
 in its existing private file.
 
+If the VM's HTTP gateway interferes with raw Telegram media connections on port
+443, add `OAK_TELEGRAM_MTPROTO_PORT=5222` to that private environment file. The
+supplied image includes a small TDLib patch for this optional direct MTProto
+port override, including media and CDN connections. Without this variable,
+upstream port selection remains unchanged. HTTP transports and configured
+proxies retain their own ports; invalid override values fail connection setup.
+
 Create a private data directory and start the server, substituting your paths:
 
 ```bash

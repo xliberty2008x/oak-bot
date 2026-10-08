@@ -1,0 +1,30 @@
+diff --git a/td/telegram/net/ConnectionCreator.cpp b/td/telegram/net/ConnectionCreator.cpp
+--- a/td/telegram/net/ConnectionCreator.cpp
++++ b/td/telegram/net/ConnectionCreator.cpp
+@@ -39,6 +39,7 @@
+ #include "td/utils/tl_helpers.h"
+ 
+ #include <algorithm>
++#include <cstdlib>
+ #include <utility>
+ 
+ namespace td {
+@@ -686,7 +687,17 @@ Result<SocketFd> ConnectionCreator::find_connection(const Proxy &proxy, const IPAdd
+                                 << proxy_ip_address << " --> " << extra.mtproto_ip_address << extra.debug_str;
+   } else {
+     extra.ip_address = info.option->get_ip_address();
+-    extra.debug_str = PSTRING() << info.option->get_ip_address() << extra.debug_str;
++    if (!info.use_http) {
++      const auto *port_override = std::getenv("OAK_TELEGRAM_MTPROTO_PORT");
++      if (port_override != nullptr && *port_override != '\0') {
++        auto port = to_integer_safe<int>(Slice(port_override));
++        if (port.is_error() || port.ok() < 1 || port.ok() > 65535) {
++          return Status::Error("Invalid OAK_TELEGRAM_MTPROTO_PORT: expected a port in range 1..65535");
++        }
++        extra.ip_address.set_port(port.ok());
++      }
++    }
++    extra.debug_str = PSTRING() << extra.ip_address << extra.debug_str;
+   }
+   VLOG(connections) << "Create: " << extra.debug_str;
+   return SocketFd::open(extra.ip_address);
