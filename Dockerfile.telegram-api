@@ -18,6 +18,11 @@ RUN cmake -S /src/telegram-bot-api -B /src/build -DCMAKE_BUILD_TYPE=Release \
     && cmake --build /src/build --target telegram-bot-api -j2 \
     && install -Dm755 /src/build/telegram-bot-api /out/telegram-bot-api
 
+COPY patches/telegram-mtproto-port.patch /tmp/telegram-mtproto-port.patch
+RUN git -C /src/telegram-bot-api/td apply /tmp/telegram-mtproto-port.patch \
+    && cmake --build /src/build --target telegram-bot-api -j2 \
+    && install -Dm755 /src/build/telegram-bot-api /out/telegram-bot-api
+
 FROM debian:13-slim
 
 RUN apt-get update \
