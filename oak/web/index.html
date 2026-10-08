@@ -73,6 +73,10 @@
             </article>
             <aside class="telegram-note"><h2>Продовжуй у Telegram</h2><p>Пиши Oak, додавай уточнення та відповідай на запити підтвердження в розмові з ботом.</p><p><code>/new</code> починає нову розмову, <code>/memory</code> показує пам’ять поточної розмови.</p></aside>
           </div>
+          <section id="input-requests-panel" class="topic-form" hidden aria-labelledby="input-requests-heading">
+            <h2 id="input-requests-heading">Запити задачі</h2>
+            <div id="pending-input-requests" class="item-actions"></div>
+          </section>
           <section id="a2ui-panel" aria-labelledby="a2ui-heading" hidden>
             <div class="view-heading"><h2 id="a2ui-heading">Від Oak</h2><p>Інтерактивна картка вибраної сесії</p></div>
             <p id="a2ui-status" class="section-message" role="status"></p>
@@ -159,6 +163,16 @@
   </main>
   <dialog id="confirmation" aria-labelledby="confirmation-title" aria-describedby="confirmation-description">
     <form method="dialog"><h2 id="confirmation-title"></h2><p id="confirmation-description"></p><div class="dialog-actions"><button type="submit" value="cancel" class="quiet">Назад</button><button id="confirmation-submit" type="submit" value="confirm">Підтвердити</button></div></form>
+  </dialog>
+  <dialog id="input-request" aria-labelledby="input-request-title" aria-describedby="input-request-description">
+    <form id="input-request-form">
+      <h2 id="input-request-title">Потрібні дані</h2>
+      <p id="input-request-description">Відповідь повернеться до цієї задачі Oak. Не вводь паролі або коди входу.</p>
+      <p id="input-request-destination" hidden></p>
+      <div id="input-request-fields" class="a2ui-column"></div>
+      <p id="input-request-status" class="hint" role="status"></p>
+      <div class="dialog-actions"><button id="input-request-cancel" type="button" class="quiet">Скасувати</button><button id="input-request-submit" type="submit">Передати відповідь</button></div>
+    </form>
   </dialog>
 </body>
 </html>

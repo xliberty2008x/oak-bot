@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import os
+import uuid
 from pathlib import Path
 
 MODEL = "gpt-6.1-sol"
@@ -56,6 +57,8 @@ class RuntimeClient:
         self._authenticated = False
         self._closing = False
         self._server_requests = {}
+        self.runtime_epoch = uuid.uuid4().hex
+        self._answered_server_requests = set()
         self.home = Path(home if home is not None else os.environ.get(
             'CODEX_HOME', str(Path.home() / '.codex'))).expanduser().resolve()
 
@@ -70,6 +73,8 @@ class RuntimeClient:
         if self.process is not None:
             return self
         self._closing = False
+        self.runtime_epoch = uuid.uuid4().hex
+        self._answered_server_requests.clear()
         env = os.environ.copy()
         env['CODEX_HOME'] = str(self.home)
         for name in ("OPENAI_API_KEY", "CODEX_API_KEY"):
@@ -151,8 +156,11 @@ class RuntimeClient:
                 message = json.loads(line)
                 if "method" in message:
                     if "id" in message:
+                        if message['id'] in self._server_requests or message['id'] in self._answered_server_requests:
+                            continue
                         task = asyncio.create_task(self._handle_server_request(message))
                         request_id = message["id"]
+                        self._answered_server_requests.add(request_id)
                         self._server_requests[request_id] = task
                         task.add_done_callback(lambda done, key=request_id: self._server_request_done(key, done))
                     else:
@@ -219,7 +227,8 @@ class RuntimeClient:
         handled = False
         if handler is not None:
             try:
-                result = await asyncio.wait_for(handler({**params, "requestId": message["id"], "method": method}), 600)
+                result = await asyncio.wait_for(handler({**params, "requestId": message["id"], "method": method,
+                                                        "runtimeEpoch": self.runtime_epoch}), 600)
                 if not isinstance(result, dict):
                     raise TypeError("Handler must return a native result dictionary")
                 json.dumps(result, allow_nan=False)
@@ -228,7 +237,20 @@ class RuntimeClient:
             except Exception:
                 # Use the safe default on callback timeout/failure. Never leak its data.
                 pass
-        await self._send({"id": message["id"], **response})
+        bound = getattr(handler, '__self__', None)
+        requests = getattr(getattr(bound, 'controller', None), 'requests', None)
+        # An attempted write may have reached the peer before raising. Retain
+        # its ID for this epoch even on failure; replay must not send again.
+        self._answered_server_requests.add(message['id'])
+        try:
+            await self._send({"id": message["id"], **response})
+        except BaseException:
+            if requests is not None:
+                requests.delivered(self.runtime_epoch, message['id'], 'uncertain')
+            raise
+        if requests is not None:
+            # Sent over stdio is not a durable runtime acknowledgement or proof of resume.
+            requests.delivered(self.runtime_epoch, message['id'], 'sent')
         if not handled:
             await self.events.put({"method": "client/requestDenied", "params": {
                 "threadId": params.get("threadId"), "turnId": params.get("turnId"),

@@ -6,9 +6,12 @@ chat and the HTTPS Mini App control panel. The accompanying
 [agent skill](../.agents/skills/oak-bootstrap/SKILL.md) tells an agent how to finish
 the deployment and distinguish installed components from a verified live bot.
 
-The Mini App also includes [manual remote desktop](remote-desktop.md) for
-browser sign-ins, phone touchpad and desktop keyboard/mouse input. Bootstrap
-installs its `x11vnc` dependency; the repository contains the browser client.
+The Mini App also includes [manual remote desktop](remote-desktop.md) for phone
+touchpad and desktop keyboard/mouse input. Bootstrap installs its `x11vnc`
+dependency; the repository contains the browser client. This shared desktop is
+accessible to the agent and is not an isolated channel for website credentials.
+Contextual ordinary forms and the separately gated synthetic sign-in broker are
+described in [contextual input](contextual-input.md).
 
 ## Starting point and private inputs
 
@@ -61,6 +64,7 @@ bot identity and webhook checks cannot detect every other active poller.
 ```bash
 git clone https://github.com/xliberty2008x/oak-bot.git
 cd oak-bot
+git checkout YOUR_REVIEWED_RELEASE_OR_COMMIT
 ./scripts/bootstrap-vm.sh \
   --owner-id YOUR_NUMERIC_USER_ID \
   --bot-username YOUR_BOT \
@@ -69,6 +73,12 @@ cd oak-bot
 ```
 
 The default private deployment is `~/.local/share/oak-bot/default/config.json`.
+Select a reviewed revision containing the contextual input and bootstrap feature
+verification changes; cloning an older published revision cannot reproduce them.
+The installer preserves a pre-existing Codex CLI rather than replacing it:
+record `codex --version` and verify the exact model through native smoke. Direct
+Python dependencies and the absent-CLI installation version are pinned; this is
+not a byte-identical OS image or a guarantee for an untested runtime version.
 Its runtime account, workspace, desktop browser profile and state remain outside
 Git. Save this config path for later commands. The installer preserves existing
 deployment data when rerun; reuse `--config` to select the same deployment.
@@ -93,6 +103,8 @@ and leaves dependencies and state unchanged.
 | `--timezone Europe/Kyiv` | Set the deployment's IANA timezone |
 | `--public-url https://oak.example.com` | Use an existing HTTPS proxy to the local gateway |
 | `--prepare-only` | Install local components, build the Bot API image, write private config and check the desktop without credentials or starting a live bot |
+| `--verify-broker` | Also run local Chromium ordinary submit/cancel and synthetic login/OTP/cancel; requires no provider account |
+| `--check-platform` | Report separate OS/architecture/Python eligibility reasons before config or provisioning; installs nothing |
 | `--skip-voice` | Omit local speech model preparation |
 | `--skip-system` | Reuse system dependencies already provisioned by the operator |
 | `--skip-autostart` | Leave reboot startup unconfigured |
@@ -107,6 +119,68 @@ Later rerun without `--prepare-only`, with the bot details. Preparation alone
 does not start the Bot API server or poller, and reports the credentials still
 needed. It does not verify subscription access, model responses, Telegram or
 public HTTPS.
+
+## Reproduce the feature checks without an account
+
+On an already managed Python 3.11+ machine, run:
+
+```bash
+./scripts/bootstrap.sh --features-only --verify-broker
+```
+
+This installs the pinned dependencies and Chromium, then exits before private
+config creation, account checks, voice setup or starting a live bot. Omit
+`--verify-broker` for protocol tests only. On Linux, Chromium's system libraries
+and sandbox policy must already be provisioned; the full supported VM installer
+handles those separately. With dependencies already installed, use:
+
+```bash
+.venv/bin/python scripts/verify-bootstrap-features.py --broker-browser
+```
+
+`--browsers-path PATH` can select an existing Playwright cache for this standalone
+check. The outer verifier and owned fixture use the same cache. Three unused
+loopback ports, temporary SQLite and nonpersistent browser contexts are created
+and closed; a port race fails without replacing another listener. The verifier
+reports bounded counts and build metadata, not request values, screenshots or
+provider data. Default VM preparation runs protocol checks after dependency and
+desktop preparation, before account access. `--verify-broker` adds Chromium.
+
+No fixture origin/socket is written into a deployment config. A phone's loopback
+address refers to the phone, and an HTTP fixture cannot be embedded in the live
+HTTPS Mini App. The synthetic broker therefore remains a local test, with
+Instagram disabled and credential isolation unverified.
+
+The protected `/api/bootstrap` reports feature versions, a digest of the listed
+feature source files and a nonsecret runtime epoch. Live readiness checks require
+this manifest to match the selected checkout and require contextual panel keys;
+an old gateway cannot pass by reporting generic readiness. The digest is version
+evidence, not a signature or an OS isolation attestation. Rerunning bootstrap
+against a running service remains check-only and does not launch fixtures or
+reinstall dependencies; `local_feature_checks: null` means not rerun.
+
+Run `./scripts/bootstrap-vm.sh --check-platform` with an existing Python 3
+interpreter for a read-only eligibility report. The wrapper does not use sudo,
+install Python or reject root when this diagnostic flag is present. Direct
+`python3 scripts/bootstrap_vm.py --check-platform` also exits before reading
+config, requesting credentials, building Docker images or starting services.
+`eligible` means the installer matrix matches; it never means a deployment or
+credential isolation was verified. Normal installation retains the matrix guard.
+
+The supported matrix is still Ubuntu 24.04 or Debian 12/13 amd64. The selected
+Oracle host was inspected read-only as Ubuntu 22.04.5 ARM64; no installer, package
+change or service start was performed there. ARM support requires its own tested
+bootstrap and broker isolation design rather than removing the platform guard.
+The local integration uses main `56642238838c5ab13d00063c117e291ee9b01850`,
+including PR19's local Bot API build/cache/migration hooks and PR20's
+endpoint-scoped update cursor. Feature checks supplement these hooks.
+
+Playwright's [vendor matrix](https://playwright.dev/python/docs/intro#system-requirements)
+includes Ubuntu 22.04 ARM64. That is dependency support, not Oak acceptance:
+the selected Python must be 3.11+, and native Bot API build, pinned runtime,
+system libraries, Chromium sandbox, desktop, voice, cleanup and reboot still
+need tests on the actual ARM host before expanding the guard. This diagnostic
+and its unit matrix perform none of those host checks.
 
 The managed desktop uses private Xauthority and a persistent headed browser
 profile. It supplies the virtual screen, mouse and keyboard Oak needs; it does
@@ -192,6 +266,9 @@ A complete handoff records the outcomes of these checks:
   successful local file copy alone does not verify Telegram media downloads.
 - The current HTTPS URL serves the panel, unauthenticated API access is denied,
   owner access succeeds and the Telegram menu points to this address.
+- The manifest matches the selected feature build; local protocol checks pass,
+  and optional synthetic Chromium results are recorded separately. Test success
+  does not establish safe external account access or broker isolation.
 - The owner opens the Mini App from their Telegram client, sends a task and
   receives a reply. For computer use, verify an actual visual task and the
   panel's on/off control. Record this separately from server-side checks.

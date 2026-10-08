@@ -97,12 +97,15 @@ def validate_event(event):
             'artifact': {'id': 512, 'name': 512, 'mime': 128, 'url': 8192},
             'approval_request': {'id': 128, 'summary': 16000},
             'user_input_request': {'id': 128, 'question': 16000},
+            'input_request': {'id': 64, 'kind': 16, 'summary': 512},
             'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 2000},
             'activity': {'activityId': 512},
             'a2ui': {},
         }
         if name not in custom:
             raise ValueError(f'Unsupported custom event: {name}')
+        if name == 'input_request' and value.get('kind') not in {'ordinary', 'sign_in'}:
+            raise ValueError('Invalid input request kind.')
         if name == 'a2ui':
             from .a2ui import validate_messages
             validate_messages(value.get('messages'))

@@ -7,10 +7,13 @@ let modelsData = null, lastModel = "", modelsUnavailable = false, draftEffort = 
 let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
+let inputRequestsPanel = null, inputRequestsLoading = null;
+let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
+if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
 const launchParams = new URLSearchParams(location.search);
 let initialConversation = launchParams.get("conversation");
-let surfaceLaunch = launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
+let surfaceLaunch = !initialRequest && launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
 const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set(), openIntegrations = new Set();
 const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
@@ -358,7 +361,7 @@ async function loadSessions(epoch, background = false) {
   }
 }
 function sessionRefreshBlocked() {
-  return !authenticated || document.hidden || $("workspace").hidden || refreshing || mutationBusy || computerChanging || $("confirmation").open || document.activeElement?.closest(".topic-form, #create-session") || document.querySelector(".topic-rename[open]");
+  return !authenticated || document.hidden || $("workspace").hidden || refreshing || mutationBusy || computerChanging || document.querySelector("dialog[open]") || document.activeElement?.closest(".topic-form, #create-session") || document.querySelector(".topic-rename[open]");
 }
 async function syncSessions() {
   if (syncingSessions || sessionRefreshBlocked()) return;
@@ -383,6 +386,7 @@ async function selectSession(id) {
 }
 function resetSessionView() {
   a2uiPanel?.reset();
+  inputRequestsPanel?.reset();
   panelData = integrationData = null;
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
@@ -472,6 +476,7 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   if (surfaceLaunch) { initialConversation = surfaceLaunch.conversation; surfaceLaunch.opened = false; }
   remotePanel?.reset();
   a2uiPanel?.reset();
+  inputRequestsPanel?.reset();
   sessionEpoch++;
   sessionToken = "";
   authenticated = false;
@@ -619,11 +624,29 @@ function renderPanel(value) {
   renderSelectedSession();
   timezone = typeof value.settings.timezone === "string" ? value.settings.timezone : "";
   const session = value.session;
+  const pendingInputs = Array.isArray(session.input_requests) ? session.input_requests : [];
+  const inputAttention = Array.isArray(session.input_request_attention) ? session.input_request_attention : [];
+  $("pending-input-requests").replaceChildren();
+  $("input-requests-panel").hidden = pendingInputs.length + inputAttention.length === 0;
+  for (const {id, attention} of [...pendingInputs.map(id => ({id})), ...inputAttention.map(item => ({id: item.id, attention: true}))]) {
+    if (!/^[a-f0-9]{32}$/.test(id)) continue;
+    const button = element("button", attention ? "Перевірити передавання" : "Відкрити запит", "quiet"); button.type = "button";
+    button.addEventListener("click", () => { void inputRequestPanel().then(panel => panel.open(id)); });
+    $("pending-input-requests").append(button);
+  }
   if (!session.active) stopRequestState = "";
   let title, description, indicator = "";
   if (stopRequestState) {
     title = stopRequestState === "requested" ? "Зупинку запитано" : "Очікуємо перевірки зупинки";
     description = "Завершення роботи ще не підтверджено. Натисни «Оновити», щоб перевірити стан.";
+    indicator = "waiting";
+  } else if (pendingInputs.length) {
+    title = "Потрібні дані";
+    description = "Відкрий запит у цій панелі. Oak чекає на відповідь у поточній задачі.";
+    indicator = "waiting";
+  } else if (inputAttention.length) {
+    title = "Передавання потребує перевірки";
+    description = "Відповідь збережено. Перевір стан передавання до початкової задачі; повторної відповіді не надсилаємо.";
     indicator = "waiting";
   } else if (session.awaiting_confirmation > 0) {
     title = "Чекає на підтвердження";
@@ -986,6 +1009,18 @@ async function refresh() {
   $("workspace").setAttribute("aria-busy", "true");
   updateActions();
   try {
+    if (initialRequest && !requestScopeResolved && /^[a-f0-9]{32}$/.test(initialRequest)) {
+      try {
+        const request = await api('/api/requests/' + initialRequest);
+        if (epoch !== sessionEpoch) return;
+        initialConversation = request.conversation;
+        requestScopeResolved = true;
+      } catch (error) {
+        if (error.status === 401) throw error;
+        initialRequest = null;
+        message('notice', 'Запит із посилання недоступний.', true);
+      }
+    }
     const sessionsOK = await loadSessions(epoch);
     if (epoch !== sessionEpoch) return;
     const panelOK = await loadPanel(epoch);
@@ -996,6 +1031,10 @@ async function refresh() {
     }
     $("login").hidden = true;
     $("workspace").hidden = false;
+    if (initialRequest) {
+      const id = initialRequest; initialRequest = null;
+      void inputRequestPanel().then(panel => panel.open(id));
+    }
     void dynamicPanel();
     message("error", "");
     const results = await Promise.allSettled([loadTasks(epoch), loadIntegrations(epoch), loadModels(epoch)]);
@@ -1026,13 +1065,14 @@ async function desktopPanel() {
 }
 
 async function dynamicPanel() {
+  if (document.querySelector("dialog[open]")) return;
   if (surfaceLaunch && initialConversation === null && sessionsData && authenticated && !$("workspace").hidden && !surfaceLaunch.opened) {
     surfaceLaunch.opened = true;
     if (!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !$("confirmation").open) showView("status", false);
   }
   if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
     a2uiPanel = module.createA2UIPanel({api,
-      available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden,
+      available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden && !document.querySelector("dialog[open]"),
       epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
       target: () => surfaceLaunch?.conversation === selectedSession ? surfaceLaunch.id : null,
       targetHandled: () => { surfaceLaunch = null; },
@@ -1127,11 +1167,26 @@ function telegramReady() {
   try { window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); } catch {}
   try { window.Telegram?.WebApp?.setHeaderColor?.("#050a08"); window.Telegram?.WebApp?.setBackgroundColor?.("#050a08"); } catch {}
 }
+async function inputRequestPanel() {
+  if (inputRequestsPanel) return inputRequestsPanel;
+  if (!inputRequestsLoading) inputRequestsLoading = import('./requests.js').then(module => {
+    inputRequestsPanel = module.createInputRequests({api, epoch: () => sessionEpoch, scope: () => selectedSession,
+      available: () => authenticated && !$("workspace").hidden,
+      changed: text => { message('notice', text); void refresh(); }});
+    return inputRequestsPanel;
+  });
+  return inputRequestsLoading;
+}
 $("telegram-sdk").addEventListener("load", telegramReady);
 (async () => {
   try {
     for (let i = 0; i < 30 && !window.Telegram?.WebApp; i++) await new Promise(resolve => setTimeout(resolve, 100));
     telegramReady();
+    if (!initialRequest) {
+      const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('tgWebAppStartParam') || '';
+      const match = /^request_([a-f0-9]{32})$/.exec(start);
+      if (match) { initialRequest = match[1]; surfaceLaunch = null; } // Locator only; the backend authenticates owner/scope.
+    }
     const fragment = new URLSearchParams(location.hash.slice(1));
     const initData = window.Telegram?.WebApp?.initData || fragment.get("tgWebAppData");
     if (initData) { await api("/api/session", {initData}); telegramLaunch = true; }

@@ -807,6 +807,15 @@ class TelegramGateway:
                 self._queue_delivery(chat_id, method, {
                     'chat_id': chat_id, 'caption': split_text(caption, 1024)[0],
                     '_upload': {'path': str(path), 'mime': mime}})
+            elif name == 'input_request':
+                identifier = str(value.get('id', ''))
+                if not re.fullmatch(r'[a-f0-9]{32}', identifier):
+                    raise ValueError('Invalid contextual request.')
+                target = self.controller.web_app_url(chat_id, request=identifier)
+                payload = {'chat_id': chat_id, 'text': str(value['summary']) + '\nЗапит очікує відповідь у Mini App Oak.'}
+                if target:
+                    payload['reply_markup'] = {'inline_keyboard': [[{'text': 'Відкрити запит', 'web_app': {'url': target}}]]}
+                self._queue_delivery(chat_id, 'sendMessage', payload, f'{chat_id}:input_request:{identifier}')
             elif name in {'approval_request', 'user_input_request'}:
                 identifier = str(value['id'])
                 text = str(value.get('summary' if name == 'approval_request' else 'question') or 'Потрібна відповідь.')

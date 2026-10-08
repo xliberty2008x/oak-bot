@@ -15,6 +15,11 @@ def _spec(name, description, properties, required=()):
 STRING = {'type': 'string'}
 NUMBER = {'type': 'number'}
 SPECS = [
+    _spec('oak_request_input', 'Pause this native tool request and open a bounded form in the existing Oak Mini App. '
+          'Use server-owned templates for ordinary non-secret data. Never send passwords, OTP, tokens or cookies. '
+          'instagram_sign_in only reports the unavailable trusted website-login channel and allows cancellation; '
+          'it does not sign in, save credentials or authorize access.',
+          {'template': {'type': 'string', 'enum': ['task_details', 'plan_details', 'instagram_sign_in']}}, ['template']),
     _spec('oak_a2ui', 'Use compact interactive forms when collecting several preferences or revisable choices for a task. '
           'Simple questions and ordinary replies stay in Telegram. Compose cards inside the existing Oak Mini App. Call action=catalog first '
           'for the pinned A2UI v0.9.1 Oak catalogue and example. Publish declarative JSON only; no code, URLs or styles. '
@@ -64,7 +69,7 @@ COMPUTER_SPEC = _spec('oak_computer',
 
 class Tools:
     specs = SPECS
-    version = 'oak-v3-a2ui'
+    version = 'oak-v4-input-requests'
 
     def __init__(self, controller, config):
         from .media import MediaTools
@@ -88,7 +93,7 @@ class Tools:
             from .computer import ComputerTools
             self.computer = ComputerTools(self.workspace, computer.get('display'))
             self.specs = [*SPECS, COMPUTER_SPEC]
-            self.version = 'oak-v3-a2ui-computer'
+            self.version = 'oak-v4-input-requests-computer'
 
     def _computer_account(self, chat_id):
         sessions = getattr(self.controller, 'sessions', None)
@@ -173,6 +178,10 @@ class Tools:
         c = self.controller
         if getattr(c, 'sessions', None) is not None and c.sessions.deleted(chat_id):
             raise ValueError('Цю сесію видалено.')
+        if name == 'oak_request_input':
+            if not isinstance(args, dict) or set(args) != {'template'}:
+                raise ValueError('Only the server-owned template can be supplied.')
+            return await c.requests.template(metadata or {}, args['template'])
         if name == 'oak_a2ui':
             if args.get('action') == 'catalog':
                 from .a2ui_demo import form_messages

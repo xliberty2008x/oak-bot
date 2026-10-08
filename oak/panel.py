@@ -189,13 +189,18 @@ class ControlPanel:
                                (owner, thread)).fetchone()
         waiting = self.db.execute("SELECT count(*) FROM interactions WHERE chat_id=? AND status='pending' AND expires>?",
                                   (owner, time.time())).fetchone()[0]
+        waiting += self.db.execute("SELECT count(*) FROM input_requests WHERE chat_id=? AND outcome='pending' AND expires>?",
+                                   (owner, time.time())).fetchone()[0]
         username = c.config.get('telegram_username')
         telegram_url = 'https://t.me/' + username.lstrip('@') if isinstance(username, str) and re.fullmatch(r'@?[A-Za-z0-9_]{5,32}', username) else None
         return {
             'name': 'Oak', 'telegram_url': telegram_url,
             'session': {'initialized': bool(thread), 'active': owner in c.active,
                 'awaiting_confirmation': waiting, 'turn_status': self.turn_status(turn[0]) if turn else None,
-                'uncertain_inputs': self.db.execute("SELECT count(*) FROM inputs WHERE chat_id=? AND status='uncertain'", (owner,)).fetchone()[0]},
+                'input_requests': [row[0] for row in self.db.execute("SELECT id FROM input_requests WHERE chat_id=? AND outcome='pending' AND expires>? ORDER BY rowid", (owner, time.time()))],
+                'input_request_attention': [dict(row) for row in self.db.execute("SELECT id,outcome,delivery FROM input_requests WHERE chat_id=? AND outcome!='pending' AND delivery IN ('ready','uncertain') ORDER BY rowid DESC LIMIT 20", (owner,))],
+                'uncertain_inputs': (self.db.execute("SELECT count(*) FROM inputs WHERE chat_id=? AND status='uncertain'", (owner,)).fetchone()[0]
+                                     + self.db.execute("SELECT count(*) FROM input_requests WHERE chat_id=? AND delivery='uncertain'", (owner,)).fetchone()[0])},
             'memory': {'count': self.db.execute('SELECT count(*) FROM memory_notes WHERE chat_id=?', (owner,)).fetchone()[0]},
             'computer': c.tools.computer_status(owner) if c.tools else None,
             'settings': {'model': c.model_for(owner), 'effort': c.effort_for(owner),

@@ -521,3 +521,4 @@ dialog p { color: var(--muted); font-size: 15px; }
 .a2ui-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .a2ui-field { display: grid; gap: 8px; min-width: 0; }
 .a2ui-column > button { justify-self: start; max-width: 100%; }
+.signin-broker { width: 100%; min-height: 710px; border: 0; border-radius: 12px; background: #111; }

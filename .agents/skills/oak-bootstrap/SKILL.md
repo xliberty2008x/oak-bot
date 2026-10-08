@@ -15,6 +15,14 @@ This Markdown workflow is usable by other agents without a skill loader.
 - Inspect the OS, current user, existing Oak config and service before changing
   the machine. The supported starting point is Ubuntu 24.04 or Debian 12/13 amd64,
   a non-root user with sudo, and network access. Keep the clone at a persistent path.
+- Use `./scripts/bootstrap-vm.sh --check-platform` for eligibility before
+  provisioning. It needs existing Python, reads no deployment config, installs
+  nothing and reports OS/architecture/Python separately. Ubuntu 22.04 ARM64
+  remains blocked until actual host acceptance; dependency ARM artifacts and
+  synthetic tests do not verify deployment or credential isolation.
+- Select a reviewed release/commit containing all required features. Do not
+  remove the platform guard to claim support for Ubuntu 22.04 ARM64. Preserve
+  upstream local Bot API preparation, cache and authorized migration hooks.
 - Reuse a selected deployment's config, workspace, memory and account directory.
   Do not overwrite them to make a rerun appear clean. Do not copy desktop/runtime
   credentials or browser profiles from another agent or VM.
@@ -54,6 +62,11 @@ if absent, interactive bootstrap requests application credentials through hidden
 terminal input. The default local API port is 8081; `--telegram-api-port` overrides
 it, while omission preserves an existing configured local endpoint.
 
+Protocol feature checks run before account access. Add `--verify-broker` for
+local Chromium ordinary forms and synthetic login/OTP/cancel. On an already
+managed machine, `./scripts/bootstrap.sh --features-only --verify-broker` verifies
+without a deployment config, account or live bot. Do not add fixture broker URLs
+or sockets to a deployment config or present this test as external sign-in.
 The runtime uses isolated ChatGPT subscription authentication and exact
 `gpt-6.1-sol`; do not add API billing or substitute a model when unavailable.
 
@@ -89,12 +102,20 @@ Verify a real Telegram attachment larger than 20 MB; a built image or local file
 copy does not prove Telegram media downloads work. Record a real VM reboot only
 if it was actually performed and verified.
 
+Verify the protected feature/build manifest against the selected checkout and
+record the nonsecret runtime epoch. A running-service rerun is check-only;
+`local_feature_checks: null` is not local test success. Record an existing Codex
+CLI version and its smoke result, rather than silently replacing the CLI.
 The machine packages include `x11vnc`; noVNC is pinned in the repository. Check
 the panel's remote desktop availability and an authenticated connection on the
 configured display. Remote control uses the existing HTTPS gateway and must not
 open a public VNC port or borrow another deployment's browser/account state.
 Have the owner open the current Mini App from Telegram and send a task; do not
 claim their client works from a server-only HTTP check.
+The shared desktop is not a secure credential channel. Synthetic tests leave
+Instagram disabled; production broker activation requires separately verified
+OS isolation and explicit provider/account/session authorization. Neither a code
+digest nor a second process is proof of isolation. Do not save ongoing access.
 
 Only configure additional provider OAuth/plugins when requested, using their
 own login flow. An integration inventory does not establish connected access.

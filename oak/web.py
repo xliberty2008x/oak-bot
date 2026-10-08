@@ -43,6 +43,8 @@ def telegram_owner(init_data, token, allowed, now=None):
 class WebGateway:
     def __init__(self, controller, bus, token, allowed, config):
         self.controller, self.bus, self.token = controller, bus, token
+        from .features import feature_manifest
+        self.features = feature_manifest()
         self.allowed = set(allowed)
         self.config = config
         self.public_url = config.get('public_url') or ''
@@ -61,6 +63,10 @@ class WebGateway:
         self.controls = ControlPanel(self)
         from .remote import RemoteDesktop
         self.remote = RemoteDesktop(self)
+        self.signin = None
+        if config.get('credential_broker'):
+            from .signin import SignInBridge
+            self.signin = SignInBridge(self, config['credential_broker'])
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -78,6 +84,7 @@ class WebGateway:
             web.get('/', self.static), web.get('/app.js', self.static), web.get('/style.css', self.static),
             web.get('/remote.js', self.static), web.get('/vendor/novnc/{path:.+}', self.remote_vendor),
             web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
+            web.get('/requests.js', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
@@ -98,6 +105,9 @@ class WebGateway:
             web.post('/api/input', self.input), web.post('/api/stop', self.stop),
             web.post('/api/decision', self.decision), web.post('/api/render', self.render),
             web.get('/api/a2ui', self.a2ui_snapshot), web.post('/api/a2ui/action', self.a2ui_action),
+            web.get('/api/requests/{id}', self.input_request),
+            web.post('/api/requests/{id}', self.input_request_decision),
+            web.post('/api/requests/{id}/signin', self.signin_start),
             web.get('/api/artifacts/{id}', self.artifact),
         ])
 
@@ -129,6 +139,7 @@ class WebGateway:
                 socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
             "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
+        response.headers['Content-Security-Policy'] += '; frame-src ' + (self.signin.origin if self.signin else "'none'")
         return response
 
     def owner(self, request):
@@ -163,7 +174,7 @@ class WebGateway:
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
-                '/a2ui.js': 'a2ui.js', '/a2ui-catalog.json': 'a2ui-catalog.json'}[request.path]
+                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/a2ui-catalog.json': 'a2ui-catalog.json'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
 
     async def remote_vendor(self, request):
@@ -232,7 +243,9 @@ class WebGateway:
 
     async def bootstrap(self, request):
         self.owner(request)
-        return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak'})
+        return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak',
+                                  'features': self.features,
+                                  'runtime_epoch': self.controller.requests.epoch})
 
     async def panel(self, request):
         owner = self.owner(request)
@@ -410,6 +423,55 @@ class WebGateway:
         chat = self.conversation(request, owner)
         return web.json_response(self.controller.a2ui.snapshot(chat))
 
+    def request_scope(self, request):
+        owner = self.owner(request)
+        row = self.db.execute('SELECT chat_id FROM input_requests WHERE id=? AND owner=?',
+                              (request.match_info['id'], owner)).fetchone()
+        if not row:
+            raise web.HTTPNotFound()
+        chat = row[0]
+        # A locator can resolve its authoritative conversation after authentication.
+        # A supplied conversation is still checked; it cannot retarget a request.
+        if 'conversation' in request.query and self.conversation(request, owner) != chat:
+            raise web.HTTPNotFound()
+        if chat == owner:
+            conversation = 'telegram'
+        else:
+            destination = self.controller.sessions.destination(chat)
+            if destination:
+                conversation = 'topic:' + str(destination['message_thread_id'])
+            else:
+                stored = self.db.execute('SELECT id FROM web_conversations WHERE chat_id=? AND owner=?', (chat, owner)).fetchone()
+                if not stored:
+                    raise web.HTTPNotFound()
+                conversation = stored[0]
+        return owner, chat, conversation
+
+    async def input_request(self, request):
+        owner, chat, conversation = self.request_scope(request)
+        value = self.controller.requests.snapshot(owner, chat, request.match_info['id'])
+        return web.json_response({**value, 'conversation': conversation})
+
+    async def input_request_decision(self, request):
+        from .requests import RequestUnavailable
+        owner, chat, _ = self.request_scope(request)
+        try:
+            result = await self.controller.requests.decide(owner, chat, request.match_info['id'], await request.json())
+        except RequestUnavailable:
+            raise web.HTTPConflict(text='Запит завершений або недоступний.') from None
+        return web.json_response(result)
+
+    async def signin_start(self, request):
+        from .requests import RequestUnavailable
+        owner, chat, _ = self.request_scope(request)
+        if not self.signin or await request.json() != {}:
+            raise web.HTTPBadRequest(text='Канал входу недоступний.')
+        try:
+            value = await self.signin.start(owner, chat, request.match_info['id'], request)
+        except RequestUnavailable:
+            raise web.HTTPConflict(text='Запит входу недоступний або вже розпочатий.') from None
+        return web.json_response(value)
+
     async def a2ui_action(self, request):
         from .a2ui import StaleSurface
         owner = self.owner(request)
@@ -472,6 +534,8 @@ class WebGateway:
         await web.TCPSite(self.runner, self.config.get('host', '127.0.0.1'), int(self.config.get('port', 8765))).start()
 
     async def close(self):
+        if self.signin:
+            await self.signin.close()
         if self.runner:
             await self.runner.cleanup()
             self.runner = None

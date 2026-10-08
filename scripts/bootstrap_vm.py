@@ -14,6 +14,7 @@ import re
 import shlex
 import shutil
 import socket
+import signal
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,9 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from zoneinfo import ZoneInfo
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+from oak.features import feature_manifest, matches_manifest
+
 PYTHON = REPO / '.venv/bin/python'
 RUNTIME_VERSION = '0.159.2'
 PACKAGES = ['ca-certificates', 'curl', 'git', 'python3', 'python3-venv', 'python3-pip',
@@ -33,7 +37,91 @@ PACKAGES = ['ca-certificates', 'curl', 'git', 'python3', 'python3-venv', 'python
 
 
 def run(args, **kwargs):
+    cleanup_timeout = kwargs.pop('cleanup_timeout', None)
+    if cleanup_timeout is not None:
+        return managed_check(args, cleanup_timeout=cleanup_timeout, **kwargs)
     return subprocess.run([str(arg) for arg in args], cwd=REPO, check=True, **kwargs)
+
+
+def compatibility_report(release, machine, python_version):
+    """Pure installer eligibility; vendor artifacts do not verify a deployment."""
+    reasons = []
+    if (release.get('ID'), release.get('VERSION_ID')) not in {
+            ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}:
+        reasons.append('unsupported_os')
+    if machine != 'x86_64':
+        reasons.append('unsupported_architecture')
+    if tuple(python_version[:2]) < (3, 11):
+        reasons.append('python_below_3_11')
+    return {'status': 'blocked' if reasons else 'eligible', 'reasons': reasons,
+            'deployment_verified': False, 'credential_isolation_verified': False}
+
+
+def current_compatibility():
+    try:
+        release = platform.freedesktop_os_release()
+    except OSError:
+        release = {}
+    return compatibility_report(release, platform.machine(), sys.version_info)
+
+
+def managed_check(args, timeout, cleanup_timeout, capture_output, text):
+    """Own the verifier process group; give cancellation time to close fixtures."""
+    command = [str(arg) for arg in args]
+    process = subprocess.Popen(command, cwd=REPO, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=text, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except BaseException:
+        stop_owned_group(process, cleanup_timeout)
+        raise
+    if process.returncode:
+        stop_owned_group(process, cleanup_timeout)
+        raise subprocess.CalledProcessError(process.returncode, command)
+    if group_exists(process.pid):
+        stop_owned_group(process, cleanup_timeout)
+        raise RuntimeError('Verifier process group cleanup was required; verification is unconfirmed.')
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+def group_exists(identifier):
+    try:
+        os.killpg(identifier, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def stop_owned_group(process, timeout):
+    previous = {value: signal.getsignal(value) for value in (signal.SIGINT, signal.SIGTERM)}
+    for value in previous:
+        signal.signal(value, signal.SIG_IGN)
+    try:
+        reap_owned_group(process, timeout)
+    finally:
+        for value, handler in previous.items():
+            signal.signal(value, handler)
+
+
+def reap_owned_group(process, timeout):
+    # Descendants can survive their leader; never condition group cleanup on poll.
+    deadline = time.monotonic() + timeout
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        pass
+    while group_exists(process.pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    if group_exists(process.pid):
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    process.communicate(timeout=3)
 
 
 def private_json(path, value):
@@ -371,6 +459,22 @@ def status(target):
     return json.loads(output.stdout)
 
 
+def verify_features(broker_browser=False):
+    command = [PYTHON, 'scripts/verify-bootstrap-features.py']
+    if broker_browser:
+        command.append('--broker-browser')
+    try:
+        result = json.loads(run(command, capture_output=True, text=True, timeout=240, cleanup_timeout=100).stdout)
+        if (result.get('status') != 'verified' or result.get('protocol', {}).get('verified') is not True
+                or not matches_manifest(result.get('features'), feature_manifest())
+                or (broker_browser and (result.get('browser', {}).get('verified') is not True
+                    or result.get('browser', {}).get('cleanup_verified') is not True))):
+            raise ValueError
+    except Exception:
+        raise RuntimeError('Local feature verification failed; no account or gateway was started.') from None
+    return result
+
+
 def verify_live(target, config):
     verify_bot(config)
     state = Path(config['state_dir'])
@@ -412,10 +516,17 @@ def verify_live(target, config):
         else:
             raise RuntimeError('The panel unexpectedly allows anonymous access')
         session = request_json(origin + '/api/session', {'key': key}, {'Origin': origin})
+        headers = {'Origin': origin, 'Authorization': 'Bearer ' + session['access_token']}
+        bootstrap = request_json(origin + '/api/bootstrap', headers=headers)
+        if (not matches_manifest(bootstrap.get('features'), feature_manifest())
+                or not re.fullmatch(r'[a-f0-9]{32}', bootstrap.get('runtime_epoch', ''))):
+            raise RuntimeError('The running gateway does not match this feature build')
         panel = request_json(origin + '/api/panel', headers={
             'Origin': origin, 'Authorization': 'Bearer ' + session['access_token']})
         if panel['settings']['auth'] != 'chatgpt' or not panel['computer']['configured']:
             raise RuntimeError('Runtime or computer is unavailable')
+        if not {'input_requests', 'input_request_attention'} <= panel.get('session', {}).keys():
+            raise RuntimeError('The running panel lacks contextual input')
         remote = request_json(origin + '/api/remote', headers={
             'Origin': origin, 'Authorization': 'Bearer ' + session['access_token']})
         if remote.get('configured') is not True:
@@ -425,6 +536,8 @@ def verify_live(target, config):
     return {'status': 'ready', 'bot': config['telegram_username'], 'public_url': origin,
             'model': ready['model'], 'computer_enabled': panel['computer']['enabled'],
             'remote_configured': remote['configured'],
+            'features': bootstrap['features'], 'runtime_epoch': bootstrap['runtime_epoch'],
+            'local_feature_checks': None, 'credential_isolation_verified': False,
             'telegram_client_verified': False}
 
 
@@ -463,16 +576,16 @@ def main():
     parser.add_argument('--port', type=int)
     parser.add_argument('--timezone')
     parser.add_argument('--public-url')
-    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart', 'migrate-telegram-api'):
+    for flag in ('prepare-only', 'skip-system', 'skip-voice', 'skip-autostart', 'migrate-telegram-api', 'verify-broker', 'check-platform'):
         parser.add_argument('--' + flag, action='store_true')
     args = parser.parse_args()
+    if args.check_platform:
+        print(json.dumps(current_compatibility()))
+        return
     os.umask(0o077)
     if os.geteuid() == 0:
         raise ValueError('Run as a normal deployment user with sudo, not root.')
-    release = platform.freedesktop_os_release()
-    if ((release.get('ID'), release.get('VERSION_ID')) not in
-            {('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}
-            or platform.machine() != 'x86_64' or sys.version_info < (3, 11)):
+    if current_compatibility()['status'] != 'eligible':
         raise ValueError('Supported: Ubuntu 24.04 or Debian 12/13 on amd64, Python 3.11+.')
     if args.owner_id is not None and args.owner_id <= 0:
         raise ValueError('Use a positive numeric Telegram owner ID.')
@@ -534,9 +647,11 @@ def main():
                 config[key] = value
     private_json(target, config)
     run([PYTHON, '-m', 'oak.desktop', '--config', target, '--check'])
+    local_features = verify_features(args.verify_broker)
     if args.prepare_only:
         print(json.dumps({'status': 'prepared', 'config': str(target), 'gateway_started': False,
                           'telegram_api_image_prepared': True,
+                          'local_feature_checks': local_features,
                           'requires': ['ChatGPT login', 'Telegram bot token, username and owner ID',
                                        'Private Telegram application API ID and hash']}))
         return
@@ -569,12 +684,20 @@ def main():
         run([PYTHON, '-m', 'oak', 'service', 'install-autostart', '--config', target])
     run([PYTHON, '-m', 'oak', 'service', 'start', '--config', target])
     result = verify_live(target, config)
+    result['local_feature_checks'] = local_features
     result['autostart_installed'] = not args.skip_autostart
     print(json.dumps(result))
     print('Open the Oak menu in Telegram and send a task to verify your actual client and chat delivery.')
 
 
 if __name__ == '__main__':
+    signalled = False
+    def interrupt(_signal, _frame):
+        global signalled
+        if not signalled:
+            signalled = True
+            raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, interrupt)
     try:
         main()
     except (KeyboardInterrupt, Exception) as error:
@@ -583,3 +706,5 @@ if __name__ == '__main__':
         message = str(error) if isinstance(error, (ValueError, RuntimeError)) else type(error).__name__
         print('Bootstrap stopped: ' + message, file=sys.stderr)
         raise SystemExit(1) from None
+    finally:
+        signal.signal(signal.SIGTERM, previous)

@@ -32,10 +32,11 @@ Connected applications require their own configured access. Tool availability an
 local checks are recorded separately from live Telegram results in
 [validation](docs/validation.md).
 
-To sign in to a website yourself, open **Робочий стіл** in the Mini App and
+For manual computer control, open **Робочий стіл** in the Mini App and
 connect. Oak pauses agent work while you operate the VM's browser. Use
 **Завершити** when finished. See [remote desktop](docs/remote-desktop.md)
-for phone controls, authentication and deployment requirements.
+for phone controls, authentication and deployment requirements. The shared VM
+desktop is accessible to the agent and is not an isolated credential channel.
 
 ## Setup
 
@@ -75,6 +76,13 @@ reruns, readiness checks and required user inputs. The existing
 `scripts/bootstrap.sh` remains a dependency helper for machines you already
 manage; it does not provision the full VM. See [configuration](docs/configuration.md)
 for private persona, memory import and integrations.
+
+Contextual forms and the synthetic broker are reproducible from a reviewed
+feature revision with `./scripts/bootstrap.sh --features-only --verify-broker`.
+This verifies ordinary submit/cancel and dummy login/OTP/cancel without account
+access or a live bot. Full VM bootstrap runs protocol checks before account
+access; add `--verify-broker` for Chromium. Instagram remains disabled until a
+trusted credential channel is separately verified. See [bootstrap feature checks](docs/bootstrap.md#reproduce-the-feature-checks-without-an-account).
 
 ## Use in Telegram
 
