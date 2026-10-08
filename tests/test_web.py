@@ -141,6 +141,11 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         bearer = {'Authorization': 'Bearer ' + first['Cookie'].split('=', 1)[1]}
         response = await client.get('/api/bootstrap', headers=bearer)
         self.assertEqual(response.status, 200)
+        from oak.features import feature_manifest
+        bootstrap = await response.json()
+        self.assertEqual(bootstrap['features'], feature_manifest())
+        self.assertEqual(bootstrap['runtime_epoch'], self.controller.requests.epoch)
+        self.assertFalse(bootstrap['features']['instagram_enabled'])
         response = await client.post('/api/conversations', headers=first, json={'title': 'First owner'})
         conversation = await response.json()
         chat = self.controller.db.execute('SELECT chat_id FROM web_conversations WHERE id=?',

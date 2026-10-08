@@ -43,6 +43,8 @@ def telegram_owner(init_data, token, allowed, now=None):
 class WebGateway:
     def __init__(self, controller, bus, token, allowed, config):
         self.controller, self.bus, self.token = controller, bus, token
+        from .features import feature_manifest
+        self.features = feature_manifest()
         self.allowed = set(allowed)
         self.config = config
         self.public_url = config.get('public_url') or ''
@@ -241,7 +243,9 @@ class WebGateway:
 
     async def bootstrap(self, request):
         self.owner(request)
-        return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak'})
+        return web.json_response({'transport': self.config.get('transport', 'sse'), 'name': 'Oak',
+                                  'features': self.features,
+                                  'runtime_epoch': self.controller.requests.epoch})
 
     async def panel(self, request):
         owner = self.owner(request)

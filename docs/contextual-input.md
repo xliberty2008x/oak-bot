@@ -36,6 +36,16 @@ SQLite записує owner, scope, thread, turn, runtime epoch, оригіна�
 
 ## Перевірка
 
+Відтворення з перевіреної ревізії репозиторію: `./scripts/bootstrap.sh --features-only --verify-broker`.
+Режим завершується до private config, account checks і запуску бота. VM bootstrap
+завжди перевіряє протокол перед доступом до акаунта; `--verify-broker` додатково
+перевіряє ordinary submit/cancel і synthetic login/OTP/cancel у Chromium. Звіт
+розділяє локальні тести, модель, live Telegram, клієнт і credential isolation.
+Protected `/api/bootstrap` містить версії, digest лише вихідних feature-файлів і
+runtime epoch без bearer token; старий gateway не проходить readiness. Digest
+не засвідчує ізоляцію. Повтор на running service лишається check-only.
+Докладні команди й обмеження — у [bootstrap guide](bootstrap.md#reproduce-the-feature-checks-without-an-account).
+
 `tests/test_requests.py` перевіряє native reply без нового turn, schema/choice validation, submit/cancel race, абсолютний expiry, owner/scope/turn/epoch binding, receipt rollback, повтор HTTP/native, uncertain send/restart, ранню реєстрацію turn, origin rejection, direct Telegram launch і виключення synthetic credential canaries із auth-контракту, SQLite та AG-UI. Це не доказ, що довільний секрет можна розпізнати в звичайному тексті.
 
 `scripts/input-request-demo.py --port 18769` запускає тільки loopback fixture з тимчасовою SQLite, синтетичним runtime і синтетично підписаним Telegram launch. `POST /demo/request/{template}` створює сценарій; `?expired=1` та `?uncertain=1` — виключно fixture-перевірки. `GET /demo/result` повертає лічильники native attempts/new turns та стани без значень форми. Ніякі `/demo` маршрути не додаються до production gateway.

@@ -15,3 +15,18 @@
 Результат synthetic fixture: 4 native attempts, 0 нових `turn/start`; ordinary submitted/sent, Instagram cancelled/sent, synthetic send failure submitted/uncertain, expired/sent. Це перевірка маршруту та UI, а не доказ виконання відповіді реальною моделлю чи exactly-once після аварії.
 
 Локальні докази (ігноруються Git): `output/playwright/browser-results.json`, `input-submitted.jpg`, `instagram-blocked.jpg`, `input-uncertain.jpg`, `input-expired.jpg`. Тимчасовий demo server зупиняється після перевірки.
+
+## Bootstrap і відтворення, 2026-10-08
+
+Наступне доповнення підготовлено поверх локального `fef84c49964b7827fe1731f3ed463c6097cd148b`, у тому самому окремому feature worktree. Upstream PR19 не інтегрувався й не змінювався; його Bot API build/cache/migration hooks мають зберегтися під час інтеграції.
+
+- Повна звичайна suite: **143 tests, OK, 1 skip** (optional Pillow), 9.886 s. Після останнього уточнення grace для залишкових descendants: **9 focused supervisor/bootstrap tests, OK**, 0.047 s.
+- Окремі bootstrap/lifecycle/CLI guards: **15 tests, OK**, 3.993 s. Реальний SIGTERM під час startup Playwright: **1 test, OK**, 3.215 s; три fixture ports повторно доступні для listener.
+- `scripts/verify-bootstrap-features.py --broker-browser`, з установленим тестовим Chromium: **57 mandatory protocol/bootstrap tests, OK**, ordinary submit/cancel, synthetic login/OTP/cancel, **4 native responses, 0 new turns**, cleanup confirmed. Перевірено також запуск через реальний `managed_check` VM supervisor, без запуску VM installer.
+- `bash -n`, Python compile та `git diff --check` пройшли. Після незалежного read-only review worker exit/counter guards, source digest coverage, SIGTERM та group cleanup виправлено; нового material fail-open або secret issue не знайдено.
+
+Chromium запуск і завершення використовують [Playwright start/stop](https://playwright.dev/python/docs/api/class-playwright#playwright-stop). Acquisition і cleanup захищені від cancellation; невизначене завершення блокує успіх. Verifier відкидає внутрішні diagnostics і повертає лише bounded counters/manifest; credential values, screenshots і request IDs до bootstrap-звіту не потрапляють.
+
+Перші перевірки в sandbox не могли bind loopback; їх повторено з дозволеним локальним socket access. Dataless залежності в Documents замінено для тестування вже підготовленим тимчасовим runtime, без зміни production state. Нові cancellation та listener/TIME_WAIT failures виправлено перед успішними результатами вище.
+
+Model calls, live Telegram/client, VM install/reboot і broker OS isolation не перевірені цими тестами. Instagram лишається disabled. Oracle read-only inspection показала Ubuntu 22.04.5 ARM64, поза поточною supported matrix; пакети, credentials і сервіси на ньому не змінювалися.

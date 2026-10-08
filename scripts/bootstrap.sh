@@ -5,23 +5,31 @@ umask 077
 install_browser=false
 install_voice=false
 check_computer=false
+features_only=false
+verify_broker=false
 for option in "$@"; do
   case "$option" in
     --browser) install_browser=true ;;
     --voice) install_voice=true ;;
     --computer) check_computer=true ;;
+    --features-only) features_only=true ;;
+    --verify-broker) verify_broker=true; install_browser=true ;;
     --help|-h)
-      printf '%s\n' 'Usage: ./scripts/bootstrap.sh [--browser] [--voice] [--computer]' 'Create the Oak environment, install dependencies and check account/model access.'
+      printf '%s\n' 'Usage: ./scripts/bootstrap.sh [--browser] [--voice] [--computer] [--features-only] [--verify-broker]' 'Features-only installs dependencies and verifies local code without account/config/live bot access.'
       exit 0 ;;
     *) printf '%s\n' "Unknown option: $option" >&2; exit 2 ;;
   esac
 done
 python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11+ required"'
-if ! command -v codex >/dev/null 2>&1; then
+if [[ "$features_only" == true && ( "$install_voice" == true || "$check_computer" == true ) ]]; then
+  printf '%s\n' '--features-only accepts --browser and --verify-broker, not --voice or --computer.' >&2
+  exit 2
+fi
+if [[ "$features_only" != true ]] && ! command -v codex >/dev/null 2>&1; then
   printf '%s\n' 'Install the runtime dependency: npm install -g @openai/codex@0.159.2' >&2
   exit 1
 fi
-if ! command -v ffmpeg >/dev/null 2>&1; then
+if [[ "$features_only" != true ]] && ! command -v ffmpeg >/dev/null 2>&1; then
   printf '%s\n' 'Install FFmpeg with your system package manager, then run bootstrap again.' >&2
   exit 1
 fi
@@ -39,6 +47,14 @@ if [[ "$check_computer" == true ]]; then
 fi
 if [[ "$install_browser" == true ]]; then
   .venv/bin/python -m playwright install chromium
+fi
+if [[ "$verify_broker" == true ]]; then
+  .venv/bin/python scripts/verify-bootstrap-features.py --broker-browser
+else
+  .venv/bin/python scripts/verify-bootstrap-features.py
+fi
+if [[ "$features_only" == true ]]; then
+  exit 0
 fi
 if [[ "$install_voice" == true ]]; then
   .venv/bin/python scripts/setup-voice.py
