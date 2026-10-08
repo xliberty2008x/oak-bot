@@ -13,3 +13,5 @@ models/
 artifacts/
 browser-profile/
 *.onnx
+.playwright-cli/
+output/playwright/

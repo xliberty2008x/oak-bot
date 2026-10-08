@@ -65,6 +65,8 @@ class Controller:
         self.memory = MemoryStore(self.db)
         self.scheduler = Scheduler(self.db, self, self.config.get('timezone', 'Europe/Kyiv'))
         self.interactions = Interactions(self.db, self)
+        from .a2ui import A2UIStore
+        self.a2ui = A2UIStore(self)
 
     def chat_for_thread(self, thread_id):
         return next((chat for chat, thread in self.threads.items() if thread == thread_id), None)
@@ -268,7 +270,7 @@ class Controller:
                             (chat_id, thread_id, tools_version, previous_id))
         return thread_id
 
-    async def submit(self, chat_id, text, update_id, attachments=None, idle_only=False):
+    async def submit(self, chat_id, text, update_id, attachments=None, idle_only=False, expected_thread=None, expected_surface=None):
         # A human login owns the shared desktop. Stop runtime dispatch too:
         # native shell tools can access X11 without calling oak_computer.
         if self.manual_owner is not None:
@@ -278,7 +280,7 @@ class Controller:
         task = asyncio.current_task()
         self._dispatching.add(task)
         try:
-            return await self._submit(chat_id, text, update_id, attachments, idle_only)
+            return await self._submit(chat_id, text, update_id, attachments, idle_only, expected_thread, expected_surface)
         finally:
             self._dispatching.discard(task)
 
@@ -307,7 +309,7 @@ class Controller:
             self.manual_owner = None
             raise
 
-    async def _submit(self, chat_id, text, update_id, attachments=None, idle_only=False):
+    async def _submit(self, chat_id, text, update_id, attachments=None, idle_only=False, expected_thread=None, expected_surface=None):
         """Durably accept text; returns after dispatch, without awaiting generation."""
         if self.sessions.deleted(chat_id):
             return False
@@ -337,6 +339,16 @@ class Controller:
             if self.sessions.deleted(chat_id):
                 self._status(update_id, 'cancelled')
                 return False
+            if expected_thread is not None and self.threads.get(chat_id) != expected_thread:
+                return False
+            if expected_surface is not None:
+                from .a2ui import StaleSurface
+                try:
+                    surface = self.a2ui.row(chat_id, expected_surface[0])
+                    if surface['revision'] != expected_surface[1]:
+                        return False
+                except StaleSurface:
+                    return False
             if idle_only and chat_id in self.active:
                 return False
             with self.db:
@@ -349,6 +361,9 @@ class Controller:
                 raise RuntimeError('Update ID collision.')
             try:
                 thread_id = await self._thread(chat_id)
+                if expected_thread is not None and thread_id != expected_thread:
+                    self._status(update_id, 'cancelled')
+                    return False
             except asyncio.CancelledError:
                 self._status(update_id, 'cancelled')
                 raise
@@ -545,6 +560,7 @@ class Controller:
 
     async def retire_topic(self, chat_id):
         self.sessions.delete(chat_id)
+        self.a2ui.invalidate(chat_id)
         if not self.sessions.deleted(chat_id):
             raise ValueError('Only topic sessions can be deleted.')
         with self.db:
@@ -566,11 +582,13 @@ class Controller:
             if chat_id in self.active:
                 raise RuntimeError('Спочатку зупини поточну задачу командою /stop.')
             self.threads.pop(chat_id, None)
+            self.a2ui.invalidate(chat_id)
             with self.db:
                 self.db.execute('DELETE FROM chats WHERE chat_id=?', (chat_id,))
 
     async def recover(self):
         """Recover queued inputs, explicitly report ambiguous previous work."""
+        self.a2ui.recover()
         affected = {r[0] for r in self.db.execute(
             "SELECT chat_id FROM inputs WHERE status IN ('dispatching','uncertain') "
             "UNION SELECT chat_id FROM turns WHERE status='inProgress'")}
@@ -602,6 +620,8 @@ class Controller:
                     if self.active.get(chat_id) == turn['id']:
                         self.active.pop(chat_id, None)
                     self.interactions.cancel_turn(thread_id, turn['id'])
+                    if turn['status'] in {'interrupted', 'failed'}:
+                        self.a2ui.invalidate(chat_id, turn['id'])
                     with self.db:
                         self.db.execute('UPDATE turns SET status=? WHERE turn_id=?',
                                         (turn['status'], turn['id']))

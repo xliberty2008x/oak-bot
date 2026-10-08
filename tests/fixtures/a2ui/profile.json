@@ -1,0 +1,236 @@
+{
+  "server": [
+    {
+      "version": "v0.9.1",
+      "createSurface": {
+        "surfaceId": "oak-plan",
+        "catalogId": "urn:oak:a2ui:canonical:v1",
+        "sendDataModel": false
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateComponents": {
+        "surfaceId": "oak-plan",
+        "components": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "form"
+          },
+          {
+            "id": "form",
+            "component": "Column",
+            "children": [
+              "title",
+              "hint",
+              "topic",
+              "pace",
+              "submit",
+              "cancel"
+            ]
+          },
+          {
+            "id": "title",
+            "component": "Text",
+            "variant": "heading",
+            "text": "План від Oak"
+          },
+          {
+            "id": "hint",
+            "component": "Text",
+            "variant": "hint",
+            "text": "Обери напрям і темп. Oak оновить цю картку після відповіді."
+          },
+          {
+            "id": "topic",
+            "component": "TextField",
+            "label": "Тема плану",
+            "value": {
+              "path": "/form/topic"
+            },
+            "required": true
+          },
+          {
+            "id": "pace",
+            "component": "ChoicePicker",
+            "label": "Темп",
+            "value": {
+              "path": "/form/pace"
+            },
+            "required": true,
+            "options": [
+              {
+                "label": "Спокійно",
+                "value": "gentle"
+              },
+              {
+                "label": "Зосереджено",
+                "value": "focused"
+              }
+            ]
+          },
+          {
+            "id": "submit",
+            "component": "Button",
+            "label": "Скласти план",
+            "action": {
+              "event": {
+                "name": "submit",
+                "context": {
+                  "topic": {
+                    "path": "/form/topic"
+                  },
+                  "pace": {
+                    "path": "/form/pace"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "cancel",
+            "component": "Button",
+            "label": "Скасувати",
+            "variant": "quiet",
+            "action": {
+              "event": {
+                "name": "cancel"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateDataModel": {
+        "surfaceId": "oak-plan",
+        "value": {
+          "form": {
+            "topic": "Мій тиждень",
+            "pace": [
+              "gentle"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateComponents": {
+        "surfaceId": "oak-plan",
+        "components": [
+          {
+            "id": "form",
+            "component": "Column",
+            "children": [
+              "title",
+              "result",
+              "edit",
+              "cancel"
+            ]
+          },
+          {
+            "id": "title",
+            "component": "Text",
+            "variant": "heading",
+            "text": "План готовий"
+          },
+          {
+            "id": "result",
+            "component": "Text",
+            "text": {
+              "path": "/result"
+            }
+          },
+          {
+            "id": "edit",
+            "component": "Button",
+            "label": "Змінити вибір",
+            "variant": "quiet",
+            "action": {
+              "event": {
+                "name": "edit"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateDataModel": {
+        "surfaceId": "oak-plan",
+        "path": "/result",
+        "value": "Подорож · зосереджений темп. Почни з однієї важливої справи, потім заплануй час на відпочинок."
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateDataModel": {
+        "surfaceId": "oak-plan",
+        "path": "/form/topic",
+        "value": "Новий вибір"
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateDataModel": {
+        "surfaceId": "oak-plan",
+        "path": "/result"
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "deleteSurface": {
+        "surfaceId": "oak-plan"
+      }
+    }
+  ],
+  "client": [
+    {
+      "version": "v0.9.1",
+      "action": {
+        "name": "submit",
+        "surfaceId": "oak-plan",
+        "sourceComponentId": "submit",
+        "timestamp": "2026-10-08T05:00:00Z",
+        "context": {
+          "topic": "Подорож",
+          "pace": [
+            "focused"
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "version": "v0.9.1",
+      "createSurface": {
+        "surfaceId": "x",
+        "catalogId": "unapproved"
+      }
+    },
+    {
+      "version": "v0.9.1",
+      "updateComponents": {
+        "surfaceId": "x",
+        "components": [
+          {
+            "id": "root",
+            "component": "Script",
+            "code": "alert(1)"
+          }
+        ]
+      }
+    },
+    {
+      "version": "v1.0",
+      "deleteSurface": {
+        "surfaceId": "x"
+      }
+    }
+  ]
+}

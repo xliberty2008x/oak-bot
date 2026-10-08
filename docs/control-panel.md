@@ -5,6 +5,11 @@ show owned Telegram sessions, current state, the most recent 100 scheduled tasks
 installed runtime integrations, deployment settings and computer-use permission. `/new`,
 task creation, memory contents and approval answers remain in Telegram.
 
+Oak can also compose an owner-scoped interactive form or card inside the existing
+Status view. It uses the canonical panel components; actions return to the same
+agent conversation and ordinary replies remain in Telegram. The pinned A2UI
+subset, limits, action/recovery checks and local demo are in [A2UI cards](a2ui.md).
+
 In Settings, the owner can confirm a model choice for the selected session.
 The separate Reasoning Effort slider uses that model's advertised levels.
 Its reset button previews the model's default; saving still needs confirmation.

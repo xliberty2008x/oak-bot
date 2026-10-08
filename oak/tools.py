@@ -15,6 +15,12 @@ def _spec(name, description, properties, required=()):
 STRING = {'type': 'string'}
 NUMBER = {'type': 'number'}
 SPECS = [
+    _spec('oak_a2ui', 'Compose interactive forms/cards inside the existing Oak Mini App. Call action=catalog first '
+          'for the pinned A2UI v0.9.1 Oak catalogue and example. Publish declarative JSON only; no code, URLs or styles. '
+          'Include a useful Ukrainian Telegram fallback. Owner interactions return in this conversation; '
+          'updateDataModel/updateComponents incrementally, deleteSurface to close. This is not approval for external actions.',
+          {'action': {'type': 'string', 'enum': ['catalog', 'publish']},
+           'messages_json': STRING, 'fallback': STRING}, ['action']),
     _spec('oak_memory_read', 'Read or search long-term memory for this private conversation.', {'query': STRING}),
     _spec('oak_memory_remember', 'Save a durable fact or preference the owner wants remembered.', {'text': STRING}, ['text']),
     _spec('oak_memory_forget', 'Forget one note by ID at the owner request.', {'id': STRING}, ['id']),
@@ -56,7 +62,7 @@ COMPUTER_SPEC = _spec('oak_computer',
 
 class Tools:
     specs = SPECS
-    version = 'oak-v1'
+    version = 'oak-v3-a2ui'
 
     def __init__(self, controller, config):
         from .media import MediaTools
@@ -80,7 +86,7 @@ class Tools:
             from .computer import ComputerTools
             self.computer = ComputerTools(self.workspace, computer.get('display'))
             self.specs = [*SPECS, COMPUTER_SPEC]
-            self.version = 'oak-v2-computer'
+            self.version = 'oak-v3-a2ui-computer'
 
     def _computer_account(self, chat_id):
         sessions = getattr(self.controller, 'sessions', None)
@@ -165,6 +171,18 @@ class Tools:
         c = self.controller
         if getattr(c, 'sessions', None) is not None and c.sessions.deleted(chat_id):
             raise ValueError('Цю сесію видалено.')
+        if name == 'oak_a2ui':
+            if args.get('action') == 'catalog':
+                from .a2ui_demo import form_messages
+                return {'catalog': json.loads((Path(__file__).parent / 'web' / 'a2ui-catalog.json').read_text()),
+                        'example': form_messages(), 'limits': {'batch_bytes': 65536, 'components': 64, 'surfaces': 4},
+                        'instructions': 'Use root ID root. Publish messages_json as a JSON array and a meaningful Telegram fallback. '
+                        'Fields bind to object paths. ChoicePicker is single choice with a string[] value. '
+                        'Every button uses action.event with optional bound context. Functions/theme/URLs are unsupported. '
+                        'Forms expire after one hour. After an action update or delete the surface.'}
+            if args.get('action') != 'publish':
+                raise ValueError('Unsupported A2UI action.')
+            return await c.a2ui.publish(chat_id, json.loads(args['messages_json']), args['fallback'], metadata)
         if name == 'oak_memory_read':
             return c.memory.search(chat_id, args.get('query', ''))
         if name == 'oak_memory_remember':

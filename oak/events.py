@@ -99,9 +99,15 @@ def validate_event(event):
             'user_input_request': {'id': 128, 'question': 16000},
             'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 512},
             'activity': {'activityId': 512},
+            'a2ui': {},
         }
         if name not in custom:
             raise ValueError(f'Unsupported custom event: {name}')
+        if name == 'a2ui':
+            from .a2ui import validate_messages
+            validate_messages(value.get('messages'))
+            if not isinstance(value.get('revisions'), dict) or any(type(v) is not int or v < 1 for v in value['revisions'].values()):
+                raise ValueError('Invalid A2UI revisions.')
         for field, limit in custom[name].items():
             _string(value.get(field), f'value.{field}', limit)
         for field, limit in {'caption': 16000, 'toolCallId': 512, 'status': 128}.items():
