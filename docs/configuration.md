@@ -84,7 +84,9 @@ up its config and state, then rerun bootstrap with `--config` and
 the explicit migration it verifies cloud bot identity and webhook ownership,
 saves a durable checkpoint, calls cloud `logOut` once, verifies the local server
 and writes these deployment-wide keys. Reruns resume the checkpoint; they do not
-discard pending updates or reset Oak's saved update offset. Telegram prevents
+discard pending updates. The gateway binds its cursor to the API endpoint: a
+cloud cursor is never reused for the independent local queue, while ordinary
+restarts preserve the local cursor. Telegram prevents
 returning to the cloud for ten minutes after `logOut`.
 
 ```json

@@ -136,7 +136,9 @@ and `--migrate-telegram-api`. A running deployment remains check-only. Bootstrap
 checks cloud bot identity and webhook ownership, saves a durable migration
 checkpoint, calls cloud `logOut` once, verifies the local endpoint, then updates
 the config and starts Oak. Rerunning resumes the checkpoint rather than repeating
-the migration; it does not reset the saved update offset or discard updates.
+the migration; it preserves durable intake and does not discard updates. Cloud
+and local servers have independent update IDs, so the gateway starts a new
+cursor for a changed API endpoint and preserves it across subsequent restarts.
 Telegram prevents returning to its cloud endpoint for ten minutes after `logOut`.
 
 Without `--public-url`, Oak supervises a localhost.run SSH tunnel and registers
