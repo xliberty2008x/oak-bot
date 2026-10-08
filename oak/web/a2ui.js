@@ -45,10 +45,11 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy}) {
   function render(surface) {
     const visited = new Set();
     function build(id, ancestors = new Set()) {
-      if (ancestors.has(id) || visited.has(id) || ancestors.size > 16 || visited.size >= 64) throw new Error('Invalid component graph');
-      visited.add(id);
+      if (ancestors.has(id) || visited.has(id) || ancestors.size > 16) throw new Error('Invalid component graph');
       const item = Object.hasOwn(surface.components, id) ? surface.components[id] : null;
       if (!item) return node('p', 'Oak готує цей елемент…', 'hint');
+      if (visited.size >= 64) throw new Error('Invalid component graph');
+      visited.add(id);
       if (!kinds.has(item.component)) throw new Error('Unsupported component');
       let element = surface.nodes.get(id);
       if (element?.dataset.kind !== item.component) {
