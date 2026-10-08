@@ -94,14 +94,21 @@ class SyntheticBrowser:
         if urlsplit(self.origin).hostname != '127.0.0.1':
             raise ValueError('The test provider must be loopback.')
         self.driver = self.browser = self.context = self.page = None
+        self.manager = self.startup = self.launch = None
+        self.browser_close = self.shutdown = None
         self.epoch = 0
 
     async def start(self):
         from playwright.async_api import async_playwright
-        self.driver = await async_playwright().start()
-        self.browser = await self.driver.chromium.launch(headless=True, args=[
+        self.manager = async_playwright()
+        self.startup = asyncio.create_task(self.manager.start())
+        self.startup.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
+        self.driver = await asyncio.shield(self.startup)
+        self.launch = asyncio.create_task(self.driver.chromium.launch(headless=True, args=[
             '--disable-breakpad', '--disable-crash-reporter', '--disable-sync',
-            '--disable-save-password-bubble'])
+            '--disable-save-password-bubble']))
+        self.launch.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
+        self.browser = await asyncio.shield(self.launch)
         self.context = await self.browser.new_context(viewport={'width': 390, 'height': 530},
                                                      accept_downloads=False)
         async def route(request):
@@ -173,14 +180,45 @@ class SyntheticBrowser:
                 and await self.page.locator('[data-oak-synthetic-authenticated]').count() == 1)
 
     async def close(self):
+        # Acquisition can outlive the cancelled start coroutine. Settle it before
+        # claiming destruction; keep the manager as the fallback driver handle.
+        async def acquired(task):
+            if task is None:
+                return None
+            try:
+                return await asyncio.wait_for(asyncio.shield(task), 3)
+            except asyncio.TimeoutError:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            except asyncio.CancelledError:
+                if not task.cancelled():
+                    raise
+            except Exception:
+                pass  # manager/driver shutdown still must succeed below
+            return None
+        if self.driver is None:
+            self.driver = await acquired(self.startup)
+        if self.browser is None:
+            self.browser = await acquired(self.launch)
         # Retain a failed underlying handle; retrying an empty adapter must not
         # turn an uncertain destruction into a false confirmation.
         if self.browser:
-            await self.browser.close()
+            if self.browser_close is None:
+                self.browser_close = asyncio.create_task(self.browser.close())
+                self.browser_close.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
+            await asyncio.wait_for(asyncio.shield(self.browser_close), 10)
             self.page = self.context = self.browser = None
-        if self.driver:
-            await self.driver.stop()
-            self.driver = None
+        if self.driver or self.manager:
+            # Playwright marks exit as called before awaiting driver shutdown.
+            # A second call can be a no-op after failure. Only the retained first
+            # task's actual successful completion proves shutdown.
+            if self.shutdown is None:
+                self.shutdown = asyncio.create_task(self.driver.stop() if self.driver else
+                                                    self.manager.__aexit__(None, None, None))
+                self.shutdown.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
+            await asyncio.wait_for(asyncio.shield(self.shutdown), 10)
+        self.driver = None
+        self.manager = self.startup = self.launch = None
 
 
 class Broker:

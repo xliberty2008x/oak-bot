@@ -32,6 +32,7 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
                             config={'state_dir': str(self.root)})
         self.addCleanup(self.c.close)
         self.c.tools = Tools(self.c, {})
+        self.c.web = SimpleNamespace(public_url='https://oak.synthetic.invalid')
         self.runtime.tool_handler = self.c.tools.handle
         self.runtime.request_input_handler = self.c.interactions.user_input
         self.bus = EventBus(self.c)
@@ -59,6 +60,36 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
     def payload(self, action='one', decision='submit', values=None):
         return {'requestId': action, 'revision': 1, 'decision': decision,
                 **({'values': values or {'topic': 'Мій тиждень', 'pace': 'Спокійно'}} if decision == 'submit' else {})}
+
+    async def test_missing_mini_app_declines_before_persistence_or_wait(self):
+        for gateway in (None, SimpleNamespace(public_url=''),
+                        SimpleNamespace(public_url='http://oak.synthetic.invalid')):
+            self.c.web = gateway
+            with self.assertRaisesRegex(RequestUnavailable, 'Mini App input is unavailable'):
+                await asyncio.wait_for(self.c.requests.template(self.native, 'task_details'), 1)
+            result = await asyncio.wait_for(self.c.requests.native({**self.native,
+                'method': 'item/tool/requestUserInput', 'questions': [
+                    {'id': 'pace', 'question': 'Темп?', 'options': [{'label': 'Спокійно'}]}]}), 1)
+            self.assertEqual(result, {'answers': {}})
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM input_requests').fetchone()[0], 0)
+        self.assertFalse(self.c.requests.waiters)
+        self.assertEqual(self.bus.replay(11), [])
+        self.runtime.request.assert_not_awaited()
+
+    async def test_legacy_web_conversation_declines_without_an_unreachable_launch(self):
+        self.c.web = WebGateway(self.c, self.bus, 'synthetic-token', [11],
+                               {'public_url': 'https://oak.synthetic.invalid'})
+        with self.c.db:
+            self.c.db.execute('INSERT INTO web_conversations VALUES (?,?,?,?)', ('web-id', 11, -12, 'Test'))
+        self.c.threads[-12] = 'web-thread'
+        self.c.active[-12] = 'web-turn'
+        self.assertIsNone(self.c.web_app_url(-12, request='a' * 32))
+        with self.assertRaisesRegex(RequestUnavailable, 'Mini App input is unavailable'):
+            await asyncio.wait_for(self.c.requests.template(
+                {**self.native, 'threadId': 'web-thread', 'turnId': 'web-turn'}, 'task_details'), 1)
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM input_requests').fetchone()[0], 0)
+        self.assertFalse(self.c.requests.waiters)
+        self.assertEqual(self.bus.replay(-12), [])
 
     async def test_original_native_tool_waits_and_receives_one_response_without_new_turn(self):
         metadata = {'id': 42, 'method': 'item/tool/call', 'params': {

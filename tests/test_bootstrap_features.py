@@ -62,6 +62,20 @@ class BootstrapFeatureTests(unittest.TestCase):
                     return_value=SimpleNamespace(stdout=json.dumps({**proof, **changed}), returncode=code)):
                 self.assertFalse(self.verifier.protocol_checks()['verified'])
 
+    def test_every_mandatory_suite_must_contain_tests(self):
+        for missing in range(4):
+            suites = [unittest.TestSuite([unittest.FunctionTestCase(lambda: None)]) for _ in range(4)]
+            suites[missing] = unittest.TestSuite()
+            loader = Mock()
+            loader.discover.side_effect = suites[:3]
+            loader.loadTestsFromName.return_value = suites[3]
+            with self.subTest(missing=missing), patch.object(self.verifier.unittest, 'TestLoader', return_value=loader), \
+                    patch.object(self.verifier.unittest, 'TextTestRunner') as runner:
+                result = self.verifier.protocol_worker()
+            self.assertFalse(result['verified'])
+            self.assertEqual(result['errors'], 1)
+            runner.assert_not_called()
+
     def test_binding_and_launch_sources_change_digest(self):
         from oak.features import SOURCE_FILES
         original = Path.read_bytes

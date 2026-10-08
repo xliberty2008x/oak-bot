@@ -63,9 +63,30 @@ Python причини до config, apt, Docker або account actions. Unit matr
 Ubuntu 22.04/aarch64 не є фактичним запуском на ORACLE-VM. Supported matrix
 не розширено; реальний Instagram та credential isolation залишаються false.
 
-Не виконувались push, PR mutation, merge до main, інсталяція/deployment,
+До цього integration receipt не виконувались push, PR mutation, merge до main, інсталяція/deployment,
 SSH/access/security зміни чи provider account actions. Для production
 залишаються actual ARM toolchain/desktop acceptance, immutable isolated
 launcher і denial probes проти runtime та host adapters, reachable HTTPS
 human origin, перевірений provider adapter, дозволений ephemeral session scope
 та live model/Telegram/client/reboot checks — [детальні gates](credential-broker.md).
+
+## Release review PR21, 2026-10-08
+
+Гілку опубліковано як [PR21](https://github.com/xliberty2008x/oak-bot/pull/21)
+на базі `56642238838c5ab13d00063c117e291ee9b01850`. Після незалежного рев’ю
+виправлено недоступну Mini App до persistence/wait, порожні mandatory suites
+та cancellation під час Playwright acquisition/shutdown. Legacy web-only
+scopes не мають маршруту в актуальній панелі й одразу відхиляються. Фікстура
+містить явний synthetic HTTPS eligibility marker; її трафік лишається loopback.
+
+- Фінальна повна suite: **164 tests, OK, 1 optional Pillow skip**, 11.155 s.
+- Account-free verifier: **73 mandatory tests, 0 failures/errors/skips**,
+  actual local Chromium ordinary submit/cancel та synthetic login/OTP/cancel,
+  **4 original native responses, 0 new turns**, owned fixture cleanup confirmed.
+- Feature digest: `0a70f5dd7f51846cdf0fbe76fba04344df54e6d834cd613b8bbd4c5ad2df0099`.
+- Завершальне незалежне read-only review не виявило нових material findings.
+  Actual Playwright context manager тестує failed exit: повторний no-op не
+  підтверджує cleanup; retained task зберігає uncertainty.
+
+Це локальний release receipt. Live deployment/model/Telegram/client, VM install
+та reboot не підтверджено ним; real Instagram й OS credential isolation false.

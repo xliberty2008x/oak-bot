@@ -145,6 +145,8 @@ class InputRequests:
         chat = self.controller.chat_for_thread(metadata.get('threadId'))
         if chat is None:
             raise RequestUnavailable('The original native request is unavailable.')
+        if not self.controller.web_app_url(chat):
+            raise RequestUnavailable('Mini App input is unavailable; ask an ordinary question in the conversation.')
         identifier = uuid.uuid4().hex
         future = asyncio.get_running_loop().create_future()
         # turn/start registers active under this lock. A buffered native request

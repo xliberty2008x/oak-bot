@@ -36,10 +36,16 @@ def protocol_worker():
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
     for name in ('test_requests.py', 'test_a2ui.py', 'test_signin_broker.py'):
-        suite.addTests(loader.discover(str(REPO / 'tests'), pattern=name))
+        mandatory = loader.discover(str(REPO / 'tests'), pattern=name)
+        if mandatory.countTestCases() == 0:
+            return {'verified': False, 'tests': 0, 'failures': 0, 'errors': 1, 'skipped': 0}
+        suite.addTests(mandatory)
     # Process lifecycle/CLI smoke runs separately. This worker owns no child
     # services, so interruption cannot orphan another demo or verifier.
-    suite.addTests(loader.loadTestsFromName('test_bootstrap_features.BootstrapFeatureTests'))
+    mandatory = loader.loadTestsFromName('test_bootstrap_features.BootstrapFeatureTests')
+    if mandatory.countTestCases() == 0:
+        return {'verified': False, 'tests': 0, 'failures': 0, 'errors': 1, 'skipped': 0}
+    suite.addTests(mandatory)
     previous = logging.root.manager.disable
     try:
         logging.disable(logging.CRITICAL)

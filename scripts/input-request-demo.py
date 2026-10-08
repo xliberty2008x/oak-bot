@@ -75,7 +75,8 @@ async def serve_demo(port, broker_enabled=False, browsers_path=None):
                 controller.db.execute('INSERT INTO chats(chat_id,thread_id,tools_version) VALUES (?,?,?)',
                                       (11, 'demo-thread', controller.tools.version))
             process = None
-            web_config = {}
+            # Eligibility marker only: all fixture traffic stays on loopback.
+            web_config = {'public_url': 'https://oak.synthetic.invalid'}
             if broker_enabled:
                 if port > 65533:
                     raise ValueError('Reserve three consecutive ports.')

@@ -6,7 +6,8 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
@@ -15,7 +16,7 @@ from oak.bus import EventBus
 from oak.controller import Controller
 from oak.runtime import RuntimeClient
 from oak.tools import Tools
-from oak.signin_broker import Binding, Broker, origin
+from oak.signin_broker import Binding, Broker, SyntheticBrowser, origin
 from oak.web import WebGateway
 
 
@@ -48,6 +49,105 @@ class FakeBrowser:
     async def close(self):
         self.closed += 1
         self.inputs.clear()
+
+
+class BrowserAcquisitionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cancelled_driver_acquisition_is_tracked_until_stopped(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+        driver = SimpleNamespace(stop=AsyncMock())
+        async def acquire():
+            entered.set()
+            await release.wait()
+            return driver
+        manager = SimpleNamespace(start=acquire, __aexit__=AsyncMock())
+        browser = SyntheticBrowser('http://127.0.0.1:18781')
+        with patch('playwright.async_api.async_playwright', return_value=manager):
+            task = asyncio.create_task(browser.start())
+            await entered.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            cleanup = asyncio.create_task(browser.close())
+            await asyncio.sleep(0)
+            self.assertFalse(cleanup.done())
+            driver.stop.assert_not_awaited()
+            release.set()
+            await cleanup
+        driver.stop.assert_awaited_once()
+        self.assertIsNone(browser.manager)
+        self.assertIsNone(browser.startup)
+
+    async def test_cancelled_launch_acquires_and_closes_browser_before_driver(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+        resource = SimpleNamespace(close=AsyncMock())
+        async def launch(**_kwargs):
+            entered.set()
+            await release.wait()
+            return resource
+        driver = SimpleNamespace(stop=AsyncMock(), chromium=SimpleNamespace(launch=launch))
+        manager = SimpleNamespace(start=AsyncMock(return_value=driver), __aexit__=AsyncMock())
+        browser = SyntheticBrowser('http://127.0.0.1:18781')
+        with patch('playwright.async_api.async_playwright', return_value=manager):
+            task = asyncio.create_task(browser.start())
+            await entered.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            cleanup = asyncio.create_task(browser.close())
+            await asyncio.sleep(0)
+            self.assertFalse(cleanup.done())
+            resource.close.assert_not_awaited()
+            release.set()
+            await cleanup
+        resource.close.assert_awaited_once()
+        driver.stop.assert_awaited_once()
+        self.assertIsNone(browser.launch)
+
+    async def test_failed_acquisition_uses_retained_manager_and_keeps_failed_cleanup(self):
+        manager = SimpleNamespace(start=AsyncMock(side_effect=RuntimeError('synthetic-start')),
+                                  __aexit__=AsyncMock(side_effect=RuntimeError('synthetic-stop')))
+        browser = SyntheticBrowser('http://127.0.0.1:18781')
+        with patch('playwright.async_api.async_playwright', return_value=manager):
+            with self.assertRaises(RuntimeError):
+                await browser.start()
+        with self.assertRaises(RuntimeError):
+            await browser.close()
+        self.assertIs(browser.manager, manager)
+        manager.__aexit__ = AsyncMock()
+        with self.assertRaises(RuntimeError):
+            await browser.close()
+        manager.__aexit__.assert_not_awaited()
+
+    async def test_playwright_failed_exit_never_becomes_confirmed_on_retry(self):
+        from playwright.async_api._context_manager import PlaywrightContextManager
+        manager = PlaywrightContextManager()
+        manager._connection = SimpleNamespace(stop_async=AsyncMock(side_effect=RuntimeError('synthetic-stop')))
+        browser = SyntheticBrowser('http://127.0.0.1:18781')
+        browser.manager = manager
+        browser.driver = SimpleNamespace(stop=manager.__aexit__)
+        for _ in range(2):
+            with self.assertRaises(RuntimeError):
+                await browser.close()
+            self.assertIsNotNone(browser.driver)
+        manager._connection.stop_async.assert_awaited_once()
+
+    async def test_cancelled_close_does_not_cancel_underlying_shutdown(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def stop():
+            entered.set()
+            await release.wait()
+        browser = SyntheticBrowser('http://127.0.0.1:18781')
+        browser.driver = SimpleNamespace(stop=AsyncMock(side_effect=stop))
+        task = asyncio.create_task(browser.close())
+        await entered.wait()
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        self.assertFalse(browser.shutdown.cancelled())
+        self.assertIsNotNone(browser.driver)
+        release.set()
+        await browser.close()
+        self.assertIsNone(browser.driver)
 
 
 class BrokerTests(unittest.IsolatedAsyncioTestCase):
@@ -283,8 +383,9 @@ class SignInIntegrationTests(unittest.IsolatedAsyncioTestCase):
         socket = self.root / 'control.sock'
         await web.UnixSite(self.control,str(socket)).start()
         socket.chmod(0o600)
-        self.gateway = WebGateway(self.c,self.bus,'synthetic-token',[11,22],{'credential_broker':{
+        self.gateway = WebGateway(self.c,self.bus,'synthetic-token',[11,22],{'public_url':'https://oak.synthetic.invalid','credential_broker':{
             'socket':str(socket),'origin':self.broker.human_origin,'synthetic_only':True}})
+        self.c.web = self.gateway
         self.web = TestClient(TestServer(self.gateway.app))
         await self.web.start_server()
         self.addAsyncCleanup(self.web.close)
