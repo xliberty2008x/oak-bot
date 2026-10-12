@@ -30,11 +30,13 @@ export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy,
   const section = document.getElementById('a2ui-panel'), content = document.getElementById('a2ui-surfaces'), status = document.getElementById('a2ui-status');
   const surfaces = new Map();
   let loading = false, actionBusy = false, generation = 0, serverBusy = false, targetNotice = '', renderer = null;
+  let suspended = document.hidden, refreshGeneration = 0, timer = null;
   async function getRenderer() {
     if (renderer) return renderer;
     const startGeneration = generation, module = await import('/vendor/a2ui/runtime.js');
     if (generation !== startGeneration) throw new Error('Session changed');
     renderer ||= module.createCanonicalRenderer(action => {
+      if (generation !== startGeneration) return;
       const surface = surfaces.get(action.surfaceId); if (surface) void act(surface, action);
     }, {artifact});
     return renderer;
@@ -42,11 +44,11 @@ export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy,
   function notice(text, error = false) { status.textContent = text; status.classList.toggle('error-message', error); }
   function disable() {
     for (const surface of surfaces.values()) renderer?.disable(surface.id,
-      busy() || actionBusy || serverBusy || surface.consumed || Date.now() / 1000 >= surface.expires);
+      suspended || busy() || actionBusy || serverBusy || surface.consumed || Date.now() / 1000 >= surface.expires);
   }
   function render(surface, incoming) {surface.element = renderer.update(incoming);disable();}
   async function act(surface, action) {
-    if (!available() || busy() || actionBusy || serverBusy || surface.consumed) return;
+    if (suspended || !available() || busy() || actionBusy || serverBusy || surface.consumed) return;
     if (Date.now() / 1000 >= surface.expires) return;
     if (action.name !== 'cancel') for (const control of surface.element.querySelectorAll('input,select')) if (!control.reportValidity()) return;
     const startEpoch = epoch(), startGeneration = generation;
@@ -66,15 +68,17 @@ export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy,
     }
   }
   async function refresh() {
-    if (loading || actionBusy || !available()) return;
+    if (suspended || loading || actionBusy || !available()) return;
     loading = true;
-    const startEpoch = epoch(), startGeneration = generation;
+    const startEpoch = epoch(), startGeneration = generation, startRefreshGeneration = refreshGeneration;
+    const current = () => epoch() === startEpoch && generation === startGeneration
+      && refreshGeneration === startRefreshGeneration && !suspended && available();
     try {
       const value = await api('/api/a2ui');
-      if (epoch() !== startEpoch || generation !== startGeneration || !available()) return;
+      if (!current()) return;
       if (value.protocol !== VERSION || value.renderer !== RENDERER || value.catalogId !== CATALOG || !Array.isArray(value.surfaces) || value.surfaces.length > 4) throw new Error('Unsupported protocol');
       await getRenderer();
-      if (epoch() !== startEpoch || generation !== startGeneration || !available()) return;
+      if (!current()) return;
       serverBusy = value.busy === true;
       const ids = new Set();
       for (const incoming of value.surfaces) {
@@ -112,13 +116,24 @@ export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy,
         linked.element.scrollIntoView({block: 'start'});
       }
     } catch {
-      if (epoch() === startEpoch && generation === startGeneration && available()) { serverBusy = true; disable(); if (target()) section.hidden = false; notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
-    } finally { if (generation === startGeneration) loading = false; }
+      if (current()) { serverBusy = true; disable(); if (target()) section.hidden = false; notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
+    } finally { if (generation === startGeneration && refreshGeneration === startRefreshGeneration) loading = false; }
   }
   function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; renderer?.dispose(); renderer = null; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
-  const timer = setInterval(() => { void refresh(); }, 3000);
-  const visibility = () => {if (!document.hidden) void refresh();};
-  document.addEventListener('visibilitychange', visibility);
-  window.addEventListener('pagehide', () => {clearInterval(timer);document.removeEventListener('visibilitychange',visibility);reset();}, {once: true});
+  function startPolling() { timer ??= setInterval(() => { void refresh(); }, 3000); }
+  function suspend() {
+    if (suspended) return;
+    suspended = true; clearInterval(timer); timer = null;
+    // Invalidate reads, but retain drafts and the receipt guard for pending actions.
+    refreshGeneration++; loading = false; serverBusy = true; disable();
+  }
+  function resume() {
+    if (document.hidden) return;
+    suspended = false; startPolling(); void refresh();
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); else resume(); });
+  window.addEventListener('pagehide', suspend);
+  window.addEventListener('pageshow', resume);
+  if (!suspended) startPolling();
   return {refresh, reset, disable};
 }

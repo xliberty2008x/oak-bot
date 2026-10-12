@@ -519,6 +519,14 @@ focus for unrelated status updates. Keep errors, submission and cancellation
 usable with the keyboard open. Apply existing Oak tokens when evaluating
 upstream components; check the private document and stylesheet independently.
 
+Ordinary A2UI cards suspend polling on page hide and resume one polling timer
+on return, including restoration from the browser's back/forward cache. Retained
+controls stay disabled until a fresh snapshot confirms their current state.
+Same-revision drafts and uncertain-action guards survive suspension; pending
+actions are never replayed. Owner/topic reset remains distinct: it disposes the
+renderer and rejects old reads, action callbacks and completions. This lifecycle
+does not change the private website form channel.
+
 The private sign-in card contains one task heading and the current credential
 recipient. For general website tasks its heading updates from the validated
 committed origin, not a model label or the original root destination. All
