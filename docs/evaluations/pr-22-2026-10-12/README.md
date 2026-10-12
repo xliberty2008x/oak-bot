@@ -82,7 +82,8 @@ Telegram message was sent by these review checks.
 
 The complete integrated suite passed **1058 tests in 391.685 seconds**, with
 provider/browser checks enabled and no failures, errors or skips. Deployment
-pins are recorded with the release receipt. Local/mock checks do not establish live owner
+pins are recorded in the [release receipt](deployment.json). Local/mock checks
+do not establish live owner
 Telegram acceptance or successful provider account authentication. No model
 configuration, API credential or website authority changed in this integration.
 
@@ -105,7 +106,14 @@ boundary suite passed **55 tests**, including that real nft/kernel regression.
 An independent namespace TCP probe reproduced the same failure: root and the
 gateway user received only 49152 of 2097152 bytes with the old policy, then the
 complete matching body with positive dispatch; the executor UID remained denied.
-No nginx or
-provider authority is changed. This installer correction is validated separately
+No nginx or provider authority is changed. This installer correction is validated separately
 from the complete PR suite above, including a fresh runtime attestation and
 HTTPS asset checks during the final cutover.
+
+The final deployed release passed all 10 current-boot boundary checks and all
+145 manifest file comparisons. Nine HTTPS assets returned matching hashes. The
+same public Lit bundle completed in 0.182 seconds with default TLS; a clean
+Chromium context loaded the public sign-in screen and imported all 14 catalogue
+entries without a page error. Oak and the private broker were running with zero
+restarts. Existing uncertain intake records remained quarantined. The release
+receipt distinguishes these checks from live owner Telegram/card acceptance.

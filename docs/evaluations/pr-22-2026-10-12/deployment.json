@@ -1,0 +1,236 @@
+{
+  "prepared_at": 1791835848,
+  "source_commit": "73f1de45d1a72d9afbf8c6e094a951b33d14a146",
+  "code_root": "/opt/oak-executor/releases/8baf61530043066ca5f4",
+  "policy_digest": "932cb5474266911ce77e53f055913a926608c6d9c582d65e550ccea7954437ff",
+  "profile_sha256": "b8e2edd93c537a3db3a2433cdadd6621a3851910f64fdd7f91ae83a681e59b97",
+  "broker_config_sha256": "456adca7c35e6ae0f23be403b31ec620c82fb0bcae0ca2f4be2fb7dba5fd87bf",
+  "manifest_entries": 145,
+  "verified_at": "2026-10-12T20:13:05.603602+00:00",
+  "product_digest": "f66ad8ac241fbaa4604587fe724fabda4bde2636a5e364f753e939998ac67977",
+  "manifest_files_match": 145,
+  "boundary_checks": {
+    "uid": true,
+    "private_pid": true,
+    "no_privileges": true,
+    "code_readonly": true,
+    "trusted_files_denied": true,
+    "host_proc_denied": true,
+    "sockets_denied": true,
+    "private_network_denied": true,
+    "native_policy": true,
+    "firewall_active": true
+  },
+  "boundary_accepted_at": 1791835900,
+  "brotli_version": "1.2.0",
+  "https_assets": [
+    {
+      "asset": "oak/login_web/login.js",
+      "sha256": "5712501c466dc63a85c94583c3259cf199b63e227c74f807cc07b0bec400c1d0",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/login_web/login.css",
+      "sha256": "17ddf3c81861018243c4ac8ce2963a7b9747cb4baa7fe55059f5b8aa89692b2c",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/requests.js",
+      "sha256": "06d6ad69b78d85bf5fc872aaf745fc408e044bbe0ec4daa8e097ef4bff546fda",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/style.css",
+      "sha256": "a24fe7160a8a216cec81c3d5afce943274dd23d4d7d1e7aaf647fb199f862dc5",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/a2ui.js",
+      "sha256": "7cba14507bde06518983cda1211eb797b41d1c3582a896079262e918eb798ce7",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/app.js",
+      "sha256": "c3ba1244c537611c4e68fefaec7b3d30110511f5e11f9d04afb3189d4bddc888",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/a2ui-theme.css",
+      "sha256": "7aaf8c00fac08def2d653a62d9e4aa6d8b77d539da1690cfdf773e7761f273ca",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/vendor/a2ui/runtime.js",
+      "sha256": "1edacc2604b5f5354be7cd0e6fc87d3d8498985312ae6f91aafadc6eb34c766e",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/a2ui-catalog.json",
+      "sha256": "ef520a8d48fd0d3d6eabe5bf9fc9fb5b64c4f64089e5f3f36f39ac9d320b7971",
+      "https_status": 200,
+      "cache_control": "no-store"
+    }
+  ],
+  "github": {
+    "pr": 22,
+    "merge_commit": "99417f5fb69528ec0afb84fc0bbbb039159c6419",
+    "reviewed_pr_head": "752d8993d1f68d2f98df6c1445b6f02a8a4df826",
+    "firewall_followup": "6bf3c18c4d9aa2f083623a1e8fb99b697ba3ef31",
+    "deployed_code_tree": "b486a043cbc3a38f59bc8e951421c86185b1efc9"
+  },
+  "validation": {
+    "integrated_suite": {
+      "tests": 1058,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 391.685,
+      "log_sha256": "055f8a1affedfdf8e0acbdb2c2dee2816c4f5f207073b56339d92ecb3092c1ec"
+    },
+    "affected_boundary_suite": {
+      "tests": 55,
+      "failures": 0,
+      "skipped": 0,
+      "seconds": 3.195
+    },
+    "local_renderer": {
+      "tests": 10,
+      "seconds": 17.991
+    },
+    "public_bootstrap": {
+      "url": "https://oak.130.61.215.238.sslip.io",
+      "tls_verification": true,
+      "unauthenticated": true,
+      "owner_auth_attempted": false,
+      "time_utc": "2026-10-12T20:12:52Z",
+      "document_status": 200,
+      "title": "Oak — панель керування",
+      "visible_headings": [
+        "Панель керування Oak"
+      ],
+      "visible_buttons": [
+        "Увійти"
+      ],
+      "vendor_status": 200,
+      "vendor_bytes": 444318,
+      "vendor_sha256": "1edacc2604b5f5354be7cd0e6fc87d3d8498985312ae6f91aafadc6eb34c766e",
+      "vendor_identity_matches": true,
+      "vendor_import": true,
+      "page_errors": [],
+      "auth_cookies_present": false
+    },
+    "isolated_tcp_before_after": {
+      "network_namespace_isolated": true,
+      "original_source_commit": "9227baf901a935150f372126d3ee86401ef86949",
+      "candidate_renderer_sha256": "139d6c3db2d0aa630514362643830bae9dc0c8086986b5c2d09b7f4d2fd5d45f",
+      "payload_bytes": 2097152,
+      "payload_sha256": "e1c2f00fafee2dcecc0217df1887a03fc5d3150803e128104e4a61c97f59bef4",
+      "policies": [
+        {
+          "policy": "original_negative_guard",
+          "rules_sha256": "6ce3c1ba88fe713d49a77dd89e54d6c950b1879ddcdeb7139b41b802e45ba988",
+          "samples": [
+            {
+              "identity": "root",
+              "received_bytes": 49152,
+              "complete": false,
+              "error": "TimeoutError",
+              "sha256": "c318c3e42a4bb815ae91de3e2dc9035dd8089a76ac7d633571cc2448efd6a032"
+            },
+            {
+              "identity": "box",
+              "received_bytes": 49152,
+              "complete": false,
+              "error": "TimeoutError",
+              "sha256": "c318c3e42a4bb815ae91de3e2dc9035dd8089a76ac7d633571cc2448efd6a032"
+            },
+            {
+              "identity": "executor",
+              "received_bytes": 0,
+              "complete": false,
+              "error": "TimeoutError",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          ]
+        },
+        {
+          "policy": "candidate_positive_dispatcher",
+          "rules_sha256": "8be519f2fff52bcfc2f372ee2048a5e69a079545926f1ece5fff5534d44626d7",
+          "samples": [
+            {
+              "identity": "root",
+              "received_bytes": 2097152,
+              "complete": true,
+              "sha256": "e1c2f00fafee2dcecc0217df1887a03fc5d3150803e128104e4a61c97f59bef4"
+            },
+            {
+              "identity": "box",
+              "received_bytes": 2097152,
+              "complete": true,
+              "sha256": "e1c2f00fafee2dcecc0217df1887a03fc5d3150803e128104e4a61c97f59bef4"
+            },
+            {
+              "identity": "executor",
+              "received_bytes": 0,
+              "complete": false,
+              "error": "ConnectionRefusedError",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          ]
+        }
+      ]
+    },
+    "default_public_https_probe": "200 444318 0.181919"
+  },
+  "runtime": {
+    "service": {
+      "status": "running",
+      "pid": 1325697,
+      "worker_pid": 1325698,
+      "worker_running": true,
+      "restarts": 0,
+      "phase": "running"
+    },
+    "broker_health": {
+      "ready": true,
+      "providers": [
+        "google",
+        "instagram",
+        "website"
+      ],
+      "protocol": 1,
+      "website_task": true
+    },
+    "broker_status": "NRestarts=0\nActiveState=active\nSubState=running",
+    "counts": {
+      "deliveries_pending": 0,
+      "deliveries_sending": 0,
+      "deliveries_uncertain": 0,
+      "input_requests_pending": 0,
+      "inputs_dispatching": 0,
+      "inputs_pending": 0,
+      "inputs_uncertain": 0,
+      "intake_pending": 0,
+      "intake_processing": 0,
+      "intake_uncertain": 5,
+      "interactions_pending": 0,
+      "jobs_running": 0,
+      "replies_pending": 0,
+      "turns_in_progress": 0,
+      "turns_uncertain": 0,
+      "website_attempts_open": 0,
+      "website_cleanup_uncertain": 0
+    }
+  },
+  "private_backup_created": true,
+  "owner_live_card_acceptance": false,
+  "live_model_card_generation_tested": false
+}
