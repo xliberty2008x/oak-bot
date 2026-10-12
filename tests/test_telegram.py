@@ -197,6 +197,93 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         await restored.emit(-1, {'type': 'RUN_STARTED', 'runId': 'browser-only'})
         self.assertNotIn(-1, restored._replies)
 
+    async def test_a2ui_cards_send_rich_blocks_edit_in_place_and_fall_back(self):
+        gateway = self.gateway
+        image = Path(self.temp.name) / 'artifacts' / 'meal.png'
+        image.parent.mkdir()
+        image.write_bytes(b'\x89PNG\r\n\x1a\nsynthetic')
+        self.controller.bus = SimpleNamespace(artifact_path=lambda chat, identifier: image)
+        state = {'components': {
+            'root': {'id': 'root', 'component': 'Column', 'children': ['title', 'photo']},
+            'title': {'id': 'title', 'component': 'Text', 'variant': 'heading', 'text': 'План'},
+            'photo': {'id': 'photo', 'component': 'Image', 'alt': 'Сніданок', 'artifact': 'a' * 32}}, 'dataModel': {}}
+        url = 'https://oak.example.test/?conversation=telegram&surface=plan'
+        button = {'text': 'Відкрити в Oak', 'web_app': {'url': url}}
+
+        def card(revision, thread='thread-one'):
+            return {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': thread, 'value': {
+                'surfaceId': 'plan', 'label': 'План готовий.', 'revision': revision, 'state': state,
+                'button_label': 'Відкрити в Oak', 'url': url}}
+
+        calls = []
+
+        def api(fail=lambda method, payload: None, message_id=31):
+            async def call(method, payload):
+                calls.append((method, payload))
+                fail(method, payload)
+                return {'message_id': message_id}
+            return call
+
+        async def flush():
+            for row in gateway._deliveries():
+                gateway._last_send.clear()
+                await gateway._render_delivery(row)
+
+        def statuses():
+            return [row[0] for row in gateway.db.execute('SELECT status FROM deliveries ORDER BY rowid')]
+
+        gateway._api = api()
+        gateway._apply(7, card(1))
+        await flush()
+        method, payload = calls[-1]
+        self.assertEqual(method, 'sendRichMessage')
+        self.assertEqual(payload['rich_message']['blocks'], [
+            {'type': 'heading', 'text': 'План', 'size': 3},
+            {'type': 'photo', 'photo': {'type': 'photo', 'media': 'attach://card0'}}])
+        self.assertEqual(payload['_uploads'], [{'name': 'card0', 'path': str(image.resolve()), 'mime': 'image/png'}])
+        self.assertEqual(payload['reply_markup']['inline_keyboard'], [[button]])
+        body, _ = gateway._multipart(payload, method)
+        self.assertIn(b'name="card0"; filename="meal.png"', body)
+        self.assertIn(b'name="rich_message"', body)
+        with self.assertRaises(ValueError):
+            gateway._multipart({**payload, '_uploads': [{'name': 'bad"name', 'path': str(image)}]}, method)
+
+        gateway._apply(7, card(2))
+        gateway._apply(7, card(3))
+        await flush()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual((calls[-1][0], calls[-1][1]['message_id']), ('editMessageText', 31))
+        self.assertEqual(statuses(), ['delivered', 'superseded', 'delivered'])
+
+        def gone(method, payload):
+            if method == 'editMessageText':
+                raise TelegramError(method, 400)
+        gateway._api = api(gone, 32)
+        gateway._apply(7, card(4))
+        await flush()
+        self.assertEqual([call[0] for call in calls[-2:]], ['editMessageText', 'sendRichMessage'])
+        self.assertNotIn('message_id', calls[-1][1])
+
+        def rich_unsupported(method, payload):
+            if 'rich_message' in payload:
+                raise TelegramError(method, 404, reason='unknown_method')
+        gateway._api = api(rich_unsupported, 32)
+        gateway._apply(7, card(5))
+        await flush()
+        self.assertFalse(gateway._rich_supported)
+        self.assertEqual(calls[-1], ('editMessageText', {'chat_id': 7, 'text': 'План готовий.', 'message_id': 32,
+                                                         'reply_markup': {'inline_keyboard': [[button]]}}))
+        gateway._apply(7, {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': 'thread-one',
+                           'value': {'surfaceId': 'plan', 'label': 'Закрито.', 'deleted': True}})
+        await flush()
+        self.assertEqual(calls[-1], ('editMessageText', {'chat_id': 7, 'text': 'Картку закрито.', 'message_id': 32}))
+        gateway._apply(7, card(1, 'thread-two'))
+        await flush()
+        self.assertEqual(calls[-1][0], 'sendMessage')
+        self.assertNotIn('message_id', calls[-1][1])
+        with self.assertRaises(ValueError):
+            gateway._apply(7, {**card(6), 'value': {**card(6)['value'], 'url': 'http://oak.example.test/'}})
+
     async def test_topic_intake_restores_workers_and_stop_leaves_other_topics_running(self):
         entered, other_entered = asyncio.Event(), asyncio.Event()
         self.controller.db = Mock()

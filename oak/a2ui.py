@@ -8,11 +8,14 @@ import copy
 from datetime import datetime
 import hashlib
 import json
+import math
+import mimetypes
 import re
 import time
+import uuid
 
 VERSION = 'v0.9.1'
-RENDERER = 'oak-a2ui-dom@1.0.0'
+RENDERER = 'oak-a2ui-dom@1.1.0'
 CATALOG = 'urn:oak:a2ui:canonical:v1'
 LIMIT = 65536
 OPERATIONS = {'createSurface', 'updateComponents', 'updateDataModel', 'deleteSurface'}
@@ -106,10 +109,33 @@ def resolve(value, model):
     return get_value(model, value['path']) if isinstance(value, dict) else value
 
 
+def number(value):
+    if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 1e15:
+        raise ValueError('Invalid A2UI number.')
+
+
+def labels(value, low, high, limit):
+    if not isinstance(value, list) or not low <= len(value) <= high:
+        raise ValueError('Invalid A2UI list.')
+    for item in value:
+        string(item, limit, empty=True)
+
+
+def display(value, limit):
+    if isinstance(value, dict):
+        bound(value)
+    else:
+        string(value, limit, empty=True)
+
+
+DISPLAY = {'Text': 'text', 'Metric': 'value', 'Badge': 'text'}
+IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp', 'image/gif'}
+
+
 def component(value):
     kind = value.get('component') if isinstance(value, dict) else None
     common = ['id', 'component']
-    if kind == 'Column':
+    if kind in {'Column', 'Row'}:
         fields(value, common + ['children'])
         children = value['children']
         if not isinstance(children, list) or len(children) > 64:
@@ -164,6 +190,71 @@ def component(value):
                 bound(item)
             elif type(item) not in {str, int, float, bool} and item is not None:
                 raise ValueError('Unsupported context value.')
+    elif kind == 'Divider':
+        fields(value, common)
+    elif kind == 'Badge':
+        fields(value, common + ['text'], ['tone'])
+        display(value['text'], 60)
+        if value.get('tone', 'neutral') not in {'neutral', 'success', 'warning', 'danger', 'info'}:
+            raise ValueError('Invalid badge tone.')
+    elif kind == 'Metric':
+        fields(value, common + ['label', 'value'], ['hint'])
+        string(value['label'], 100)
+        display(value['value'], 60)
+        if 'hint' in value:
+            string(value['hint'], 200)
+    elif kind == 'Progress':
+        fields(value, common + ['segments'], ['label'])
+        if 'label' in value:
+            string(value['label'], 200)
+        segments = value['segments']
+        if not isinstance(segments, list) or not 1 <= len(segments) <= 6:
+            raise ValueError('Invalid progress segments.')
+        for segment in segments:
+            fields(segment, ['label', 'value'])
+            string(segment['label'], 60)
+            number(segment['value'])
+            if segment['value'] < 0:
+                raise ValueError('Progress values cannot be negative.')
+        if not sum(segment['value'] for segment in segments) > 0:
+            raise ValueError('Progress needs a positive total.')
+    elif kind == 'Table':
+        fields(value, common + ['columns', 'rows'], ['caption'])
+        labels(value['columns'], 1, 8, 100)
+        if 'caption' in value:
+            string(value['caption'], 200)
+        rows = value['rows']
+        if not isinstance(rows, list) or len(rows) > 50:
+            raise ValueError('Invalid table rows.')
+        for row in rows:
+            labels(row, len(value['columns']), len(value['columns']), 200)
+    elif kind == 'Chart':
+        fields(value, common + ['kind', 'labels', 'series'], ['title', 'unit'])
+        if value['kind'] not in {'bar', 'line'}:
+            raise ValueError('Invalid chart kind.')
+        labels(value['labels'], 1, 32, 40)
+        for key, limit in (('title', 200), ('unit', 16)):
+            if key in value:
+                string(value[key], limit)
+        series = value['series']
+        if not isinstance(series, list) or not 1 <= len(series) <= 4:
+            raise ValueError('Invalid chart series.')
+        for item in series:
+            fields(item, ['label', 'values'])
+            string(item['label'], 60)
+            if not isinstance(item['values'], list) or len(item['values']) != len(value['labels']):
+                raise ValueError('Chart values must match labels.')
+            for point in item['values']:
+                number(point)
+    elif kind == 'Image':
+        fields(value, common + ['alt'], ['path', 'artifact'])
+        string(value['alt'], 200)
+        if ('path' in value) == ('artifact' in value):
+            raise ValueError('Image needs one workspace path or Oak artifact.')
+        if 'path' in value:
+            string(value['path'], 512)
+        elif not isinstance(value['artifact'], str) or not re.fullmatch(r'[a-f0-9]{32}', value['artifact']):
+            raise ValueError('Invalid image artifact.')
     else:
         raise ValueError('Component is not in the Oak catalogue.')
     identifier(value['id'])
@@ -241,8 +332,8 @@ def bindings(state):
     model = state['dataModel']
     for item in state['components'].values():
         kind = item['component']
-        binding = item.get('text') if kind == 'Text' else item.get('value')
-        if not isinstance(binding, dict):
+        binding = item.get(DISPLAY.get(kind, 'value'))
+        if kind not in DISPLAY and kind not in {'TextField', 'ChoicePicker'} or not isinstance(binding, dict):
             continue
         path = binding['path']
         paths.append(pointer(path))
@@ -261,8 +352,8 @@ def bindings(state):
             editable.add(path)
         if value is None:
             continue
-        if kind in {'Text', 'TextField'}:
-            string(value, 2000 if kind == 'TextField' else 4000, empty=True)
+        if kind in DISPLAY or kind == 'TextField':
+            string(value, {'TextField': 2000, 'Text': 4000}.get(kind, 60), empty=True)
         elif kind == 'ChoicePicker':
             if not isinstance(value, list) or len(value) > 1 or any(type(v) is not str or v not in {x['value'] for x in item['options']} for v in value):
                 raise ValueError('Invalid bound choice.')
@@ -285,8 +376,35 @@ class A2UIStore:
                 PRIMARY KEY(chat_id,request_id));
             CREATE TABLE IF NOT EXISTS a2ui_revisions (
                 chat_id INTEGER, id TEXT, revision INTEGER, PRIMARY KEY(chat_id,id));
+            CREATE TABLE IF NOT EXISTS artifacts (
+                id TEXT PRIMARY KEY, chat_id INTEGER, path TEXT, name TEXT, mime TEXT);
         ''')
         self.db.commit()
+
+    def attach_images(self, chat, messages):
+        """Model-supplied workspace paths become conversation-scoped artifact IDs."""
+        messages = copy.deepcopy(messages)
+        registered = {}
+        for message in messages:
+            for item in message.get('updateComponents', {}).get('components', []):
+                if item['component'] != 'Image':
+                    continue
+                if 'artifact' in item:
+                    row = self.db.execute('SELECT mime FROM artifacts WHERE id=? AND chat_id=?', (item['artifact'], chat)).fetchone()
+                    if not row or row[0] not in IMAGE_TYPES:
+                        raise ValueError('Image artifact is not available in this conversation.')
+                    continue
+                path = self.controller.tools.file(item.pop('path'))
+                mime = mimetypes.guess_type(path.name)[0]
+                if mime not in IMAGE_TYPES or path.stat().st_size > 10 * 1024 * 1024:
+                    raise ValueError('Image must be a PNG, JPEG, WebP or GIF of at most 10 MiB.')
+                if path not in registered:
+                    registered[path] = uuid.uuid4().hex
+                    with self.db:
+                        self.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)',
+                                        (registered[path], chat, str(path), path.name, mime))
+                item['artifact'] = registered[path]
+        return messages
 
     def row(self, chat, surface):
         row = self.db.execute('SELECT * FROM a2ui_surfaces WHERE chat_id=? AND id=?', (chat, surface)).fetchone()
@@ -314,6 +432,7 @@ class A2UIStore:
     async def publish(self, chat, messages, fallback, metadata=None):
         validate_messages(messages)
         string(fallback, 2000)
+        messages = self.attach_images(chat, messages)
         c = self.controller
         async with c._lock(chat):
             thread = c.threads.get(chat)
@@ -354,6 +473,8 @@ class A2UIStore:
                 graph(state['components'])
                 bindings(state)
                 bounded_json(state)
+                if sum(x['component'] == 'Image' for x in state['components'].values()) > 8:
+                    raise ValueError('Oak supports at most eight images per surface.')
             revisions = {}
             with self.db:
                 for key in touched:
@@ -370,23 +491,32 @@ class A2UIStore:
         # The existing durable bus delivers the same messages to other AG-UI consumers.
         await c.emit(chat, {'type': 'CUSTOM', 'name': 'a2ui',
                            'value': {'messages': messages, 'revisions': revisions}})
-        url = None
-        for key in sorted(revisions):
-            try:
-                row = self.row(chat, key)
-            except StaleSurface:
-                continue
-            # Streaming surfaces become useful once the renderer has a root.
-            if 'root' in json.loads(row['state'])['components']:
-                url = c.web_app_url(chat, surface=key)
-                break
-        if url:
-            await c.emit(chat, {'type': 'CUSTOM', 'name': 'web_app_link',
-                               'value': {'url': url, 'label': fallback, 'button_label': 'Відкрити форму'}})
-        else:
+        # Each visible surface is mirrored as one Telegram card that later revisions edit in place.
+        url, cards = None, 0
+        for key in sorted(touched):
+            card = {'surfaceId': key, 'label': fallback}
+            if key in revisions:
+                try:
+                    state = json.loads(self.row(chat, key)['state'])
+                except StaleSurface:
+                    continue
+                # Streaming surfaces become useful once the renderer has a root.
+                if 'root' not in state['components']:
+                    continue
+                interactive = any(x['component'] in {'TextField', 'ChoicePicker', 'Button'} for x in state['components'].values())
+                link = c.web_app_url(chat, surface=key)
+                url = url or link
+                card.update(revision=revisions[key], state=state,
+                            button_label='Відкрити форму' if interactive else 'Відкрити в Oak',
+                            **({'url': link} if link else {}))
+            else:
+                card['deleted'] = True
+            await c.emit(chat, {'type': 'CUSTOM', 'name': 'a2ui_card', 'value': card})
+            cards += 'deleted' not in card
+        if not cards:
             await c.notice(chat, fallback)
         return {'published': True, 'protocol': VERSION, 'revisions': revisions, 'ui_available': bool(url),
-                **({'web_app_url': url} if url else {})}
+                'telegram_cards': cards, **({'web_app_url': url} if url else {})}
 
     def invalidate(self, chat, run=None):
         with self.db:

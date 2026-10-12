@@ -251,7 +251,13 @@ class Controller:
                         'Call oak_send_file for files you create with shell or other tools. Native image outputs '
                         'are delivered automatically. Use connected Figma/Canva apps for their tasks; ask before '
                         'publishing, purchases or destructive external actions. Be honest about unavailable services. '
-                        'Remember explicit owner preferences with oak_memory_remember; search memory when needed.')
+                        'Remember explicit owner preferences with oak_memory_remember; search memory when needed.'
+                        '\n\nPresent structured results as an oak_a2ui card when layout helps more than prose: '
+                        'daily targets, plans, menus, comparisons, budgets, progress or numeric series. Compose Metric rows, '
+                        'Progress, Table, Chart, Image, Badge and Text inside a Card; read the catalogue first. '
+                        'The same card appears in Telegram as a rich message and in the Mini App with full layout; '
+                        'later updates of that surface edit the Telegram card in place. Keep a short normal reply '
+                        'and do not repeat the card content in prose. Simple answers stay plain text.')
             if self.web_app_url(chat_id):
                 context += ('\n\nWhen required ordinary data must resume the current native request, use '
                             'oak_request_input with a server-owned template; it keeps that request waiting. '

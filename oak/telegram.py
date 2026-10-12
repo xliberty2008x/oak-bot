@@ -19,10 +19,12 @@ import urllib.parse
 import urllib.request
 import uuid
 
+from .a2ui_telegram import card_blocks
 from .media import ToolUnavailable
 from .rendering import render_markdown
 
 MAX_UPLOAD = 50 * 1024 * 1024
+CARD = 'oakA2UICard'  # Outbox-only method; resolved to a rich send or an in-place edit.
 CONTROL_COMMANDS = {'/start', '/help', '/status', '/web', '/remember', '/memory', '/remind', '/tasks',
                     '/cancel', '/image', '/preview', '/speak', '/research', '/browse'}
 
@@ -260,34 +262,40 @@ class TelegramGateway:
 
     def _multipart(self, payload, method='sendDocument'):
         payload = dict(payload)
-        upload = payload.pop('_upload')
-        path = self._artifact_file(upload['path'])
+        uploads = payload.pop('_uploads', None)
+        if uploads is None:
+            field_name = {'sendPhoto': 'photo', 'sendVideo': 'video', 'sendAudio': 'audio',
+                          'sendVoice': 'voice'}.get(method, 'document')
+            uploads = [{**payload.pop('_upload'), 'name': field_name}]
         boundary = 'oak-' + uuid.uuid4().hex
         body = bytearray()
         for key, value in payload.items():
             text = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
             body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{text}\r\n'.encode())
-        filename = re.sub(r'[^A-Za-z0-9._-]', '_', path.name)[:120] or 'artifact'
-        mime = upload.get('mime') or mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
-        if not re.fullmatch(r'[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+', mime):
-            mime = 'application/octet-stream'
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(fd, 'rb') as file:
-            info = os.fstat(file.fileno())
-            if info.st_nlink != 1 or not 0 < info.st_size <= MAX_UPLOAD:
-                raise ValueError('Artifact changed before upload.')
-            content = file.read(MAX_UPLOAD + 1)
-        if len(content) > MAX_UPLOAD:
-            raise ValueError('Artifact exceeds upload limit.')
-        field_name = {'sendPhoto': 'photo', 'sendVideo': 'video', 'sendAudio': 'audio',
-                      'sendVoice': 'voice'}.get(method, 'document')
-        body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
-        body.extend(content)
-        body.extend(f'\r\n--{boundary}--\r\n'.encode())
+        for upload in uploads:
+            if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', upload['name']):
+                raise ValueError('Invalid upload field.')
+            path = self._artifact_file(upload['path'])
+            filename = re.sub(r'[^A-Za-z0-9._-]', '_', path.name)[:120] or 'artifact'
+            mime = upload.get('mime') or mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+            if not re.fullmatch(r'[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+', mime):
+                mime = 'application/octet-stream'
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, 'rb') as file:
+                info = os.fstat(file.fileno())
+                if info.st_nlink != 1 or not 0 < info.st_size <= MAX_UPLOAD:
+                    raise ValueError('Artifact changed before upload.')
+                content = file.read(MAX_UPLOAD + 1)
+            if len(content) > MAX_UPLOAD:
+                raise ValueError('Artifact exceeds upload limit.')
+            body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{upload["name"]}"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+            body.extend(content)
+            body.extend(b'\r\n')
+        body.extend(f'--{boundary}--\r\n'.encode())
         return bytes(body), 'multipart/form-data; boundary=' + boundary
 
     def _request_sync(self, method, payload, timeout=40):
-        data, content_type = (self._multipart(payload, method) if '_upload' in payload
+        data, content_type = (self._multipart(payload, method) if '_upload' in payload or '_uploads' in payload
                               else (json.dumps(payload).encode(), 'application/json'))
         request = urllib.request.Request(
             f'{self.api_url}/bot{self._token}/{method}',
@@ -839,6 +847,17 @@ class TelegramGateway:
                     'text': str(value.get('label') or 'Відкрити Oak'),
                     'reply_markup': {'inline_keyboard': [[{'text': str(value.get('button_label') or 'Відкрити Oak'),
                                                           'web_app': {'url': url}}]]}})
+            elif name == 'a2ui_card':
+                url = value.get('url')
+                if url is not None:
+                    parsed = urllib.parse.urlsplit(url)
+                    if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
+                            or any(ord(char) < 33 for char in url)):
+                        raise ValueError('Web App requires a valid public HTTPS URL.')
+                surface = f'{event.get("threadId")}:{value["surfaceId"]}'
+                identifier = (f'{chat_id}:a2ui:{surface}:{value["revision"]}' if 'revision' in value
+                              else f'{chat_id}:a2ui:{surface}:deleted:{uuid.uuid4().hex}')
+                self._queue_delivery(chat_id, CARD, {'chat_id': chat_id, 'thread': event.get('threadId'), **value}, identifier)
             return
         if kind not in {'RUN_STARTED', 'TEXT_MESSAGE_START', 'TEXT_MESSAGE_CONTENT', 'TEXT_MESSAGE_END', 'RUN_FINISHED', 'RUN_ERROR'}:
             return
@@ -967,7 +986,89 @@ class TelegramGateway:
         return [row for row in self.db.execute("SELECT * FROM deliveries WHERE status='pending' ORDER BY rowid")
                 if self._destination(row['chat_id']) is not None]
 
+    def _card_message(self, chat_id, surface, thread):
+        for row in self.db.execute(f"SELECT receipt FROM deliveries WHERE chat_id=? AND method='{CARD}' "
+                                   "AND status='delivered' ORDER BY rowid DESC", (chat_id,)):
+            receipt = json.loads(row['receipt'] or '{}')
+            if receipt.get('surface') == surface and receipt.get('thread') == thread:
+                return receipt.get('message_id')
+        return None
+
+    async def _render_card(self, row):
+        with self.db:
+            claimed = self.db.execute("UPDATE deliveries SET status='sending' WHERE id=? AND status='pending'", (row['id'],))
+        if claimed.rowcount != 1:
+            return
+        data = json.loads(row['payload'])
+        chat_id, surface, thread = data['chat_id'], data['surfaceId'], data.get('thread')
+        receipt = {'surface': surface, 'thread': thread}
+
+        def finish(status, value=None):
+            with self.db:
+                self.db.execute('UPDATE deliveries SET status=?,receipt=? WHERE id=?',
+                                (status, json.dumps(value) if value else None, row['id']))
+
+        # A queued later revision of the same card makes this one redundant.
+        order = self.db.execute('SELECT rowid FROM deliveries WHERE id=?', (row['id'],)).fetchone()[0]
+        for later in self.db.execute(f"SELECT payload FROM deliveries WHERE chat_id=? AND method='{CARD}' "
+                                     "AND status='pending' AND rowid>?", (chat_id, order)):
+            value = json.loads(later['payload'])
+            if value['surfaceId'] == surface and value.get('thread') == thread:
+                return finish('superseded')
+        previous = self._card_message(chat_id, surface, thread)
+        uploads, markup = [], {}
+        if data.get('deleted'):
+            if previous is None:
+                return finish('superseded')
+            text = 'Картку закрито.'
+            blocks = [{'type': 'paragraph', 'text': {'type': 'italic', 'text': text}}]
+        else:
+            def attach(artifact):
+                try:
+                    path = self._artifact_file(self.controller.bus.artifact_path(chat_id, artifact))
+                except (ValueError, OSError):
+                    return None
+                uploads.append({'name': 'card' + str(len(uploads)), 'path': str(path),
+                                'mime': mimetypes.guess_type(path.name)[0] or 'image/png'})
+                return uploads[-1]['name']
+
+            text = split_text(data['label'])[0]
+            blocks = card_blocks(data['state'], attach) or [{'type': 'paragraph', 'text': data['label']}]
+            if data.get('url'):
+                markup = {'reply_markup': {'inline_keyboard': [[{'text': data['button_label'], 'web_app': {'url': data['url']}}]]}}
+        rich = {'rich_message': {'blocks': blocks, 'skip_entity_detection': True}, **markup,
+                **({'_uploads': uploads} if uploads else {})}
+        attempts = [rich, {'text': text, **markup}] if self._rich_supported else [{'text': text, **markup}]
+        index = 0
+        while index < len(attempts):
+            body = attempts[index]
+            payload = {'chat_id': chat_id, **body}
+            if previous is not None:
+                payload['message_id'] = previous
+            method = 'editMessageText' if previous is not None else 'sendRichMessage' if 'rich_message' in body else 'sendMessage'
+            try:
+                result = await self._deliver(method, payload)
+            except TelegramError as exc:
+                if 'rich_message' in body and exc.reason in ('unknown_method', 'format') and index + 1 < len(attempts):
+                    if exc.reason == 'unknown_method':
+                        self._rich_supported = False
+                    index += 1
+                    continue
+                if previous is not None and exc.code == 400 and not exc.reason and not data.get('deleted'):
+                    previous = None  # The owner removed the old card; publish the current one afresh.
+                    continue
+                deleted = self.sessions.deleted(chat_id)
+                return finish('cancelled' if deleted else 'uncertain' if exc.uncertain else 'failed')
+            except ValueError:
+                return finish('failed')
+            message_id = result.get('message_id') if isinstance(result, dict) else previous if result is True else None
+            if type(message_id) is not int:
+                return finish('uncertain')
+            return finish('delivered', {**receipt, 'message_id': message_id})
+
     async def _render_delivery(self, row):
+        if row['method'] == CARD:
+            return await self._render_card(row)
         with self.db:
             claimed = self.db.execute("UPDATE deliveries SET status='sending' WHERE id=? AND status='pending'", (row['id'],))
         if claimed.rowcount != 1:

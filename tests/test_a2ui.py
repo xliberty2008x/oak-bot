@@ -13,7 +13,8 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from aiohttp.test_utils import TestClient, TestServer
 
 from oak.a2ui import StaleSurface, VERSION, input_id, validate_messages
-from oak.a2ui_demo import form_messages, message, result_messages
+from oak.a2ui_demo import card_messages, form_messages, message, result_messages
+from oak.a2ui_telegram import card_blocks
 from oak.bus import EventBus
 from oak.controller import Controller
 from oak.tools import Tools
@@ -75,7 +76,10 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(final['consumed'])
         events = [x['event'] for x in self.bus.replay(11)]
         self.assertEqual(sum(e.get('name') == 'a2ui' for e in events), 2)
-        self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 2)
+        cards = [e['value'] for e in events if e.get('name') == 'a2ui_card']
+        self.assertEqual([card['revision'] for card in cards], [initial['revision'], final['revision']])
+        self.assertIn('Подорож', cards[-1]['state']['dataModel']['result'])
+        self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 0)
 
     async def test_publish_links_visible_surface_in_general_and_topic(self):
         self.c.web = SimpleNamespace(public_url='https://oak.example.test/')
@@ -85,19 +89,25 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
         for chat, conversation in [(11, 'telegram'), (topic, 'topic:42')]:
             result = await self.c.a2ui.publish(chat, form_messages(), fallback)
             events = [x['event'] for x in self.bus.replay(chat)]
-            self.assertEqual([e.get('name') for e in events], ['a2ui', 'web_app_link'])
-            link = events[-1]['value']
-            self.assertEqual(link['label'], fallback)
-            self.assertEqual(link['button_label'], 'Відкрити форму')
-            self.assertEqual(parse_qs(urlsplit(link['url']).query),
+            self.assertEqual([e.get('name') for e in events], ['a2ui', 'a2ui_card'])
+            card = events[-1]['value']
+            self.assertEqual(card['label'], fallback)
+            self.assertEqual(card['button_label'], 'Відкрити форму')
+            self.assertEqual(card['state']['components']['root']['component'], 'Card')
+            self.assertEqual(parse_qs(urlsplit(card['url']).query),
                              {'conversation': [conversation], 'surface': ['oak-plan']})
             self.assertTrue(result['ui_available'])
-            self.assertEqual(result['web_app_url'], link['url'])
+            self.assertEqual(result['web_app_url'], card['url'])
+        result = await self.c.a2ui.publish(11, card_messages(), 'Денна ціль готова.')
+        card = [x['event'] for x in self.bus.replay(11)][-1]['value']
+        self.assertEqual((card['surfaceId'], card['button_label']), ('oak-day', 'Відкрити в Oak'))
+        self.assertEqual(result['telegram_cards'], 1)
 
     async def test_publish_keeps_text_for_no_https_delete_and_rootless_surface(self):
         self.c.web = SimpleNamespace(public_url='http://oak.example.test/')
         result = await self.publish()
         self.assertFalse(result['ui_available'])
+        self.assertEqual(result['telegram_cards'], 1)
         self.c.web.public_url = 'https://oak.example.test/'
         for messages in [[message('deleteSurface', {})],
                          [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'})]]:
@@ -107,7 +117,93 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('web_app_url', result)
         events = [x['event'] for x in self.bus.replay(11)]
         self.assertFalse(any(e.get('name') == 'web_app_link' for e in events))
-        self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 3)
+        cards = [e['value'] for e in events if e.get('name') == 'a2ui_card']
+        self.assertNotIn('url', cards[0])
+        self.assertEqual(cards[1], {'surfaceId': 'oak-plan', 'label': cards[0]['label'], 'deleted': True})
+        self.assertEqual(len(cards), 2)
+        self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 2)
+
+    async def test_display_card_components_bindings_and_limits(self):
+        await self.publish(card_messages())
+        surface = self.c.a2ui.snapshot(11)['surfaces'][0]
+        self.assertEqual(surface['components']['targets']['children'], ['kcal', 'protein', 'fat', 'carbs'])
+        self.assertEqual(surface['dataModel']['note'][:8], 'Сума БЖВ')
+        def card(*components, data=None):
+            return [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'}),
+                    message('updateComponents', {'components': [
+                        {'id': 'root', 'component': 'Column', 'children': [c['id'] for c in components]}, *components]}),
+                    *([message('updateDataModel', {'value': data})] if data is not None else [])]
+        await self.publish([{'version': VERSION, 'deleteSurface': {'surfaceId': 'oak-day'}}])
+        candidates = [
+            {'id': 'x', 'component': 'Chart', 'kind': 'bar', 'labels': ['a', 'b'], 'series': [{'label': 's', 'values': [1]}]},
+            {'id': 'x', 'component': 'Chart', 'kind': 'pie', 'labels': ['a'], 'series': [{'label': 's', 'values': [1]}]},
+            {'id': 'x', 'component': 'Chart', 'kind': 'line', 'labels': ['a'], 'series': [{'label': 's', 'values': [True]}]},
+            {'id': 'x', 'component': 'Table', 'columns': ['a', 'b'], 'rows': [['only one']]},
+            {'id': 'x', 'component': 'Table', 'columns': ['a'], 'rows': [[{'path': '/x'}]]},
+            {'id': 'x', 'component': 'Progress', 'segments': [{'label': 'a', 'value': -1}]},
+            {'id': 'x', 'component': 'Progress', 'segments': [{'label': 'a', 'value': 0}]},
+            {'id': 'x', 'component': 'Badge', 'text': 'ok', 'tone': 'neon'},
+            {'id': 'x', 'component': 'Metric', 'label': 'a', 'value': '1', 'style': 'color:red'},
+            {'id': 'x', 'component': 'Image', 'alt': 'a'},
+            {'id': 'x', 'component': 'Image', 'alt': 'a', 'artifact': 'f' * 32},
+            {'id': 'x', 'component': 'Image', 'alt': 'a', 'path': 'https://example.test/a.png'},
+            {'id': 'x', 'component': 'Divider', 'text': 'a'},
+        ]
+        for item in candidates:
+            with self.subTest(item=item), self.assertRaises(ValueError):
+                await self.publish(card(item))
+        with self.assertRaises(ValueError):
+            await self.publish(card({'id': 'x', 'component': 'Metric', 'label': 'a', 'value': {'path': '/v'}}, data={'v': 3}))
+        self.assertEqual(self.c.a2ui.snapshot(11)['surfaces'], [])
+
+    async def test_images_become_conversation_artifacts(self):
+        (self.root / 'artifacts').mkdir(exist_ok=True)
+        (self.root / 'artifacts' / 'meal.png').write_bytes(b'\x89PNG\r\n\x1a\nsynthetic')
+        (self.root / 'notes.txt').write_text('not an image')
+        image = {'id': 'photo', 'component': 'Image', 'alt': 'Вівсянка', 'path': 'artifacts/meal.png'}
+        messages = [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'}),
+                    message('updateComponents', {'components': [
+                        {'id': 'root', 'component': 'Column', 'children': ['photo', 'again']}, image,
+                        {**image, 'id': 'again'}]})]
+        await self.publish(messages)
+        stored = self.c.a2ui.snapshot(11)['surfaces'][0]['components']
+        self.assertNotIn('path', stored['photo'])
+        self.assertEqual(stored['photo']['artifact'], stored['again']['artifact'])
+        self.assertEqual(tuple(self.c.db.execute('SELECT chat_id,mime FROM artifacts WHERE id=?', (stored['photo']['artifact'],)).fetchone()),
+                         (11, 'image/png'))
+        events = json.dumps([x['event'] for x in self.bus.replay(11)])
+        self.assertNotIn('meal.png', events)
+        reuse = [message('updateComponents', {'components': [{'id': 'again', 'component': 'Image', 'alt': 'Знову',
+                                                              'artifact': stored['photo']['artifact']}]})]
+        await self.publish(reuse)
+        self.c.threads[22] = 'thread-two'
+        with self.assertRaises(ValueError):
+            await self.c.a2ui.publish(22, [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'}), *reuse], 'Інша сесія.')
+        for path in ['notes.txt', '../outside.png', 'missing.png']:
+            bad = copy.deepcopy(messages)
+            bad[1]['updateComponents']['components'][1]['path'] = path
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                await self.publish([message('deleteSurface', {}), *bad])
+
+    def test_telegram_blocks_for_display_card(self):
+        state = {'components': {}, 'dataModel': {}}
+        for item in card_messages():
+            body = item.get('updateComponents') or {}
+            state['components'].update({x['id']: x for x in body.get('components', [])})
+            if 'updateDataModel' in item:
+                state['dataModel'] = item['updateDataModel']['value']
+        state['components']['photo'] = {'id': 'photo', 'component': 'Image', 'alt': 'Сніданок', 'artifact': 'a' * 32}
+        state['components']['body']['children'].append('photo')
+        blocks = card_blocks(state, lambda artifact: 'card0')
+        self.assertEqual(blocks[0], {'type': 'heading', 'text': 'Твоя денна ціль', 'size': 3})
+        self.assertEqual([c['text'] for c in blocks[1]['cells'][0]], ['Калорії', 'Білки', 'Жири', 'Вуглеводи'])
+        self.assertEqual(blocks[1]['cells'][1][0]['text'], {'type': 'bold', 'text': '1600'})
+        self.assertEqual(blocks[2]['text'][1], 'Білки 20% · Жири 34% · Вуглеводи 46%')
+        self.assertEqual((blocks[3]['type'], blocks[3]['caption'], len(blocks[3]['cells'])), ('table', 'Меню на один день', 5))
+        self.assertEqual(blocks[4]['cells'][1][1]['text'], '400 ккал')
+        self.assertEqual(blocks[5]['text']['type'], 'italic')
+        self.assertEqual(blocks[6], {'type': 'photo', 'photo': {'type': 'photo', 'media': 'attach://card0'}})
+        self.assertEqual(len(card_blocks(state, lambda artifact: None)), 6)
 
     async def test_repeated_requests_single_use_and_fingerprint(self):
         await self.publish()

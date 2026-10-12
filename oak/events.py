@@ -100,7 +100,7 @@ def validate_event(event):
             'input_request': {'id': 64, 'kind': 16, 'summary': 512},
             'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 2000},
             'activity': {'activityId': 512},
-            'a2ui': {},
+            'a2ui': {}, 'a2ui_card': {'surfaceId': 64, 'label': 2000},
         }
         if name not in custom:
             raise ValueError(f'Unsupported custom event: {name}')
@@ -111,6 +111,20 @@ def validate_event(event):
             validate_messages(value.get('messages'))
             if not isinstance(value.get('revisions'), dict) or any(type(v) is not int or v < 1 for v in value['revisions'].values()):
                 raise ValueError('Invalid A2UI revisions.')
+        if name == 'a2ui_card':
+            from .a2ui import bounded_json
+            if 'deleted' in value:
+                if value.keys() != {'surfaceId', 'label', 'deleted'} or value['deleted'] is not True:
+                    raise ValueError('Invalid deleted A2UI card.')
+            else:
+                if (value.keys() - {'url'} != {'surfaceId', 'label', 'revision', 'state', 'button_label'}
+                        or type(value['revision']) is not int or value['revision'] < 1
+                        or not isinstance(value['state'], dict)):
+                    raise ValueError('Invalid A2UI card.')
+                bounded_json(value['state'])
+                _string(value['button_label'], 'value.button_label', 128)
+                if 'url' in value:
+                    _string(value['url'], 'value.url', 8192)
         for field, limit in custom[name].items():
             _string(value.get(field), f'value.{field}', limit)
         if name == 'web_app_link' and 'button_label' in value:

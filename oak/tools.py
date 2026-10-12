@@ -20,10 +20,11 @@ SPECS = [
           'instagram_sign_in only reports the unavailable trusted website-login channel and allows cancellation; '
           'it does not sign in, save credentials or authorize access.',
           {'template': {'type': 'string', 'enum': ['task_details', 'plan_details', 'instagram_sign_in']}}, ['template']),
-    _spec('oak_a2ui', 'Use compact interactive forms when collecting several preferences or revisable choices for a task. '
-          'Simple questions and ordinary replies stay in Telegram. Compose cards inside the existing Oak Mini App. Call action=catalog first '
-          'for the pinned A2UI v0.9.1 Oak catalogue and example. Publish declarative JSON only; no code, URLs or styles. '
-          'Include a useful Ukrainian Telegram fallback; the harness adds a button opening this form in this conversation. '
+    _spec('oak_a2ui', 'Publish declarative cards: rich results (metrics, progress, tables, charts, images) and compact '
+          'interactive forms for several preferences or revisable choices. Simple questions and ordinary replies stay in Telegram. '
+          'Cards render as Telegram rich messages and fully in the Oak Mini App. Call action=catalog first '
+          'for the pinned A2UI v0.9.1 Oak catalogue and examples. Publish declarative JSON only; no code, URLs or styles. '
+          'Include a useful Ukrainian Telegram fallback; the harness adds a button opening this card in this conversation. '
           'Owner interactions return in this conversation; '
           'updateDataModel/updateComponents incrementally, deleteSurface to close. This is not approval for external actions.',
           {'action': {'type': 'string', 'enum': ['catalog', 'publish']},
@@ -69,7 +70,7 @@ COMPUTER_SPEC = _spec('oak_computer',
 
 class Tools:
     specs = SPECS
-    version = 'oak-v4-input-requests'
+    version = 'oak-v5-a2ui-cards'
 
     def __init__(self, controller, config):
         from .media import MediaTools
@@ -93,7 +94,7 @@ class Tools:
             from .computer import ComputerTools
             self.computer = ComputerTools(self.workspace, computer.get('display'))
             self.specs = [*SPECS, COMPUTER_SPEC]
-            self.version = 'oak-v4-input-requests-computer'
+            self.version = 'oak-v5-a2ui-cards-computer'
 
     def _computer_account(self, chat_id):
         sessions = getattr(self.controller, 'sessions', None)
@@ -184,18 +185,26 @@ class Tools:
             return await c.requests.template(metadata or {}, args['template'])
         if name == 'oak_a2ui':
             if args.get('action') == 'catalog':
-                from .a2ui_demo import form_messages
+                from .a2ui_demo import card_messages, form_messages
                 return {'catalog': json.loads((Path(__file__).parent / 'web' / 'a2ui-catalog.json').read_text()),
-                        'example': form_messages(), 'limits': {'batch_bytes': 65536, 'components': 64, 'surfaces': 4},
+                        'example': form_messages(), 'card_example': card_messages(),
+                        'limits': {'batch_bytes': 65536, 'components': 64, 'surfaces': 4, 'images': 8,
+                                   'table_columns': 8, 'table_rows': 50, 'chart_points': 32, 'chart_series': 4},
                         'instructions': 'Use root ID root. Publish messages_json as a JSON array and a meaningful Telegram fallback. '
+                        'Display cards need no buttons: Row of Metric shows key numbers, Progress shows a split, '
+                        'Table holds rows of text, Chart (bar or line) holds numeric series matching its labels. '
+                        'Image takes a workspace path of a PNG/JPEG/WebP/GIF you created or generated (generated '
+                        'images are saved under artifacts/); the harness replaces it with an Oak artifact ID. '
+                        'Telegram shows tables, metrics and images natively; charts appear there as tables. '
                         'Fields bind to object paths. ChoicePicker is single choice with a string[] value. '
                         'Every button uses action.event with optional bound context. Functions/theme/URLs are unsupported. '
                         'updateComponents merges by ID; omitted components remain. Reuse the existing layout parent '
                         'when changing its children. To replace a layout, deleteSurface and recreate it in one batch '
                         'so detached old parents do not share children with the new layout. '
-                        'Forms expire after one hour. Use a fresh surface ID for each new task. '
-                        'Include submit and cancel buttons; name the cancel event cancel. The fallback is sent to Telegram '
-                        'with a form button when a public Mini App is available. Offer answering in chat as well. '
+                        'Cards expire after one hour. Use a fresh surface ID for each new task. '
+                        'Forms include submit and cancel buttons; name the cancel event cancel. Form fields can only be '
+                        'edited in the Mini App, so offer answering in chat as well. The fallback text replaces the card '
+                        'only where Telegram cannot show rich messages. '
                         'After an action update or delete the surface; if the owner answers in chat, use that answer too.'}
             if args.get('action') != 'publish':
                 raise ValueError('Unsupported A2UI action.')
