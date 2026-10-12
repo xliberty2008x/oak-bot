@@ -7,8 +7,10 @@ import json
 import os
 from pathlib import Path
 import time
+from types import SimpleNamespace
 import unittest
 
+from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from unittest.mock import AsyncMock
 import tempfile
@@ -74,6 +76,9 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.context.close)
         self.current, self.actions, self.requests, self.errors = snapshot(), [], [], []
         self.image_requests, self.image_gate = [], None
+        self.snapshot_gate = self.action_gate = None
+        self.scoped_requests = []
+        self.submit_result = 'accepted'
         self.submit_status = 200
         self.page = await self.context.new_page()
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
@@ -82,7 +87,7 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         await self.context.route('**/*', self.serve)
 
     async def serve(self, route):
-        path = route.request.url.split('a2ui.example.test', 1)[1]
+        path = route.request.url.split('a2ui.example.test', 1)[1].split('?', 1)[0]
         self.requests.append(path)
         headers = {'Content-Security-Policy': "default-src 'self'; script-src 'self' https://telegram.org; "
                    "connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; style-src 'self'; "
@@ -96,9 +101,16 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         elif path == '/fixture.js':
             app = (ROOT / 'oak/web/app.js').read_text()
             artifact = app[app.index('async function artifact('):app.index('\nasync function dynamicPanel()')]
-            await route.fulfill(content_type='text/javascript', body=artifact + '''
+            api = app[app.index('async function api('):app.index('\nfunction updateActions()')]
+            await route.fulfill(content_type='text/javascript', body=artifact + api + '''
               import {createA2UIPanel} from '/a2ui.js';
-              let sessionEpoch=1,sessionToken='synthetic-image-token';window.invalidateOwner=()=>{sessionEpoch++;ownerEpoch++;panel.reset();};
+              let sessionEpoch=1,sessionToken='synthetic-image-token',selectedSession='topic:42';
+              window.changeScope=(topic,token)=>{sessionEpoch++;ownerEpoch++;selectedSession=topic;sessionToken=token;ownerBusy=false;panel.reset();};
+              window.invalidateOwner=()=>changeScope(selectedSession,sessionToken);
+              const requireLogin=()=>invalidateOwner();
+              window.pollTimers=new Set();const interval=setInterval,clear=clearInterval;
+              window.setInterval=(fn,ms)=>{const id=interval(fn,ms);pollTimers.add(id);return id;};
+              window.clearInterval=id=>{pollTimers.delete(id);clear(id);};
               window.createdURLs=[];window.revokedURLs=[];
               const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
               URL.createObjectURL=blob=>{const url=create(blob);createdURLs.push(url);return url;};
@@ -107,17 +119,23 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
               window.violations=[];document.addEventListener('securitypolicyviolation',e=>violations.push(e.violatedDirective));
               window.ownerBusy=false;window.ownerEpoch=1;
               window.panel=createA2UIPanel({artifact:(...args)=>window.artifactOverride ? artifactOverride(...args) : artifact(...args),available:()=>true,epoch:()=>ownerEpoch,busy:()=>ownerBusy,
-                setBusy:v=>{ownerBusy=v;},api:async(path,data)=>{const response=await fetch(path,
-                  data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});
-                  if(!response.ok){const error=new Error('rejected');error.status=response.status;throw error;}
-                  return response.json();}});
+                setBusy:v=>{ownerBusy=v;},api});
               await panel.refresh();document.body.dataset.oakReady='true';''')
         elif path == '/api/a2ui':
-            await route.fulfill(content_type='application/json', body=json.dumps(self.current))
+            self.scoped_requests.append((route.request.url, route.request.headers.get('authorization')))
+            body = json.dumps(self.current)
+            gate, self.snapshot_gate = self.snapshot_gate, None
+            if gate:
+                await gate.wait()
+            await route.fulfill(content_type='application/json', body=body)
         elif path == '/api/a2ui/action':
+            self.scoped_requests.append((route.request.url, route.request.headers.get('authorization')))
             self.actions.append(json.loads(route.request.post_data))
+            gate, self.action_gate = self.action_gate, None
+            if gate:
+                await gate.wait()
             await route.fulfill(status=self.submit_status, content_type='application/json',
-                                body=json.dumps({'status': 'accepted'}))
+                                body=json.dumps({'status': self.submit_result}))
         elif path.startswith('/api/artifacts/'):
             self.image_requests.append({'path': path, 'headers': route.request.headers})
             if self.image_gate:
@@ -136,6 +154,246 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
     async def open(self):
         await self.page.goto('https://a2ui.example.test/')
         await self.page.locator('body[data-oak-ready=true]').wait_for(state='attached')
+
+    async def transition(self, event):
+        # Deterministic race coverage; the separate navigation test uses trusted events.
+        await self.page.evaluate('(type)=>dispatchEvent(new PageTransitionEvent(type,{persisted:true}))', event)
+
+    async def wait_js(self, expression):
+        # Use the driver's evaluate boundary, not wait_for_function's nested eval,
+        # so the page retains its production no-unsafe-eval CSP in current Chromium.
+        for _ in range(200):
+            if await self.page.evaluate(expression):
+                return
+            await asyncio.sleep(.01)
+        self.fail(f'Browser condition did not become true: {expression}')
+
+    async def wait_requests(self, path, count):
+        for _ in range(200):
+            if self.requests.count(path) >= count:
+                return
+            await asyncio.sleep(.01)
+        self.fail(f'{path}: expected {count} requests, saw {self.requests.count(path)}')
+
+    async def test_suspend_resume_retains_draft_and_one_poll_timer(self):
+        await self.page.clock.install()
+        await self.open()
+        topic = self.page.get_by_label('Тема плану')
+        button = self.page.get_by_role('button', name='Скласти план')
+        await topic.fill('Чернетка після повернення')
+        for visibility_only in (False, True, False):
+            if visibility_only:
+                await self.page.evaluate('Object.defineProperty(document,"hidden",{configurable:true,value:true});document.dispatchEvent(new Event("visibilitychange"))')
+            else:
+                await self.transition('pagehide')
+            self.assertTrue(await self.page.locator('#a2ui-panel').is_visible())
+            count = self.requests.count('/api/a2ui')
+            self.assertEqual(await self.page.evaluate('pollTimers.size'), 0)
+            await button.dispatch_event('click')
+            await self.page.clock.fast_forward(6000)
+            self.assertEqual(self.requests.count('/api/a2ui'), count)
+            self.assertEqual(self.actions, [])
+            gate = self.snapshot_gate = asyncio.Event()
+            self.addAsyncCleanup(self.release_gate, gate)
+            if visibility_only:
+                await self.page.evaluate('delete document.hidden;document.dispatchEvent(new Event("visibilitychange"))')
+            else:
+                await self.transition('pageshow')
+            await self.wait_requests('/api/a2ui', count + 1)
+            await self.transition('pageshow')
+            self.assertEqual(await self.page.evaluate('pollTimers.size'), 1)
+            self.assertTrue(await button.is_disabled())
+            await button.dispatch_event('click')
+            self.assertEqual(self.actions, [])
+            gate.set()
+            await self.wait_js('!document.querySelector("button").disabled')
+            self.assertEqual(await topic.input_value(), 'Чернетка після повернення')
+            count = self.requests.count('/api/a2ui')
+            await self.page.clock.fast_forward(3000)
+            await self.wait_requests('/api/a2ui', count + 1)
+            await asyncio.sleep(.1)
+            self.assertEqual(self.requests.count('/api/a2ui'), count + 1)
+        await button.click()
+        await self.wait_js('!ownerBusy')
+        self.assertEqual(len(self.actions), 1)
+        self.assertEqual(self.actions[0]['inputs']['/form/topic'], 'Чернетка після повернення')
+        self.assertTrue(all('conversation=topic%3A42' in url and auth == 'Bearer synthetic-image-token'
+                            for url, auth in self.scoped_requests))
+
+    async def release_gate(self, gate):
+        gate.set()
+
+    async def test_resume_rejects_snapshot_started_before_hide(self):
+        await self.open()
+        gate = self.snapshot_gate = asyncio.Event()
+        self.addAsyncCleanup(self.release_gate, gate)
+        count = self.requests.count('/api/a2ui')
+        await self.page.evaluate('void panel.refresh()')
+        await self.wait_requests('/api/a2ui', count + 1)
+        await self.transition('pagehide')
+        self.current = snapshot(revision=2)
+        self.current['surfaces'][0]['dataModel']['form']['topic'] = 'Нова підказка'
+        await self.transition('pageshow')
+        await self.wait_js('document.querySelector("input")?.value === "Нова підказка"')
+        gate.set()
+        await self.page.evaluate('new Promise(resolve=>setTimeout(resolve,100))')
+        self.assertEqual(await self.page.get_by_label('Тема плану').input_value(), 'Нова підказка')
+
+    async def test_pending_uncertain_action_survives_resume_without_replay_or_busy_leak(self):
+        await self.open()
+        gate = self.action_gate = asyncio.Event()
+        self.addAsyncCleanup(self.release_gate, gate)
+        self.submit_result = 'unknown'
+        button = self.page.get_by_role('button', name='Скласти план')
+        await button.click()
+        await self.wait_requests('/api/a2ui/action', 1)
+        await self.transition('pagehide')
+        await self.transition('pageshow')
+        self.assertTrue(await self.page.evaluate('ownerBusy'))
+        await button.dispatch_event('click')
+        gate.set()
+        await self.wait_js('!ownerBusy')
+        await self.page.evaluate('panel.refresh()')
+        self.assertTrue(await button.is_disabled())
+        await self.transition('pagehide')
+        await self.transition('pageshow')
+        await button.dispatch_event('click')
+        self.assertEqual(len(self.actions), 1)
+        self.assertIn('Результат передавання невідомий', await self.page.locator('#a2ui-status').inner_text())
+
+    async def test_owner_topic_reset_rejects_old_action_and_detached_renderer(self):
+        await self.open()
+        gate = self.action_gate = asyncio.Event()
+        self.addAsyncCleanup(self.release_gate, gate)
+        # Retain an action already delivered by the component, past its disabled
+        # DOM gate; a queued callback must not bind to a new same-ID surface.
+        await self.page.evaluate('()=>{window.oldAction=document.querySelector("oak-a2ui-button").controller.props.action;}')
+        await self.page.get_by_role('button', name='Скласти план').click()
+        await self.wait_requests('/api/a2ui/action', 1)
+        await self.transition('pagehide')
+        await self.page.evaluate('changeScope("topic:77","synthetic-new-owner")')
+        self.current = snapshot(revision=2)
+        await self.transition('pageshow')
+        await self.page.get_by_role('button', name='Скласти план').wait_for()
+        await self.page.evaluate('ownerBusy=true')
+        gate.set()
+        await self.page.evaluate('new Promise(resolve=>setTimeout(resolve,100))')
+        self.assertTrue(await self.page.evaluate('ownerBusy'))
+        await self.page.evaluate('ownerBusy=false;oldAction()')
+        await asyncio.sleep(.1)
+        self.assertEqual(len(self.actions), 1)
+        await self.page.evaluate('panel.disable()')
+        await self.page.get_by_role('button', name='Скласти план').click()
+        await self.wait_requests('/api/a2ui/action', 2)
+        action_requests = [(url, auth) for url, auth in self.scoped_requests if '/action?' in url]
+        self.assertEqual(action_requests[0][1], 'Bearer synthetic-image-token')
+        self.assertIn('conversation=topic%3A42', action_requests[0][0])
+        self.assertEqual(action_requests[1][1], 'Bearer synthetic-new-owner')
+        self.assertIn('conversation=topic%3A77', action_requests[1][0])
+
+    async def test_resume_revalidates_consumed_expired_and_removed_cards(self):
+        for change in ('consumed', 'expired', 'removed'):
+            with self.subTest(change=change):
+                self.current = snapshot()
+                await self.open()
+                await self.transition('pagehide')
+                if change == 'consumed': self.current['surfaces'][0]['consumed'] = True
+                elif change == 'expired': self.current['surfaces'][0]['expires'] = time.time() - 1
+                else: self.current['surfaces'] = []
+                await self.transition('pageshow')
+                await self.page.evaluate('new Promise(resolve=>setTimeout(resolve,100))')
+                if change == 'removed':
+                    self.assertEqual(await self.page.locator('oak-a2ui-surface').count(), 0)
+                else:
+                    button = self.page.get_by_role('button', name='Скласти план')
+                    self.assertTrue(await button.is_disabled())
+                    await button.dispatch_event('click')
+                self.assertEqual(self.actions, [])
+
+    async def test_failed_resume_snapshot_keeps_actions_disabled_until_recovery(self):
+        await self.open()
+        await self.transition('pagehide')
+        self.current['renderer'] = 'unsupported-renderer'
+        await self.transition('pageshow')
+        await self.page.get_by_text('Форми недоступні.', exact=False).wait_for()
+        button = self.page.get_by_role('button', name='Скласти план')
+        self.assertTrue(await button.is_disabled())
+        await button.dispatch_event('click')
+        self.assertEqual(self.actions, [])
+        self.current = snapshot()
+        await self.page.evaluate('panel.refresh()')
+        self.assertFalse(await button.is_disabled())
+
+    async def test_real_navigation_back_restores_bfcache_document_and_polling(self):
+        # Network interception disables BFCache eligibility in Chromium. Serve the
+        # same synthetic fixture over loopback, with real assets and no interception.
+        await self.context.close()
+        await self.browser.close()
+        self.browser = await self.driver.chromium.launch(headless=True, chromium_sandbox=True,
+            channel='chromium', ignore_default_args=['--disable-back-forward-cache'])
+        self.addAsyncCleanup(self.browser.close)
+        self.context = await self.browser.new_context(viewport={'width': 390, 'height': 844})
+        self.addAsyncCleanup(self.context.close)
+        self.page = await self.context.new_page()
+        self.page.set_default_timeout(5000)
+        self.page.on('pageerror', lambda error: self.errors.append(str(error)))
+
+        async def handle(request):
+            if request.path == '/away':
+                return web.Response(text='<title>Other page</title><p>Back navigation fixture</p>', content_type='text/html')
+            if request.path == '/favicon.ico':
+                return web.Response(status=204)
+            response = None
+
+            async def fulfill(**kwargs):
+                nonlocal response
+                if request.path == '/':
+                    kwargs['body'] += '<a href="/away">Leave card</a>'
+                elif request.path == '/fixture.js':
+                    kwargs['body'] += '''
+                      window.documentIdentity=crypto.randomUUID();window.lifecycleEvents=[];
+                      for(const name of ['pagehide','pageshow','visibilitychange'])
+                        addEventListener(name,e=>lifecycleEvents.push({type:e.type,trusted:e.isTrusted,
+                          persisted:e.persisted,hidden:document.hidden}));'''
+                response = web.Response(**kwargs)
+
+            await self.serve(SimpleNamespace(request=SimpleNamespace(
+                url='https://a2ui.example.test' + request.path_qs,
+                headers={key.lower(): value for key, value in request.headers.items()}, post_data=await request.text()), fulfill=fulfill))
+            return response
+
+        app = web.Application()
+        app.router.add_route('*', '/{path:.*}', handle)
+        server = TestServer(app)
+        await server.start_server()
+        self.addAsyncCleanup(server.close)
+        await self.page.goto(str(server.make_url('/')))
+        await self.wait_js('Boolean(window.documentIdentity)')
+        identity = await self.page.evaluate('documentIdentity')
+        await self.page.get_by_label('Тема плану').fill('Збережена браузером чернетка')
+        for _ in range(2):
+            await self.page.get_by_role('link', name='Leave card').click()
+            await self.page.wait_for_url('**/away')
+            count = self.requests.count('/api/a2ui')
+            await self.page.go_back(wait_until='commit')
+            await self.page.get_by_label('Тема плану').wait_for()
+            self.assertEqual(await self.page.evaluate('documentIdentity'), identity, 'Must restore the cached document, not reload')
+            await self.wait_requests('/api/a2ui', count + 1)
+            self.assertEqual(await self.page.get_by_label('Тема плану').input_value(), 'Збережена браузером чернетка')
+            self.assertEqual(await self.page.evaluate('pollTimers.size'), 1)
+        events = await self.page.evaluate('lifecycleEvents')
+        for name in ('pagehide', 'pageshow'):
+            self.assertEqual(sum(e['type'] == name and e['trusted'] and e.get('persisted') for e in events), 2)
+        self.assertTrue(any(e['type'] == 'visibilitychange' and e['trusted'] and e['hidden'] for e in events))
+        count = self.requests.count('/api/a2ui')
+        # Real wall time proves the restored interval fires after the immediate read.
+        await asyncio.sleep(3.2)
+        self.assertEqual(self.requests.count('/api/a2ui'), count + 1)
+        await self.page.get_by_role('button', name='Скласти план').click()
+        await self.wait_requests('/api/a2ui/action', 1)
+        self.assertEqual(self.actions[0]['inputs']['/form/topic'], 'Збережена браузером чернетка')
+        self.assertTrue(all('conversation=topic%3A42' in url and auth == 'Bearer synthetic-image-token'
+                            for url, auth in self.scoped_requests))
 
     async def test_canonical_bindings_full_ui_incremental_update_and_drafts_under_csp(self):
         await self.open()
@@ -250,7 +508,7 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         await self.open()
         image = self.page.get_by_role('img', name='Синтетична ілюстрація', exact=True)
         await image.wait_for()
-        await self.page.wait_for_function('document.querySelector("img.a2ui-image")?.naturalWidth === 1')
+        await self.wait_js('document.querySelector("img.a2ui-image")?.naturalWidth === 1')
         self.assertEqual(await self.page.get_by_text('240 ₴', exact=True).count(), 1)
         self.assertEqual(await self.page.get_by_text('Оновлено', exact=True).count(), 1)
         self.assertEqual(await self.page.get_by_role('table').count(), 1)
@@ -271,11 +529,11 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         self.current['surfaces'][0]['components']['chart']['kind'] = 'line'
         await self.page.evaluate('panel.refresh()')
         await self.page.get_by_text('280 ₴', exact=True).wait_for()
-        await self.page.wait_for_function('createdURLs.length === 2 && revokedURLs.length === 1')
+        await self.wait_js('createdURLs.length === 2 && revokedURLs.length === 1')
         self.assertEqual(await chart.locator('polyline').count(), 1)
         self.current['surfaces'] = []
         await self.page.evaluate('panel.refresh()')
-        await self.page.wait_for_function('revokedURLs.length === 2')
+        await self.wait_js('revokedURLs.length === 2')
         self.assertEqual(await self.page.locator('oak-a2ui-surface').count(), 0)
         self.assertEqual(await self.page.evaluate('violations'), [])
 
@@ -284,7 +542,7 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.release_images)
         self.current = self.display_snapshot()
         await self.open()
-        await self.page.wait_for_function('document.querySelector("oak-a2ui-image")')
+        await self.wait_js('document.querySelector("oak-a2ui-image")')
         for _ in range(100):
             if self.image_requests:
                 break
@@ -308,7 +566,7 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
         });}''')
         self.current = self.display_snapshot(revision=2)
         await self.page.evaluate('panel.refresh()')
-        await self.page.wait_for_function('Boolean(window.pendingImageResolve)')
+        await self.wait_js('Boolean(window.pendingImageResolve)')
         await self.page.evaluate('invalidateOwner()')
         self.assertTrue(await self.page.evaluate('pendingImageSignal.aborted'))
         await self.page.evaluate('''async()=>{
