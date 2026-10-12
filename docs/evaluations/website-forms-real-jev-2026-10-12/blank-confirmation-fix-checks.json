@@ -1,0 +1,22 @@
+{
+  "scope": "Initial empty generic pages do not offer owner confirmation; only accepted nonempty values dispatch enables it. Named-provider evidence unchanged.",
+  "test_modules": [
+    "test_website_forms",
+    "test_website_http_errors",
+    "test_agentic_website_forms",
+    "test_composed_providers",
+    "test_heldout_website_loop"
+  ],
+  "tests_run": 63,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 58.238,
+  "checks": "Real local intercepted Chromium fixtures and stdlib tests; no external API or provider calls.",
+  "source_sha256": {
+    "oak/website_forms.py": "316734a8b3c52bc658cce9e5a2cfe0d7b33089bd00c219f927d1d573aff1ad1c",
+    "tests/test_website_forms.py": "2bac8772857b7b8a7974f94fa1f81c9e0f15ac6c0e0d63c281e05a4ecbfaa381",
+    "tests/test_website_http_errors.py": "ab137e53c2e6ae33985c1344fe2578715467856b0c90584c34aaa98e7e5803f8",
+    "tests/test_agentic_website_forms.py": "15e924131a6b27ace5e8beb4b4b584485c265ced521b714ccebb03bd1c8c110c"
+  }
+}

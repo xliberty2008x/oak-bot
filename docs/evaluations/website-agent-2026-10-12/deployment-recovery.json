@@ -1,0 +1,12 @@
+{
+  "source_commit": "a774e7e",
+  "release": "f9139664846e41d8dadf",
+  "runtime_digest": "486bd9b9bce74e349000900bc0c519ebbaf09f91e19f051e07602a5219559e9d",
+  "broker_config_sha256": "456adca7c35e6ae0f23be403b31ec620c82fb0bcae0ca2f4be2fb7dba5fd87bf",
+  "boundary_verified": true,
+  "broker_ready": true,
+  "broker_website_task_capability": true,
+  "gateway_restarts": 0,
+  "preexisting_uncertain_intake_preserved": 5,
+  "owner_authentication_verified": false
+}

@@ -1,0 +1,25 @@
+{
+  "evaluated_source_commit": "71f966e57230b68971a44347a78882e31295ba9b",
+  "denominator": 12,
+  "selected_sites": 12,
+  "attached": 11,
+  "planned_baseline_reads": 24,
+  "attempted_baseline_reads": 22,
+  "schema_valid_baseline_reads": 21,
+  "sites_exposing_any_input_fields": 0,
+  "site_final_outcomes": {
+    "unsupported_layout": 2,
+    "empty_review": 4,
+    "zero_field_form": 5,
+    "attach_failed": 1
+  },
+  "public_method_steps_eligible": 0,
+  "public_method_steps_executed": 0,
+  "cleanups_confirmed": 12,
+  "diagnostic_sites_with_http_403": 4,
+  "full_authentication": "not_tested",
+  "real_jev": "not_configured_not_run",
+  "frontend_rendering": "not_tested",
+  "generalization_acceptance": "not_met",
+  "scoring_note": "No field-exposure success in this bounded anonymous initial-page protocol. This is not a rate of failed account authentications or a claim about all possible manual navigation paths."
+}

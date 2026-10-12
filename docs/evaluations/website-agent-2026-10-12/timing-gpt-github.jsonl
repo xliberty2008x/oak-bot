@@ -1,0 +1,146 @@
+{"kind": "timing_mark", "name": "main_started", "t_ms": 162.098}
+{"anonymous_static_resources": false, "harness_version": 3, "kind": "start", "manual_navigation_choices": 0, "max_model_tool_calls": 18, "max_seconds": 180, "model": "gpt-6.1-sol", "runtime_digest": "a9dcdae2e9b8d8f223686e53b58ba3e3f84f94e157b9d77312a44f8422799dbd", "t_ms": 164.123, "target": "github", "target_path": "/", "timing_protocol": "native-agent-timing-v1"}
+{"elapsed_ms": 17.2, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/health", "start_ms": 166.144, "t_ms": 183.358}
+{"kind": "timing_mark", "name": "native_start_started", "t_ms": 185.378}
+{"elapsed_ms": 30.935, "kind": "timing_span", "name": "native_process_setup", "ok": true, "start_ms": 185.375, "t_ms": 216.324}
+{"elapsed_ms": 1481.596, "kind": "timing_span", "name": "native_initialize", "ok": true, "start_ms": 221.184, "t_ms": 1702.792}
+{"elapsed_ms": 5192.596, "kind": "timing_span", "name": "native_auth_check", "ok": true, "start_ms": 1706.235, "t_ms": 6898.844}
+{"elapsed_ms": 6714.09, "kind": "timing_span", "name": "native_start_total", "ok": true, "start_ms": 186.79, "t_ms": 6900.891}
+{"kind": "timing_mark", "name": "native_authenticated", "t_ms": 6902.525}
+{"elapsed_ms": 38.847, "kind": "timing_span", "name": "native_thread_start", "ok": true, "start_ms": 6903.916, "t_ms": 6942.776}
+{"kind": "timing_mark", "name": "native_turn_sent", "t_ms": 6946.012}
+{"elapsed_ms": 22.89, "kind": "timing_span", "name": "native_turn_start", "ok": true, "start_ms": 6945.903, "t_ms": 6968.81}
+{"gap_ms": 5145.928, "kind": "tool_arrival", "ordinal": 1, "since": "turn_sent", "t_ms": 12091.976}
+{"elapsed_ms": 19.275, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/create", "start_ms": 12093.722, "t_ms": 12113.009}
+{"kind": "timing_mark", "name": "renderer_attach_started", "t_ms": 12115.118}
+{"elapsed_ms": 470.497, "kind": "timing_span", "name": "renderer_playwright_start", "ok": true, "start_ms": 12116.606, "t_ms": 12587.115}
+{"elapsed_ms": 131.501, "kind": "timing_span", "name": "renderer_browser_launch", "ok": true, "start_ms": 12588.889, "t_ms": 12720.403}
+{"elapsed_ms": 38.796, "kind": "timing_span", "name": "renderer_context_create", "ok": true, "start_ms": 12723.336, "t_ms": 12762.144}
+{"elapsed_ms": 57.861, "kind": "timing_span", "name": "renderer_parent_navigation", "ok": true, "start_ms": 12854.315, "t_ms": 12912.187}
+{"elapsed_ms": 220.569, "kind": "timing_span", "name": "renderer_status_attached", "ok": true, "start_ms": 12917.45, "t_ms": 13138.032}
+{"kind": "timing_mark", "name": "renderer_ready", "t_ms": 13143.399}
+{"elapsed_ms": 1032.58, "kind": "timing_span", "name": "renderer_attach_total", "ok": true, "start_ms": 12115.116, "t_ms": 13147.709}
+{"action_count": 0, "cancel_visible": false, "error": "none", "field_types": [], "kind": "ui_state", "t_ms": 13221.944}
+{"action": "begin", "kind": "model_tool", "ordinal": 1, "state": "waiting_for_owner", "t_ms": 13225.191}
+{"action": "begin", "elapsed_ms": 1134.776, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 1, "start_ms": 12091.938, "t_ms": 13226.723}
+{"kind": "tool_response_sent", "ordinal": 1, "t_ms": 13228.212}
+{"kind": "timing_mark", "name": "private_attach_request_started", "t_ms": 13231.088}
+{"elapsed_ms": 755.753, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 14119.843, "t_ms": 14875.61}
+{"elapsed_ms": 1675.281, "kind": "timing_span", "name": "renderer_http_attach", "ok": true, "start_ms": 13231.085, "t_ms": 14906.378}
+{"kind": "timing_mark", "name": "private_attach_request_finished", "t_ms": 14911.81}
+{"action_count": 0, "cancel_visible": true, "error": "none", "field_types": [], "kind": "ui_state", "t_ms": 15293.905}
+{"gap_ms": 3052.049, "kind": "tool_arrival", "ordinal": 2, "since": "tool_response", "t_ms": 16280.295}
+{"elapsed_ms": 16.477, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 16282.311, "t_ms": 16298.802}
+{"elapsed_ms": 134.302, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 16300.634, "t_ms": 16434.95}
+{"kind": "timing_mark", "name": "first_active_observation", "t_ms": 16487.118}
+{"action": "observe", "action_count": 64, "control_count": 2, "event_seq": 0, "kind": "model_tool", "ordinal": 2, "stage": "agent_working", "state": "active", "t_ms": 16489.162}
+{"action": "observe", "elapsed_ms": 210.64, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 2, "start_ms": 16280.258, "t_ms": 16490.908}
+{"kind": "tool_response_sent", "ordinal": 2, "t_ms": 16493.448}
+{"elapsed_ms": 16.076, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 16882.814, "t_ms": 16898.905}
+{"elapsed_ms": 16.167, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 18903.854, "t_ms": 18920.035}
+{"elapsed_ms": 26.154, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 20923.639, "t_ms": 20949.807}
+{"gap_ms": 4517.42, "kind": "tool_arrival", "ordinal": 3, "since": "tool_response", "t_ms": 21010.894}
+{"elapsed_ms": 572.249, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "act", "route": "/agent", "start_ms": 21014.127, "t_ms": 21586.389}
+{"action": "act", "action_count": 10, "control_count": 2, "event_seq": 0, "kind": "model_tool", "ordinal": 3, "stage": "agent_working", "state": "active", "t_ms": 21592.468}
+{"action": "act", "elapsed_ms": 588.165, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 3, "start_ms": 21010.863, "t_ms": 21599.04}
+{"kind": "tool_response_sent", "ordinal": 3, "t_ms": 21604.76}
+{"elapsed_ms": 15.978, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 22952.683, "t_ms": 22968.675}
+{"elapsed_ms": 16.147, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 24971.127, "t_ms": 24987.289}
+{"gap_ms": 5304.759, "kind": "tool_arrival", "ordinal": 4, "since": "tool_response", "t_ms": 26909.549}
+{"elapsed_ms": 66.986, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "present", "route": "/agent", "start_ms": 26911.981, "t_ms": 26978.98}
+{"kind": "timing_mark", "name": "first_present_accepted", "t_ms": 26982.973}
+{"eligible_input_plan": true, "kind": "present_accepted", "ordinal": 4, "selected_component_counts": {"PasswordInput": 1, "TextInput": 1}, "selected_role_counts": {"current-password": 1, "username": 1}, "t_ms": 26984.85}
+{"elapsed_ms": 27.098, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 26991.91, "t_ms": 27019.02}
+{"elapsed_ms": 25.052, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 27010.832, "t_ms": 27035.896}
+{"elapsed_ms": 49.685, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 27037.554, "t_ms": 27087.253}
+{"elapsed_ms": 16.052, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 27604.673, "t_ms": 27620.74}
+{"elapsed_ms": 51.826, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 27622.905, "t_ms": 27674.745}
+{"elapsed_ms": 19.511, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 28192.371, "t_ms": 28211.898}
+{"elapsed_ms": 49.587, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 28214.369, "t_ms": 28263.97}
+{"kind": "timing_mark", "name": "first_usable_input_ui", "t_ms": 28280.176}
+{"action_count": 1, "cancel_visible": true, "error": "none", "field_types": ["text", "password"], "kind": "ui_state", "t_ms": 28281.86}
+{"elapsed_ms": 16.596, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 28785.831, "t_ms": 28802.442}
+{"elapsed_ms": 68.998, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 28804.39, "t_ms": 28873.403}
+{"elapsed_ms": 16.952, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 29022.865, "t_ms": 29039.833}
+{"elapsed_ms": 16.649, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 29392.669, "t_ms": 29409.333}
+{"elapsed_ms": 60.519, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 29414.113, "t_ms": 29474.647}
+{"elapsed_ms": 17.141, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 30009.246, "t_ms": 30026.401}
+{"elapsed_ms": 49.817, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 30028.424, "t_ms": 30078.254}
+{"elapsed_ms": 16.861, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 30596.011, "t_ms": 30612.886}
+{"elapsed_ms": 47.698, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 30614.456, "t_ms": 30662.168}
+{"elapsed_ms": 26.935, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 31042.483, "t_ms": 31069.433}
+{"elapsed_ms": 23.892, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 31179.297, "t_ms": 31203.204}
+{"elapsed_ms": 52.992, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 31205.234, "t_ms": 31258.241}
+{"elapsed_ms": 16.794, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 31792.585, "t_ms": 31809.393}
+{"elapsed_ms": 47.803, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 31811.64, "t_ms": 31859.457}
+{"elapsed_ms": 17.737, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 32376.68, "t_ms": 32394.431}
+{"elapsed_ms": 98.97, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 32396.152, "t_ms": 32495.137}
+{"elapsed_ms": 18.175, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 33029.277, "t_ms": 33047.466}
+{"elapsed_ms": 68.105, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 33049.51, "t_ms": 33117.629}
+{"elapsed_ms": 47.393, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 33073.797, "t_ms": 33121.201}
+{"elapsed_ms": 16.704, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 33639.113, "t_ms": 33655.831}
+{"elapsed_ms": 48.164, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 33657.691, "t_ms": 33705.869}
+{"elapsed_ms": 66.916, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 34223.546, "t_ms": 34290.475}
+{"elapsed_ms": 58.384, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 34295.772, "t_ms": 34354.17}
+{"elapsed_ms": 15.882, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 34870.675, "t_ms": 34886.592}
+{"elapsed_ms": 51.563, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 34888.497, "t_ms": 34940.074}
+{"elapsed_ms": 16.917, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 35125.004, "t_ms": 35141.937}
+{"elapsed_ms": 17.116, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 35457.385, "t_ms": 35474.516}
+{"elapsed_ms": 49.255, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 35476.298, "t_ms": 35525.567}
+{"elapsed_ms": 16.141, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 36042.238, "t_ms": 36058.392}
+{"elapsed_ms": 118.032, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 36060.388, "t_ms": 36178.435}
+{"elapsed_ms": 16.289, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 36696.328, "t_ms": 36712.632}
+{"elapsed_ms": 50.63, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 36714.511, "t_ms": 36765.154}
+{"elapsed_ms": 16.025, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 37144.097, "t_ms": 37160.137}
+{"elapsed_ms": 32.859, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 37283.673, "t_ms": 37316.546}
+{"elapsed_ms": 82.971, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 37319.893, "t_ms": 37402.877}
+{"elapsed_ms": 16.711, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 37938.563, "t_ms": 37955.288}
+{"elapsed_ms": 49.353, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 37957.493, "t_ms": 38006.86}
+{"elapsed_ms": 16.164, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 38525.221, "t_ms": 38541.399}
+{"elapsed_ms": 51.887, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 38543.165, "t_ms": 38595.067}
+{"elapsed_ms": 184.978, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 39111.077, "t_ms": 39296.069}
+{"elapsed_ms": 138.736, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 39162.566, "t_ms": 39301.314}
+{"elapsed_ms": 55.733, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 39300.928, "t_ms": 39356.676}
+{"elapsed_ms": 16.191, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 39873.563, "t_ms": 39889.769}
+{"elapsed_ms": 48.624, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 39891.655, "t_ms": 39940.292}
+{"elapsed_ms": 16.322, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 40458.837, "t_ms": 40475.172}
+{"elapsed_ms": 48.156, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 40476.943, "t_ms": 40525.113}
+{"elapsed_ms": 16.386, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 41043.528, "t_ms": 41059.929}
+{"elapsed_ms": 54.763, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 41062.021, "t_ms": 41116.798}
+{"elapsed_ms": 16.143, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 41310.82, "t_ms": 41326.978}
+{"elapsed_ms": 15.969, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 41634.262, "t_ms": 41650.245}
+{"elapsed_ms": 47.285, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 41652.019, "t_ms": 41699.32}
+{"elapsed_ms": 16.172, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 42219.224, "t_ms": 42235.41}
+{"elapsed_ms": 46.517, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 42237.349, "t_ms": 42283.881}
+{"elapsed_ms": 32.243, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 42809.262, "t_ms": 42841.519}
+{"elapsed_ms": 48.627, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 42843.323, "t_ms": 42891.964}
+{"elapsed_ms": 16.701, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 43329.972, "t_ms": 43346.688}
+{"elapsed_ms": 16.232, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 43408.056, "t_ms": 43424.303}
+{"elapsed_ms": 49.404, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 43426.243, "t_ms": 43475.661}
+{"elapsed_ms": 16.11, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 44004.426, "t_ms": 44020.55}
+{"elapsed_ms": 50.45, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 44022.733, "t_ms": 44073.199}
+{"elapsed_ms": 15.989, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 44592.496, "t_ms": 44608.499}
+{"elapsed_ms": 45.747, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 44610.625, "t_ms": 44656.385}
+{"elapsed_ms": 15.689, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 45172.512, "t_ms": 45188.216}
+{"elapsed_ms": 46.759, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 45190.02, "t_ms": 45236.792}
+{"elapsed_ms": 16.083, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 45349.579, "t_ms": 45365.676}
+{"elapsed_ms": 16.631, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 45752.397, "t_ms": 45769.043}
+{"elapsed_ms": 48.372, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 45771.162, "t_ms": 45819.548}
+{"elapsed_ms": 17.466, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 46340.26, "t_ms": 46357.74}
+{"elapsed_ms": 48.178, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 46360.054, "t_ms": 46408.245}
+{"elapsed_ms": 18.026, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 46926.676, "t_ms": 46944.716}
+{"elapsed_ms": 64.302, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 46946.908, "t_ms": 47011.224}
+{"elapsed_ms": 20017.432, "kind": "timing_span", "name": "test_human_wait", "ok": true, "start_ms": 27010.826, "t_ms": 47028.269}
+{"action": "present", "action_count": 10, "control_count": 2, "event_seq": 0, "kind": "model_tool", "ordinal": 4, "selected_component_counts": {"PasswordInput": 1, "TextInput": 1}, "selected_role_counts": {"current-password": 1, "username": 1}, "stage": "form", "state": "waiting_for_owner", "t_ms": 47030.864}
+{"action": "present", "elapsed_ms": 20122.865, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 4, "start_ms": 26909.515, "t_ms": 47032.389}
+{"kind": "tool_response_sent", "ordinal": 4, "t_ms": 47033.925}
+{"elapsed_ms": 16.983, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 47368.361, "t_ms": 47385.359}
+{"elapsed_ms": 16.455, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 49390.139, "t_ms": 49406.608}
+{"elapsed_ms": 16.239, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 51409.796, "t_ms": 51426.049}
+{"kind": "timing_mark", "name": "native_turn_completed", "t_ms": 51700.768}
+{"elapsed_ms": 17.682, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 53428.834, "t_ms": 53446.529}
+{"kind": "timing_mark", "name": "evaluation_finished", "t_ms": 54145.282}
+{"elapsed_ms": 182.736, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/cancel", "start_ms": 54572.386, "t_ms": 54755.136}
+{"elapsed_ms": 22.258, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 54757.799, "t_ms": 54780.072}
+{"kind": "timing_mark", "name": "cleanup_finished", "t_ms": 54782.245}
+{"actual_chromium": true, "agent_composition_observed": true, "agent_navigation_observed": true, "anonymous_static_resources": false, "auth": "chatgpt", "authentication_tested": false, "blocked_renderer_requests": 0, "cleanup": "confirmed", "config_unchanged": true, "correct_login_semantics_verified": false, "first_input_ui_excludes_remaining_test_human_wait": true, "first_ui_poll_interval_seconds": 0.5, "gateway_dispatch_tested": false, "ios_tested": false, "kind": "result", "last_ui": {"action_count": 1, "cancel_visible": true, "error": "none", "field_types": ["text", "password"]}, "mobile_viewport_simulation": true, "model": "gpt-6.1-sol", "model_actions": [{"action": "begin", "ordinal": 1, "state": "waiting_for_owner"}, {"action": "observe", "action_count": 64, "control_count": 2, "event_seq": 0, "ordinal": 2, "stage": "agent_working", "state": "active"}, {"action": "act", "action_count": 10, "control_count": 2, "event_seq": 0, "ordinal": 3, "stage": "agent_working", "state": "active"}, {"action": "present", "action_count": 10, "control_count": 2, "event_seq": 0, "ordinal": 4, "selected_component_counts": {"PasswordInput": 1, "TextInput": 1}, "selected_role_counts": {"current-password": 1, "username": 1}, "stage": "form", "state": "waiting_for_owner"}], "model_gap_includes_runtime_transport": true, "model_gaps": [{"gap_ms": 5145.928, "ordinal": 1, "since": "turn_sent"}, {"gap_ms": 3052.049, "ordinal": 2, "since": "tool_response"}, {"gap_ms": 4517.42, "ordinal": 3, "since": "tool_response"}, {"gap_ms": 5304.759, "ordinal": 4, "since": "tool_response"}], "model_tool_errors": 0, "native_turn_status": "completed", "new_password_presented": false, "new_timing_experiment": true, "observer_error_count": 0, "outcome": "rendered_input_handoff", "owner_inputs": 0, "private_attach_timing_includes_broker_site_browser_start": true, "private_credential_fields_visible": true, "private_input_fields_visible": true, "private_renderer_tested": true, "production_broker": true, "real_native_model": true, "renderer_browser_closed": true, "renderer_context_closed": true, "renderer_ready_means_iframe_mounted": true, "replaces_first_acceptance": false, "runtime_digest": "a9dcdae2e9b8d8f223686e53b58ba3e3f84f94e157b9d77312a44f8422799dbd", "runtime_unchanged": true, "screenshot_inputs_empty": true, "screenshot_sha256": "ba0fdd8387d6f3c11ec5e3f654844f27050f5607d20a5f59ac5987cafc5d5d7d", "served_resource_hashes": {"/form-controls.js": "1fc6df1ea44c6cd79a47452907c71b61a654cbe296d9c078c1b095501abd007c", "/login.css": "9ec220f6a23f83d41e6224272294008fb1af8793fff9e60758d11e4f1f861019", "/login.js": "7c6136db4e8f889adf1a4064e85f0776a7a7e611904be19ab9cb5de7590bf33d"}, "served_resources_match": true, "site_submit_attempts": 0, "status": "passed", "t_ms": 54799.79, "target": "github", "target_path": "/", "task_sent_origin": "native_turn_request_sent", "telegram_tested": false, "test_present_wait_seconds": 20, "timing_includes_instrumentation_overhead": true, "timing_marks_ms": {"cleanup_finished": 54782.242, "evaluation_finished": 54145.279, "first_active_observation": 16487.115, "first_present_accepted": 26982.971, "first_usable_input_ui": 28280.173, "main_started": 162.095, "native_authenticated": 6902.523, "native_start_started": 185.375, "native_turn_completed": 51700.765, "native_turn_sent": 6946.01, "private_attach_request_finished": 14911.806, "private_attach_request_started": 13231.086, "renderer_attach_started": 12115.116, "renderer_ready": 13143.394}, "timing_protocol": "native-agent-timing-v1", "timing_spans_overlap_do_not_sum": true, "timing_summary_ms": {"broker_call_sum_including_concurrent_heartbeat": 5026.902, "broker_navigation": 572.249, "broker_present": 66.986, "evaluation_total": 53983.185, "first_present_accepted_to_first_input_ui": 1297.202, "main_to_first_input_ui": 28118.078, "model_gap_total": 18020.156, "native_auth_check": 5192.596, "native_initialize": 1481.596, "native_process_setup": 30.935, "native_start_total": 6714.09, "native_thread_start": 38.847, "native_turn_sent_to_first_input_ui": 21334.162, "native_turn_start": 22.89, "renderer_attach_total": 1032.58, "renderer_http_attach": 1675.281, "renderer_ready_to_first_input_ui": 15136.779, "task_sent_to_first_input_ui": 21334.162, "test_human_wait_total": 20017.432, "total_including_cleanup": 54620.148, "turn_sent_to_first_active_observation": 9541.104}, "ui_samples": [{"action_count": 0, "cancel_visible": false, "error": "none", "field_types": []}, {"action_count": 0, "cancel_visible": true, "error": "none", "field_types": []}, {"action_count": 1, "cancel_visible": true, "error": "none", "field_types": ["text", "password"]}], "unexpected_native_items": 0, "viewport": {"height": 900, "width": 430}}

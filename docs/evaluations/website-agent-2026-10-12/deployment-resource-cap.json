@@ -1,0 +1,14 @@
+{
+  "source_commit": "92b016a",
+  "release": "8d1fef1666455c84d3fb",
+  "runtime_digest": "f166fa722baf36d27c955229acd4cd86499a6d5b957c37d7650b720fcc504841",
+  "broker_config_sha256": "456adca7c35e6ae0f23be403b31ec620c82fb0bcae0ca2f4be2fb7dba5fd87bf",
+  "anonymous_static_resources": true,
+  "max_anonymous_requests": 512,
+  "max_legacy_requests": 96,
+  "boundary_verified": true,
+  "broker_ready": true,
+  "gateway_restarts": 0,
+  "preexisting_uncertain_intake_preserved": 5,
+  "owner_authentication_verified": false
+}

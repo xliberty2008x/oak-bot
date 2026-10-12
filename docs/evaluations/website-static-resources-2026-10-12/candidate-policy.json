@@ -1,0 +1,44 @@
+{
+  "static_resources": {
+    "https://slack.com": {
+      "a.slack-edge.com": [
+        "script",
+        "stylesheet"
+      ],
+      "b.slack-edge.com": [
+        "script",
+        "stylesheet"
+      ]
+    },
+    "https://zoom.us": {
+      "st1.zoom.us": [
+        "script",
+        "stylesheet"
+      ]
+    },
+    "https://www.dropbox.com": {
+      "cfl.dropboxstatic.com": [
+        "script",
+        "stylesheet"
+      ]
+    },
+    "https://account.booking.com": {
+      "cf.bstatic.com": [
+        "script",
+        "stylesheet"
+      ]
+    },
+    "https://id.atlassian.com": {
+      "id-frontend.prod-east.frontend.public.atl-paas.net": [
+        "script",
+        "stylesheet"
+      ]
+    },
+    "https://www.twitch.tv": {
+      "assets.twitch.tv": [
+        "script",
+        "stylesheet"
+      ]
+    }
+  }
+}

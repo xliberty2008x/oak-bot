@@ -1,0 +1,29 @@
+{
+  "source_commit": "cf7ba70de33d06e74702201f714f65dcdb73b5dd",
+  "code_sha256": {
+    "oak/login_broker.py": "5ad933ea9b3cdbfb66aaf7efa9dac2a70540d3042939d74436622c826741920c",
+    "oak/signin_providers.py": "6f938919d91aa4f9252007a021bcf86986145c1721863035c75b8e4a7fbc65fd",
+    "oak/website_forms.py": "1b9593facc8c63d9896b52202f7ef03fc56eca41de040fe6af20b6c7a10fa809",
+    "oak/website_resources.py": "106f9c8c6cab5fa43b02f9b73181248d9f6104979345813883439374c679f268",
+    "oak/website_ui.py": "1c9360c34085da7486b923f287d97dda90f1c2afef33910607832240f2b92b01",
+    "oak/website_planner.py": "3aaf215c33d09122f3281c8b24b6fc50baf8a3c200e1e620c466642a179d34a5",
+    "oak/website_composer.py": "26bfa931705b6f6ecbf1bd951e0da2ffb88e45f464af936730c42e6f31b3fb6e",
+    "oak/executor.py": "6bb37b8960235bdeafd2548babf5b8c874b8de6c2d2a0d7a74a7a062056de50f"
+  },
+  "runtime_digest": "112d1dc3054184cc22fcdcbb0fa1404aafa27df571b759e5384af4bcb9d32279",
+  "runtime_digest_definition": "SHA256 of sorted compact JSON code-file hash map; excludes docs.",
+  "selection_sha256": {
+    "holdout": "edf2158cb9ea4d6803b82797fb3ead7214f095d558d91aef7393a1d318c446fd",
+    "regression": "98b6a553a21e49772db51a6875c9d6258be948439ae67c27d51902dab7caa7fc"
+  },
+  "pending_runner_sha256": {
+    "holdout": "24136c4bcbe401e602a48819fa88af26bd7e6e4bed0382695a5440e863b81f08",
+    "regression": "01d1786b2dde5d5721701f80cc88e8b806500b1423d1e7506a2b26a5b774aee3"
+  },
+  "final_runner_sha256": {
+    "run-holdout-benchmark.py": "8308e64cb131f02b1f971860eaf06dd7cf53e9176544413f2a90539115a5a615",
+    "run-regression-benchmark.py": "a213a55f22df385b857a303c5037ad801ca0a50641bb90a52dd990709020d66f"
+  },
+  "broker_calls": 0,
+  "model_calls": 0
+}

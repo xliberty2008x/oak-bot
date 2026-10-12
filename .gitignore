@@ -15,3 +15,4 @@ browser-profile/
 *.onnx
 .playwright-cli/
 output/playwright/
+node_modules/

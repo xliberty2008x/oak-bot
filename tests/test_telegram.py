@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from oak.telegram import TelegramError, TelegramGateway, split_text
+from oak.bus import EventBus
 from oak.sessions import SessionStore
 from oak.controller import Controller
 from oak.interaction import Interactions
@@ -196,6 +197,230 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
                          {'text': 'Відкрити форму', 'web_app': {'url': url}})
         await restored.emit(-1, {'type': 'RUN_STARTED', 'runId': 'browser-only'})
         self.assertNotIn(-1, restored._replies)
+
+    async def test_a2ui_cards_send_rich_blocks_edit_in_place_and_fall_back(self):
+        gateway = self.gateway
+        image = Path(self.temp.name) / 'artifacts' / 'meal.png'
+        image.parent.mkdir()
+        image.write_bytes(b'\x89PNG\r\n\x1a\nsynthetic')
+        artifact_db = sqlite3.connect(':memory:')
+        self.addCleanup(artifact_db.close)
+        artifact_files = SimpleNamespace(snapshot=AsyncMock(return_value=image))
+        self.controller.tools = SimpleNamespace(files=None)
+        self.controller.bus = EventBus(SimpleNamespace(db=artifact_db,
+                                      tools=SimpleNamespace(files=artifact_files)))
+        artifact_db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)',
+                            ('a' * 32, 7, str(image), image.name, 'image/png'))
+        artifact_db.commit()
+        state = {'components': {
+            'root': {'id': 'root', 'component': 'Column', 'children': ['title', 'photo']},
+            'title': {'id': 'title', 'component': 'Text', 'variant': 'heading', 'text': 'План'},
+            'photo': {'id': 'photo', 'component': 'Image', 'alt': 'Сніданок', 'artifact': 'a' * 32}}, 'dataModel': {}}
+        url = 'https://oak.example.test/?conversation=telegram&surface=plan'
+        button = {'text': 'Відкрити в Oak', 'web_app': {'url': url}}
+
+        def card(revision, thread='thread-one'):
+            return {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': thread, 'value': {
+                'surfaceId': 'plan', 'label': 'План готовий.', 'revision': revision, 'state': state,
+                'button_label': 'Відкрити в Oak', 'url': url}}
+
+        calls = []
+
+        def api(fail=lambda method, payload: None, message_id=31):
+            async def call(method, payload):
+                calls.append((method, payload))
+                fail(method, payload)
+                return {'message_id': message_id}
+            return call
+
+        async def flush():
+            for row in gateway._deliveries():
+                gateway._last_send.clear()
+                await gateway._render_delivery(row)
+
+        def statuses():
+            return [row[0] for row in gateway.db.execute('SELECT status FROM deliveries ORDER BY rowid')]
+
+        gateway._api = api()
+        gateway._apply(7, card(1))
+        await flush()
+        method, payload = calls[-1]
+        self.assertEqual(method, 'sendRichMessage')
+        self.assertEqual(payload['rich_message']['blocks'], [
+            {'type': 'heading', 'text': 'План', 'size': 3},
+            {'type': 'photo', 'photo': {'type': 'photo', 'media': 'attach://card0'}}])
+        self.assertEqual(payload['_uploads'], [{'name': 'card0', 'path': str(image.resolve()), 'mime': 'image/png'}])
+        artifact_files.snapshot.assert_awaited_once_with(str(image))
+        self.assertEqual(payload['reply_markup']['inline_keyboard'], [[button]])
+        body, _ = gateway._multipart(payload, method)
+        self.assertIn(b'name="card0"; filename="meal.png"', body)
+        self.assertIn(b'name="rich_message"', body)
+        with self.assertRaises(ValueError):
+            gateway._multipart({**payload, '_uploads': [{'name': 'bad"name', 'path': str(image)}]}, method)
+
+        gateway._apply(7, card(2))
+        gateway._apply(7, card(3))
+        await flush()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual((calls[-1][0], calls[-1][1]['message_id']), ('editMessageText', 31))
+        self.assertEqual(statuses(), ['delivered', 'superseded', 'delivered'])
+
+        def gone(method, payload):
+            if method == 'editMessageText':
+                raise TelegramError(method, 400, reason='message_missing')
+        gateway._api = api(gone, 32)
+        gateway._apply(7, card(4))
+        await flush()
+        self.assertEqual([call[0] for call in calls[-2:]], ['editMessageText', 'sendRichMessage'])
+        self.assertNotIn('message_id', calls[-1][1])
+
+        def rich_unsupported(method, payload):
+            if 'rich_message' in payload:
+                raise TelegramError(method, 404, reason='unknown_method')
+        gateway._api = api(rich_unsupported, 32)
+        gateway._apply(7, card(5))
+        await flush()
+        self.assertFalse(gateway._rich_supported)
+        self.assertEqual(calls[-1], ('editMessageText', {'chat_id': 7, 'text': 'План готовий.', 'message_id': 32,
+                                                         'reply_markup': {'inline_keyboard': [[button]]}}))
+        gateway._apply(7, {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': 'thread-one',
+                           'value': {'surfaceId': 'plan', 'label': 'Закрито.', 'deleted': True, 'revision': 6}})
+        await flush()
+        self.assertEqual(calls[-1], ('editMessageText', {'chat_id': 7, 'text': 'Картку закрито.', 'message_id': 32}))
+        gateway._apply(7, card(1, 'thread-two'))
+        await flush()
+        self.assertEqual(calls[-1][0], 'sendMessage')
+        self.assertNotIn('message_id', calls[-1][1])
+        with self.assertRaises(ValueError):
+            gateway._apply(7, {**card(6), 'value': {**card(6)['value'], 'url': 'http://oak.example.test/'}})
+
+    def card_event(self, revision, thread='thread-one'):
+        return {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': thread, 'value': {
+            'surfaceId': 'plan', 'label': 'Plan ready', 'revision': revision,
+            'state': {'components': {'root': {'id': 'root', 'component': 'Text', 'text': 'Plan'}}, 'dataModel': {}},
+            'button_label': 'Open in Oak'}}
+
+    async def flush_cards(self, gateway=None):
+        gateway = gateway or self.gateway
+        for row in gateway._deliveries():
+            gateway._last_send.clear()
+            await gateway._render_delivery(row)
+
+    async def test_a2ui_card_only_missing_message_allows_replacement(self):
+        gateway = self.gateway
+        gateway._api = AsyncMock(return_value={'message_id': 31})
+        gateway._apply(7, self.card_event(1))
+        await self.flush_cards()
+        gateway._api = AsyncMock(side_effect=TelegramError('editMessageText', 400))
+        gateway._apply(7, self.card_event(2))
+        await self.flush_cards()
+        self.assertEqual(gateway._api.await_count, 1)
+        self.assertEqual(gateway._api.await_args.args[0], 'editMessageText')
+        self.assertEqual(gateway.db.execute('SELECT status FROM deliveries ORDER BY rowid DESC').fetchone()[0], 'failed')
+
+        for description, reason in (('Bad Request: message to edit not found', 'message_missing'),
+                                    ("Bad Request: message can't be edited", ''),
+                                    ('Bad Request: wrong file identifier', '')):
+            with self.subTest(description=description):
+                gateway._request_sync = Mock(return_value={'ok': False, 'error_code': 400, 'description': description})
+                with self.assertRaises(TelegramError) as error:
+                    await TelegramGateway._api(gateway, 'editMessageText', {'chat_id': 7})
+                self.assertEqual(error.exception.reason, reason)
+
+    async def test_a2ui_uncertain_initial_send_blocks_revisions_after_restart(self):
+        gateway = self.gateway
+        gateway._api = AsyncMock(side_effect=TelegramError('sendRichMessage'))
+        gateway._apply(7, self.card_event(1))
+        await self.flush_cards()
+        self.assertEqual(gateway._api.await_count, 1)
+        restarted = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
+        self.addCleanup(restarted.db.close)
+        restarted._api = AsyncMock(return_value={'message_id': 32})
+        restarted._apply(7, self.card_event(2))
+        await self.flush_cards(restarted)
+        restarted._api.assert_not_awaited()
+        self.assertEqual([row[0] for row in restarted.db.execute('SELECT status FROM deliveries ORDER BY rowid')],
+                         ['uncertain', 'uncertain'])
+        # A different conversation thread has a separate card identity.
+        restarted._apply(7, self.card_event(1, 'thread-two'))
+        await self.flush_cards(restarted)
+        restarted._api.assert_awaited_once()
+
+    async def test_a2ui_card_crash_before_send_does_not_replay_same_surface(self):
+        gateway = self.gateway
+        gateway._apply(7, self.card_event(1))
+        with gateway.db:
+            gateway.db.execute("UPDATE deliveries SET status='sending'")
+        restarted = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
+        self.addCleanup(restarted.db.close)
+        restarted._api = AsyncMock()
+        restarted._apply(7, self.card_event(2))
+        await self.flush_cards(restarted)
+        restarted._api.assert_not_awaited()
+
+    async def test_a2ui_card_unknown_edit_keeps_target_after_restart_and_older_revision_cannot_regress(self):
+        gateway = self.gateway
+        gateway._api = AsyncMock(return_value={'message_id': 31})
+        gateway._apply(7, self.card_event(1))
+        await self.flush_cards()
+        gateway._deliver = AsyncMock(side_effect=TelegramError('editMessageText'))
+        gateway._apply(7, self.card_event(2))
+        await self.flush_cards()
+        receipt = json.loads(gateway.db.execute('SELECT receipt FROM deliveries ORDER BY rowid DESC').fetchone()[0])
+        self.assertEqual(receipt['message_id'], 31)
+        gateway = TelegramGateway(self.controller, 'fake-token', {7}, Path(self.temp.name))
+        self.addCleanup(gateway.db.close)
+        gateway._api = AsyncMock(return_value={'message_id': 31})
+        gateway._apply(7, self.card_event(4))
+        gateway._apply(7, self.card_event(3))
+        await self.flush_cards(gateway)
+        gateway._api.assert_awaited_once()
+        self.assertEqual(gateway._api.await_args.args[0], 'editMessageText')
+        self.assertEqual(gateway._api.await_args.args[1]['message_id'], 31)
+        self.assertEqual([row[0] for row in gateway.db.execute('SELECT status FROM deliveries ORDER BY rowid')],
+                         ['delivered', 'uncertain', 'delivered', 'superseded'])
+
+    def deleted_card_event(self, revision):
+        return {'type': 'CUSTOM', 'name': 'a2ui_card', 'threadId': 'thread-one', 'value': {
+            'surfaceId': 'plan', 'label': 'Closed', 'deleted': True, 'revision': revision}}
+
+    async def test_a2ui_delayed_delete_cannot_close_newer_recreated_card(self):
+        gateway = self.gateway
+        gateway._api = AsyncMock(return_value={'message_id': 31})
+        gateway._apply(7, self.card_event(1))
+        await self.flush_cards()
+        gateway._apply(7, self.card_event(3))
+        await self.flush_cards()
+        gateway._api.reset_mock()
+        gateway._apply(7, self.deleted_card_event(2))
+        await self.flush_cards()
+        gateway._api.assert_not_awaited()
+        self.assertEqual(gateway.db.execute('SELECT status FROM deliveries ORDER BY rowid DESC').fetchone()[0], 'superseded')
+
+        gateway._apply(7, self.deleted_card_event(5))
+        await self.flush_cards()
+        self.assertEqual(gateway._api.await_count, 1)
+        self.assertEqual(gateway._api.await_args.args[1]['message_id'], 31)
+        gateway._apply(7, self.card_event(4))
+        await self.flush_cards()
+        self.assertEqual(gateway._api.await_count, 1)
+        gateway._apply(7, self.card_event(6))
+        await self.flush_cards()
+        self.assertEqual(gateway._api.await_count, 2)
+        self.assertEqual(gateway._api.await_args.args[1]['message_id'], 31)
+
+    async def test_a2ui_noop_tombstone_blocks_late_old_card_but_allows_newer_recreation(self):
+        gateway = self.gateway
+        gateway._api = AsyncMock(return_value={'message_id': 31})
+        gateway._apply(7, self.deleted_card_event(2))
+        await self.flush_cards()
+        gateway._apply(7, self.card_event(1))
+        await self.flush_cards()
+        gateway._api.assert_not_awaited()
+        gateway._apply(7, self.card_event(3))
+        await self.flush_cards()
+        gateway._api.assert_awaited_once()
+        self.assertEqual(gateway._api.await_args.args[0], 'sendRichMessage')
 
     async def test_topic_intake_restores_workers_and_stop_leaves_other_topics_running(self):
         entered, other_entered = asyncio.Event(), asyncio.Event()
@@ -565,6 +790,7 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_artifact_root_validation_and_durable_receipt(self):
         gateway = self.gateway
+        self.controller.tools.files = None
         root = Path(self.temp.name) / 'artifacts'
         root.mkdir()
         artifact = root / 'report.txt'

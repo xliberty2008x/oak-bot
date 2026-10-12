@@ -28,10 +28,17 @@ class EventBus:
     def add_sink(self, sink):
         self.sinks.append(sink)
 
-    def artifact_path(self, chat_id, identifier):
+    async def artifact_path(self, chat_id, identifier):
         row = self.db.execute('SELECT path FROM artifacts WHERE id=? AND chat_id=?', (identifier, chat_id)).fetchone()
         if not row:
             raise ValueError('Unknown artifact.')
+        files = getattr(self.controller.tools, 'files', None)
+        if files:
+            path = await files.snapshot(row[0])
+            if str(path) != row[0]:
+                with self.db:
+                    self.db.execute('UPDATE artifacts SET path=? WHERE id=? AND chat_id=?', (str(path), identifier, chat_id))
+            return path
         return self.controller.tools.file(row[0])
 
     async def emit(self, chat_id, event):
@@ -43,12 +50,14 @@ class EventBus:
         if event.get('type') == 'CUSTOM' and event.get('name') == 'artifact':
             value = dict(event['value'])
             if value.get('path'):
-                path = self.controller.tools.file(value['path'])
+                files = getattr(self.controller.tools, 'files', None)
+                path = await files.snapshot(value['path']) if files else self.controller.tools.file(value['path'])
                 identifier = uuid.uuid4().hex
-                mime = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+                name = Path(value['path']).name
+                mime = mimetypes.guess_type(name)[0] or 'application/octet-stream'
                 with self.db:
-                    self.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)', (identifier, chat_id, str(path), path.name, mime))
-                event['value'] = {'id': identifier, 'name': path.name, 'mime': mime,
+                    self.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)', (identifier, chat_id, str(path), name, mime))
+                event['value'] = {'id': identifier, 'name': name, 'mime': mime,
                                   'caption': value.get('caption', ''), 'url': '/api/artifacts/' + identifier}
         validate_event(event)
         with self.db:

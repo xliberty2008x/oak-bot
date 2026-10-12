@@ -1,33 +1,13 @@
-// oak-a2ui-dom@1.0.0; A2UI v0.9.1 / urn:oak:a2ui:canonical:v1.
+// oak-a2ui-lit@1.1.0; A2UI v0.9.1 / urn:oak:a2ui:canonical:v1.
 // Restricted Oak catalogue. Model HTML, URLs, styles and functions are never rendered.
-const VERSION = 'v0.9.1', RENDERER = 'oak-a2ui-dom@1.0.0', CATALOG = 'urn:oak:a2ui:canonical:v1';
-const kinds = new Set(['Card', 'Column', 'Text', 'TextField', 'ChoicePicker', 'Button']);
+import {createFormControl} from './form-controls.js';
+const VERSION = 'v0.9.1', RENDERER = 'oak-a2ui-lit@1.1.0', CATALOG = 'urn:oak:a2ui:canonical:v1';
 function node(tag, text, className) {
   const element = document.createElement(tag);
   if (text !== undefined) element.textContent = text;
   if (className) element.className = className;
   return element;
 }
-function parts(path) {
-  if (typeof path !== 'string' || !path.startsWith('/') || /~(?![01])/.test(path)) throw new Error('Invalid path');
-  const keys = path.slice(1).split('/').map(key => key.replaceAll('~1', '/').replaceAll('~0', '~'));
-  if (keys.some(key => !key || ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Unsafe path');
-  return keys;
-}
-const read = (model, path) => parts(path).reduce((value, key) => value && typeof value === 'object' && Object.hasOwn(value, key) ? value[key] : undefined, model);
-function write(model, path, value) {
-  const keys = parts(path); let parent = model;
-  const plain = value => value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
-  for (const key of keys.slice(0, -1)) {
-    if (!plain(parent)) throw new Error('Invalid binding parent');
-    if (!Object.hasOwn(parent, key)) parent[key] = {};
-    parent = parent[key];
-  }
-  if (!plain(parent)) throw new Error('Invalid binding parent');
-  parent[keys.at(-1)] = value;
-}
-const resolve = (value, model) => value && typeof value === 'object' ? read(model, value.path) : value;
-
 // Contextual requests reuse the canonical field widgets, with a distinct transport.
 export function renderRequestFields(container, presentation) {
   if (presentation.catalogId !== CATALOG || presentation.version !== VERSION || !Array.isArray(presentation.fields) || presentation.fields.length > 3) throw new Error('Unsupported request form');
@@ -35,13 +15,10 @@ export function renderRequestFields(container, presentation) {
   const controls = new Map();
   for (const field of presentation.fields) {
     if (!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(field.id)) throw new Error('Invalid request field');
-    const wrapper = node('div', undefined, 'a2ui-field'), label = node('label', field.label);
-    const control = node(field.options ? 'select' : 'input');
-    control.id = 'request-field-' + field.id; label.htmlFor = control.id; control.required = true;
-    if (field.options) {
-      const empty = node('option', 'Обери варіант'); empty.value = ''; control.append(empty);
-      for (const value of field.options) { const option = node('option', value); option.value = value; control.append(option); }
-    } else { control.type = 'text'; control.maxLength = 2000; control.autocomplete = 'off'; }
+    const wrapper = node('div', undefined, 'a2ui-field');
+    const {label, control} = createFormControl({id: 'request-field-' + field.id,
+      label: field.label, type: field.options ? 'select' : 'text', required: true,
+      options: field.options?.map(value => ({value, label: value}))});
     wrapper.append(label, control); container.append(wrapper); controls.set(field.id, control);
   }
   return () => {
@@ -49,85 +26,33 @@ export function renderRequestFields(container, presentation) {
     return Object.fromEntries([...controls].map(([key, control]) => [key, control.value]));
   };
 }
-function reconcile(parent, children) {
-  children.forEach((child, index) => { if (parent.children[index] !== child) parent.insertBefore(child, parent.children[index] || null); });
-  while (parent.children.length > children.length) parent.lastElementChild.remove();
-}
-
-export function createA2UIPanel({api, available, epoch, busy, setBusy, target = () => null, targetHandled = () => {}}) {
+export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy, target = () => null, targetHandled = () => {}}) {
   const section = document.getElementById('a2ui-panel'), content = document.getElementById('a2ui-surfaces'), status = document.getElementById('a2ui-status');
   const surfaces = new Map();
-  let loading = false, actionBusy = false, generation = 0, serverBusy = false, targetNotice = '';
+  let loading = false, actionBusy = false, generation = 0, serverBusy = false, targetNotice = '', renderer = null;
+  async function getRenderer() {
+    if (renderer) return renderer;
+    const startGeneration = generation, module = await import('/vendor/a2ui/runtime.js');
+    if (generation !== startGeneration) throw new Error('Session changed');
+    renderer ||= module.createCanonicalRenderer(action => {
+      const surface = surfaces.get(action.surfaceId); if (surface) void act(surface, action);
+    }, {artifact});
+    return renderer;
+  }
   function notice(text, error = false) { status.textContent = text; status.classList.toggle('error-message', error); }
   function disable() {
-    for (const surface of surfaces.values()) for (const control of surface.element.querySelectorAll('button,input,select')) {
-      control.disabled = busy() || actionBusy || serverBusy || surface.consumed || Date.now() / 1000 >= surface.expires;
-    }
+    for (const surface of surfaces.values()) renderer?.disable(surface.id,
+      busy() || actionBusy || serverBusy || surface.consumed || Date.now() / 1000 >= surface.expires);
   }
-  function render(surface) {
-    const visited = new Set();
-    function build(id, ancestors = new Set()) {
-      if (ancestors.has(id) || visited.has(id) || ancestors.size > 16) throw new Error('Invalid component graph');
-      const item = Object.hasOwn(surface.components, id) ? surface.components[id] : null;
-      if (!item) return node('p', 'Oak готує цей елемент…', 'hint');
-      if (visited.size >= 64) throw new Error('Invalid component graph');
-      visited.add(id);
-      if (!kinds.has(item.component)) throw new Error('Unsupported component');
-      let element = surface.nodes.get(id);
-      if (element?.dataset.kind !== item.component) {
-        element = node(item.component === 'Button' ? 'button' : item.component === 'Text' ? 'p' : 'div');
-        element.dataset.kind = item.component; surface.nodes.set(id, element);
-      }
-      if (item.component === 'Card' || item.component === 'Column') {
-        element.className = item.component === 'Card' ? 'topic-form a2ui-card' : 'a2ui-column';
-        reconcile(element, (item.component === 'Card' ? [item.child] : item.children).map(child => build(child, new Set([...ancestors, id]))));
-      } else if (item.component === 'Text') {
-        element.className = item.variant === 'hint' ? 'hint' : item.variant === 'heading' ? 'a2ui-heading' : 'a2ui-text';
-        const text = resolve(item.text, surface.dataModel);
-        if (text != null && typeof text !== 'string') throw new Error('Invalid text binding');
-        element.textContent = text || '';
-      } else if (item.component === 'TextField' || item.component === 'ChoicePicker') {
-        element.className = 'a2ui-field';
-        const inputId = 'a2ui-' + surface.id + '-' + id;
-        let label = element.querySelector('label'), control = element.querySelector('input,select');
-        if (!control) {
-          label = node('label'); label.htmlFor = inputId;
-          control = node(item.component === 'TextField' ? 'input' : 'select'); control.id = inputId;
-          control.addEventListener('input', () => {
-            const current = surface.components[id];
-            const value = current.component === 'TextField' ? control.value : control.value ? [control.value] : [];
-            write(surface.dataModel, current.value.path, value); surface.inputs[current.value.path] = value;
-          });
-          element.replaceChildren(label, control);
-        }
-        label.textContent = item.label; control.required = item.required === true;
-        if (item.component === 'TextField') { control.type = 'text'; control.maxLength = 2000; control.autocomplete = 'off'; }
-        else {
-          const options = [node('option', 'Обери варіант')]; options[0].value = '';
-          for (const choice of item.options) { const option = node('option', choice.label); option.value = choice.value; options.push(option); }
-          control.replaceChildren(...options);
-        }
-        const value = read(surface.dataModel, item.value.path);
-        control.value = item.component === 'TextField' ? typeof value === 'string' ? value : '' : Array.isArray(value) ? value[0] || '' : '';
-        if (value == null) write(surface.dataModel, item.value.path, item.component === 'TextField' ? '' : []);
-      } else if (item.component === 'Button') {
-        element.type = 'button'; element.className = item.variant === 'quiet' ? 'quiet' : item.variant === 'danger' ? 'danger' : '';
-        element.textContent = item.label; element.onclick = () => { void act(surface, id); };
-      }
-      return element;
-    }
-    reconcile(surface.element, [build('root')]);
-    for (const id of surface.nodes.keys()) if (!visited.has(id)) surface.nodes.delete(id);
-    disable();
-  }
-  async function act(surface, id) {
+  function render(surface, incoming) {surface.element = renderer.update(incoming);disable();}
+  async function act(surface, action) {
     if (!available() || busy() || actionBusy || serverBusy || surface.consumed) return;
-    const event = surface.components[id].action.event;
-    if (event.name !== 'cancel') for (const control of surface.element.querySelectorAll('input,select')) if (!control.reportValidity()) return;
+    if (Date.now() / 1000 >= surface.expires) return;
+    if (action.name !== 'cancel') for (const control of surface.element.querySelectorAll('input,select')) if (!control.reportValidity()) return;
     const startEpoch = epoch(), startGeneration = generation;
-    const context = Object.fromEntries(Object.entries(event.context || {}).map(([key, value]) => [key, resolve(value, surface.dataModel) ?? null]));
-    const data = {requestId: crypto.randomUUID(), revision: surface.revision, inputs: surface.inputs,
-      message: {version: VERSION, action: {name: event.name, surfaceId: surface.id, sourceComponentId: id, timestamp: new Date().toISOString(), context}}};
+    const {name, surfaceId, sourceComponentId, timestamp, context} = action;
+    const data = {requestId: crypto.randomUUID(), revision: surface.revision, inputs: renderer.inputs(surface.id),
+      message: {version: VERSION, action: {name, surfaceId, sourceComponentId, timestamp, context}}};
     actionBusy = true; setBusy(true); surface.consumed = true; disable(); notice('Передаємо відповідь Oak…');
     try {
       const result = await api('/api/a2ui/action', data);
@@ -148,25 +73,32 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy, target = 
       const value = await api('/api/a2ui');
       if (epoch() !== startEpoch || generation !== startGeneration || !available()) return;
       if (value.protocol !== VERSION || value.renderer !== RENDERER || value.catalogId !== CATALOG || !Array.isArray(value.surfaces) || value.surfaces.length > 4) throw new Error('Unsupported protocol');
+      await getRenderer();
+      if (epoch() !== startEpoch || generation !== startGeneration || !available()) return;
       serverBusy = value.busy === true;
       const ids = new Set();
       for (const incoming of value.surfaces) {
-        if (!/^[A-Za-z0-9_-]{1,64}$/.test(incoming.id) || !Number.isSafeInteger(incoming.revision) || incoming.revision < 1 || !incoming.components || !incoming.dataModel) throw new Error('Invalid surface');
+        if (!incoming || !/^[A-Za-z0-9_-]{1,64}$/.test(incoming.id) || ids.has(incoming.id)
+            || !Number.isSafeInteger(incoming.revision) || incoming.revision < 1
+            || typeof incoming.consumed !== 'boolean' || !Number.isFinite(incoming.expires)
+            || !incoming.components || Array.isArray(incoming.components)
+            || !incoming.dataModel || Array.isArray(incoming.dataModel)) throw new Error('Invalid surface');
         ids.add(incoming.id);
         let surface = surfaces.get(incoming.id);
         if (!surface) {
-          surface = {id: incoming.id, element: node('div'), nodes: new Map(), inputs: {}};
-          surface.element.id = 'a2ui-surface-' + incoming.id; surface.element.tabIndex = -1;
-          surface.element.setAttribute('role', 'group'); surface.element.setAttribute('aria-label', 'Картка від Oak');
+          surface = {id: incoming.id};
           surfaces.set(incoming.id, surface);
         }
         if (surface.revision !== incoming.revision) {
-          Object.assign(surface, incoming, {inputs: {}}); render(surface);
-          notice(serverBusy ? 'Oak ще працює…' : 'Форма для вибраної сесії. Відповідь повернеться Oak у Telegram.');
+          Object.assign(surface, {revision:incoming.revision,consumed:incoming.consumed,expires:incoming.expires}); render(surface,incoming);
+          const form = Object.values(incoming.components).some(item => ['TextField', 'ChoicePicker', 'Button'].includes(item?.component));
+          notice(serverBusy ? 'Oak ще працює…' : form ? 'Форма для вибраної сесії. Відповідь повернеться Oak у Telegram.' : 'Картка від Oak для вибраної сесії.');
         } else { surface.consumed ||= incoming.consumed; surface.expires = incoming.expires; }
       }
-      for (const [id, surface] of surfaces) if (!ids.has(id)) { surface.element.remove(); surfaces.delete(id); }
-      reconcile(content, [...surfaces.values()].map(surface => surface.element));
+      for (const [id, surface] of surfaces) if (!ids.has(id)) { renderer.remove(id); surfaces.delete(id); }
+      [...surfaces.values()].forEach((surface, index) => {
+        if (content.children[index] !== surface.element) content.insertBefore(surface.element, content.children[index] || null);
+      });
       const requested = target(), linked = requested ? surfaces.get(requested) : null;
       if (requested) {
         targetHandled();
@@ -183,9 +115,10 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy, target = 
       if (epoch() === startEpoch && generation === startGeneration && available()) { serverBusy = true; disable(); if (target()) section.hidden = false; notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
     } finally { if (generation === startGeneration) loading = false; }
   }
-  function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
+  function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; renderer?.dispose(); renderer = null; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
   const timer = setInterval(() => { void refresh(); }, 3000);
-  window.addEventListener('pagehide', () => clearInterval(timer), {once: true});
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
+  const visibility = () => {if (!document.hidden) void refresh();};
+  document.addEventListener('visibilitychange', visibility);
+  window.addEventListener('pagehide', () => {clearInterval(timer);document.removeEventListener('visibilitychange',visibility);reset();}, {once: true});
   return {refresh, reset, disable};
 }

@@ -1,0 +1,52 @@
+{
+  "source_commit": "af37820f54a7c4098713c6c8f653c0dbf9e26058",
+  "brotli_wheel_sha256": "acec55bb7c90f1dfc476126f9711a8e81c9af7fb617409a9ee2953115343f08d",
+  "code_root": "/opt/oak-executor/releases/f81e21c0913aadbf53db",
+  "policy_digest": "0fae3ce9fe5290cbd610eeafe0f23c557e5e822b916214cab2e8cea6858fbfe8",
+  "profile_sha256": "47d986217ce757ea46a53a98dcd83ac22662146c93e856de42aa257ae13ee5ca",
+  "broker_config_sha256": "456adca7c35e6ae0f23be403b31ec620c82fb0bcae0ca2f4be2fb7dba5fd87bf",
+  "manifest_entries": 144,
+  "verified_at": "2026-10-12T18:24:56.316031+00:00",
+  "product_digest": "02c4260f0bb1a2a9d88405be3773a37b4db08e7e87896ae71c8a3d3d97835452",
+  "manifest_files_match": 144,
+  "boundary_checks": {
+    "uid": true,
+    "private_pid": true,
+    "no_privileges": true,
+    "code_readonly": true,
+    "trusted_files_denied": true,
+    "host_proc_denied": true,
+    "sockets_denied": true,
+    "private_network_denied": true,
+    "native_policy": true,
+    "firewall_active": true
+  },
+  "boundary_accepted_at": 1791829411,
+  "brotli_version": "1.2.0",
+  "https_assets": [
+    {
+      "asset": "oak/login_web/login.js",
+      "sha256": "5712501c466dc63a85c94583c3259cf199b63e227c74f807cc07b0bec400c1d0",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/login_web/login.css",
+      "sha256": "17ddf3c81861018243c4ac8ce2963a7b9747cb4baa7fe55059f5b8aa89692b2c",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/requests.js",
+      "sha256": "06d6ad69b78d85bf5fc872aaf745fc408e044bbe0ec4daa8e097ef4bff546fda",
+      "https_status": 200,
+      "cache_control": "no-store"
+    },
+    {
+      "asset": "oak/web/style.css",
+      "sha256": "9e82baee5955d91f125f59bf1ae6caed3c55b0f960fe6f20322ef3d1bd46e701",
+      "https_status": 200,
+      "cache_control": "no-store"
+    }
+  ]
+}

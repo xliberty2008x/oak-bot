@@ -1,0 +1,17 @@
+{
+  "source_commit": "62b2305a9e37cf293205bb7c51829b348037df3c",
+  "release": "7cc76720af24baf1844f",
+  "runtime_digest": "a9dcdae2e9b8d8f223686e53b58ba3e3f84f94e157b9d77312a44f8422799dbd",
+  "runtime_files": 125,
+  "broker_config_sha256": "d0b5491842eda528b61cfbae7126c46b19467fec1a8b2106f740cdb47f1411fe",
+  "anonymous_static_resources": false,
+  "network_scope_changed": false,
+  "boundary_verified": true,
+  "broker_health_ready": true,
+  "gateway_restarts_after_cutover": 0,
+  "preexisting_uncertain_intake_preserved": 5,
+  "negative_continuity_result": "passed",
+  "negative_continuity_receipt_sha256": "e18604e9d0f32ceb2be28d6b07e65d12ecfa389bedcd32ba0c67ec4586612fae",
+  "owner_authentication_verified": false,
+  "owner_observation": "Email field appeared after 2\u20133 minutes; investigating native GPT latency and preparing Jev delegated comparison."
+}

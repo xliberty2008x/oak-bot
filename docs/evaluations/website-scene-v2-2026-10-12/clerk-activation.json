@@ -1,0 +1,25 @@
+{
+  "activation": "OpenRouter Clerk exact-host policy",
+  "all_files_match_installed_manifest": true,
+  "approval_hub_report": 5222,
+  "approval_question_item_id": [
+    "request_user_input_async",
+    "call_fae5f27ba1584ee39b68d9c5f33640fa",
+    0
+  ],
+  "approved_by_owner": true,
+  "auth_hosts": {
+    "https://openrouter.ai": [
+      "clerk.openrouter.ai"
+    ]
+  },
+  "broker_installer": "scripts/setup-website-forms.py --apply",
+  "broker_unit_unchanged": true,
+  "config_sha256": "d0b5491842eda528b61cfbae7126c46b19467fec1a8b2106f740cdb47f1411fe",
+  "other_settings_changed": false,
+  "owner_input_submitted": false,
+  "owner_login_verified": false,
+  "release": "/opt/oak-executor/releases/8164397942cfc32a075c",
+  "runtime_files": 124,
+  "runtime_sha256": "9c052e2b16e4a9f984a81376256b9ab811ec5cd7ee0c0c8682ffbf9075462a23"
+}

@@ -1,0 +1,32 @@
+{
+  "phase": "model_enabled_fixed_set_repeat",
+  "evaluated_runtime_source_commit": "71f966e57230b68971a44347a78882e31295ba9b",
+  "runtime_digest": "e0d3a9b7099e7444719032e06baa90fb620448a329ee4d79598368db6c844a0c",
+  "code_sha256": {
+    "oak/login_broker.py": "5ad933ea9b3cdbfb66aaf7efa9dac2a70540d3042939d74436622c826741920c",
+    "oak/signin_providers.py": "6f938919d91aa4f9252007a021bcf86986145c1721863035c75b8e4a7fbc65fd",
+    "oak/website_forms.py": "576960e44a0d3a807f9ce0ce8e23c05d3aeffc9c11f0a6fa2478af45d73e228f",
+    "oak/website_resources.py": "106f9c8c6cab5fa43b02f9b73181248d9f6104979345813883439374c679f268",
+    "oak/website_ui.py": "7a6e3b0481c111624388c1a2c1e7641a5d8105e33a8a05e875d34034a87e8066",
+    "oak/website_planner.py": "a3a3bf0525bbcca9b93154425e62504f5e85a62d377aa177e0675a3a307093d1",
+    "oak/website_composer.py": "26bfa931705b6f6ecbf1bd951e0da2ffb88e45f464af936730c42e6f31b3fb6e",
+    "oak/executor.py": "6bb37b8960235bdeafd2548babf5b8c874b8de6c2d2a0d7a74a7a062056de50f"
+  },
+  "selection_sha256": "c85b624a59f38e98fb0d5d1c18c2704b068cbd2fd59ea41e0606985ecadf3ac4",
+  "runner_sha256": "52babb58e333ef1e3294de0cf1b55f6fbd78ef5f974249b97ffdbab2a6423801",
+  "before_metrics_sha256": "a5082d33946e8dfd51851183388dfe31d75952eb095d55a30bb7979b20531829",
+  "before_broker_receipt_sha256": "8649129d46f17b06fd7f796365353629714b7de57d25077cd0cc5b461720d205",
+  "configured_expected_max_calls": 12,
+  "max_form_requests": 36,
+  "max_possible_decisions_requests": 72,
+  "max_possible_decisions_without_method_step": 48,
+  "monetary_cap_usd": null,
+  "model_telemetry": "not_exposed_by_pinned_broker_api",
+  "credentials_read_by_runner": false,
+  "attempts_executed_by_preparer": 0,
+  "awaits_root_run_authorization": true,
+  "same_dataset_not_new_holdout": true,
+  "observations_per_attached_lease": 2,
+  "optional_public_method_steps_per_lease": 1,
+  "network_or_source_changes_by_preparer": false
+}

@@ -1,0 +1,1 @@
+{"api_attempts": 2, "checks": [{"expected_group_selected": true, "site": "synthetic_new_password_hint"}], "error_code": "composition_unavailable", "error_type": "RecoverableFormError", "kind": "real_jev_and_public_site_check", "max_api_attempts": 4, "owner_login_verified": false, "reported_cost_usd": 3.5616e-05, "status": "failed"}

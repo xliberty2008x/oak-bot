@@ -1,5 +1,8 @@
 # Oak documentation
 
+- [UI design and reuse contract](../DESIGN.md): required reading before UI, form, renderer or frontend dependency changes; current implementation versus evaluation.
+- [A2UI cards](a2ui.md): pinned protocol, restricted Oak catalogue and ordinary actions.
+- [Website UI architecture](website-ui-architecture.md): private forms, shared widgets and upstream dependency evidence.
 - [Fresh VM bootstrap](bootstrap.md): machine provisioning, managed desktop, account setup, gateway and readiness.
 - [Architecture](design.md): runtime, controller, tools, scheduling and delivery.
 - [Configuration](configuration.md): private deployment settings, voice models and memory import.

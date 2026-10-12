@@ -16,6 +16,7 @@ Mini App. There is no automatic API-key or model fallback.
 | Conversation | Streaming replies, ongoing-task steering, cancellation and persistent sessions |
 | Telegram | Private-chat allowlist, rich messages, safe classic fallback, typing, photos/files/voice input and durable delivery |
 | Web / Mini App | Owner-authenticated control panel: Telegram sessions, task controls, per-session model choice and runtime integration status |
+| Cards | Agent-composed metrics, splits, tables, charts, images and forms; rich Telegram messages edited in place and full layout in the Mini App ([A2UI](docs/a2ui.md)) |
 | Events | Durable AG-UI event stream with independent conversation/run subscribers and separate tool results |
 | Memory | Per-conversation notes, full-text retrieval, forgetting and selected-file import |
 | Scheduling | One-time reminders, recurring reminders and scheduled assistant tasks |
@@ -40,8 +41,10 @@ desktop is accessible to the agent and is not an isolated credential channel.
 
 ## Setup
 
-Start with a fresh Ubuntu 24.04 or Debian 12/13 amd64 VM, a normal user with
-`sudo`, and Git. The repository includes an agent-readable
+Start with a fresh Ubuntu 24.04 or Debian 12/13 amd64 VM, or Ubuntu 22.04 ARM64
+(`aarch64`), a normal user with `sudo`, and Git. Provide Python 3.11+ as `python3`
+on `PATH` before installation; Ubuntu 22.04's default Python is too old.
+The repository includes an agent-readable
 [bootstrap skill](.agents/skills/oak-bootstrap/SKILL.md) and an executable installer
 for the machine, desktop, browser, voice and gateway.
 
@@ -81,8 +84,11 @@ Contextual forms and the synthetic broker are reproducible from a reviewed
 feature revision with `./scripts/bootstrap.sh --features-only --verify-broker`.
 This verifies ordinary submit/cancel and dummy login/OTP/cancel without account
 access or a live bot. Full VM bootstrap runs protocol checks before account
-access; add `--verify-broker` for Chromium. Instagram remains disabled until a
-trusted credential channel is separately verified. See [bootstrap feature checks](docs/bootstrap.md#reproduce-the-feature-checks-without-an-account).
+access; add `--verify-broker` for Chromium. Real website forms require a separately
+provisioned execution boundary and private broker. The agent can build forms from
+current website controls with `oak_website_form`; Google and Instagram also have
+provider-verification shortcuts. See [dynamic website forms](docs/website-forms.md)
+and [bootstrap feature checks](docs/bootstrap.md#reproduce-the-feature-checks-without-an-account).
 
 ## Use in Telegram
 

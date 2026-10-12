@@ -1064,6 +1064,39 @@ async function desktopPanel() {
   if (!$("view-desktop").hidden && !$("workspace").hidden) await panel?.refresh();
 }
 
+async function artifact(id, {signal} = {}) {
+  if (!/^[a-f0-9]{32}$/.test(id)) throw new Error("Зображення недоступне.");
+  const epoch = sessionEpoch, controller = new AbortController(), limit = 10 * 1024 * 1024;
+  const abort = () => controller.abort(), timeout = setTimeout(abort, 30000);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, {once: true});
+  let reader;
+  try {
+    const response = await fetch("/api/artifacts/" + encodeURIComponent(id), {credentials: "same-origin", signal: controller.signal,
+      cache: "no-store", redirect: "error", headers: sessionToken ? {Authorization: "Bearer " + sessionToken} : {}});
+    const type = (response.headers.get("Content-Type") || "").split(";", 1)[0].trim().toLowerCase();
+    const length = Number(response.headers.get("Content-Length"));
+    if (!response.ok || epoch !== sessionEpoch || controller.signal.aborted ||
+        !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(type) ||
+        !Number.isFinite(length) || length < 0 || length > limit || !response.body) throw new Error("Зображення недоступне.");
+    reader = response.body.getReader();
+    const chunks = []; let size = 0;
+    while (true) {
+      const {done, value} = await reader.read();
+      if (epoch !== sessionEpoch || controller.signal.aborted) throw new Error("Зображення недоступне.");
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) throw new Error("Зображення недоступне.");
+      chunks.push(value);
+    }
+    return new Blob(chunks, {type});
+  } finally {
+    controller.abort();
+    if (reader) {try {await reader.cancel();} catch {} reader.releaseLock();}
+    clearTimeout(timeout); signal?.removeEventListener("abort", abort);
+  }
+}
+
 async function dynamicPanel() {
   if (document.querySelector("dialog[open]")) return;
   if (surfaceLaunch && initialConversation === null && sessionsData && authenticated && !$("workspace").hidden && !surfaceLaunch.opened) {
@@ -1071,7 +1104,7 @@ async function dynamicPanel() {
     if (!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !$("confirmation").open) showView("status", false);
   }
   if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
-    a2uiPanel = module.createA2UIPanel({api,
+    a2uiPanel = module.createA2UIPanel({api, artifact,
       available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden && !document.querySelector("dialog[open]"),
       epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
       target: () => surfaceLaunch?.conversation === selectedSession ? surfaceLaunch.id : null,

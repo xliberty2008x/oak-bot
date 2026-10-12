@@ -1,0 +1,29 @@
+{
+  "source_commit": "71f966e57230b68971a44347a78882e31295ba9b",
+  "generated_at": "2026-10-11T20:25:30.474891+00:00",
+  "files": {
+    "acceptance-plan.json": "465edbe7a14ac699a25e30e2c4c616a8f3e6cda1b3a63449791b17586c600c01",
+    "broker-results.jsonl": "8649129d46f17b06fd7f796365353629714b7de57d25077cd0cc5b461720d205",
+    "diagnostic-results.jsonl": "e69b9caf16844b020a80aba6bfbdfaffe6fb9ce0c3f0c2810e3067391efe00fe",
+    "metrics.json": "a5082d33946e8dfd51851183388dfe31d75952eb095d55a30bb7979b20531829",
+    "run-broker-baseline.py": "274aabae24571c6407a5ade6fff55058e6c7349139b6b2a3a62d04d23f89b560",
+    "runner-manifest.json": "545a2e285bdcfd6f9f3c25aa4a14ef26165b826383905043086a99a61bf05672",
+    "selection.json": "c85b624a59f38e98fb0d5d1c18c2704b068cbd2fd59ea41e0606985ecadf3ac4",
+    "README.md": "5afe5776dc9db130ee17384f7ca4f98d44d64c3a5a082d9837cdbca649d62bd8"
+  },
+  "original_local_diagnostic_receipt_sha256": "a8b4c1c8a1ba414a0176f4646f8ed3efcef638d2a9d53a7f39e1f5b5c1b6b6d6",
+  "sanitization": {
+    "diagnostic-results.jsonl": [
+      "code_root",
+      "execution_uid",
+      "execution_gid",
+      "broker_config_sha256",
+      "profile_sha256"
+    ],
+    "acceptance-plan.json": [
+      "deployment release ID removed",
+      "post-run eligibility clarification added"
+    ]
+  },
+  "runner": "Byte-identical to the executed broker runner; diagnostic script remains in local task evidence."
+}

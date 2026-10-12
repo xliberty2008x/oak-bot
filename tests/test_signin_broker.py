@@ -269,8 +269,15 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         self.broker.browser_factory = SlowBrowser
         launch = await self.launch()
         lease = self.broker.leases[launch['request_id']]
-        lease.binding = replace(lease.binding,expires=time.time()+0.01)
-        response = await self.attach(launch)
+        operation = self.broker.operation
+        async def expiring_operation(current, function):
+            # Begin the deadline at the operation, not before the test HTTP
+            # request is scheduled; otherwise a loaded host can reject attach
+            # before this test ever reaches browser startup.
+            current.binding = replace(current.binding, expires=time.time() + 0.01)
+            return await operation(current, function)
+        with patch.object(self.broker, 'operation', side_effect=expiring_operation):
+            response = await self.attach(launch)
         self.assertEqual(response.status,409)
         self.assertEqual(lease.state,'expired')
         self.assertEqual(lease.cleanup,'confirmed')

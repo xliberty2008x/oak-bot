@@ -66,7 +66,11 @@ class InputRequests:
         epoch = getattr(controller.client, 'runtime_epoch', None)
         self.epoch = epoch if isinstance(epoch, str) else uuid.uuid4().hex
         self.waiters = {}
+        # Workspaces outlive individual native tool calls, not their task/epoch.
+        # This authority is never reconstructed from model-provided form JSON.
+        self.website_workspaces = set()
         self.broker = None
+        self.website_login = None
         self.db.executescript('''
             CREATE TABLE IF NOT EXISTS input_requests (
                 id TEXT PRIMARY KEY, owner INTEGER NOT NULL, chat_id INTEGER NOT NULL,
@@ -105,10 +109,16 @@ class InputRequests:
 
     def _live(self, row):
         c = self.controller
+        workspace = row['id'] in self.website_workspaces
+        owner = c.sessions.owner(row['chat_id'])
+        if owner is None and self.db.execute("SELECT 1 FROM sqlite_master WHERE name='web_conversations'").fetchone():
+            conversation = self.db.execute('SELECT owner FROM web_conversations WHERE chat_id=?', (row['chat_id'],)).fetchone()
+            owner = conversation[0] if conversation else None
         return (row['runtime_epoch'] == self.epoch and not c.sessions.deleted(row['chat_id'])
                 and c.threads.get(row['chat_id']) == row['thread_id']
                 and c.active.get(row['chat_id']) == row['turn_id']
-                and row['id'] in self.waiters and not self.waiters[row['id']].done())
+                and (workspace and owner == row['owner'] or
+                     row['id'] in self.waiters and not self.waiters[row['id']].done()))
 
     def _response(self, row, outcome, values=None):
         if row['adapter'] == 'questions':
@@ -123,23 +133,37 @@ class InputRequests:
                 provider = json.loads(row['form']).get('provider', 'instagram')
                 simulated = provider == 'oak_synthetic'
                 response = {'outcome': outcome, 'provider': provider,
-                            'authenticated': simulated and outcome == 'authenticated',
+                            'authenticated': outcome == 'authenticated' and (simulated or
+                                (provider in {'google', 'instagram', 'website'} and self.website_login is not None)),
                             'reason': 'synthetic_login_verified' if simulated and outcome == 'authenticated'
-                                      else ('synthetic_login_' + outcome if simulated else 'trusted_channel_unavailable')}
+                                      else ('website_login_verified' if not simulated and outcome == 'authenticated'
+                                            else ('synthetic_login_' + outcome if simulated else 'website_login_' + outcome
+                                                  if self.website_login else 'trusted_channel_unavailable'))}
                 if simulated:
                     response['simulated'] = True
+                elif self.website_login:
+                    response.update(request_id=row['id'], destination=json.loads(row['form'])['destination'],
+                                    session_available=outcome in {'authenticated', 'owner_confirmed'},
+                                    confirmation='provider' if outcome == 'authenticated' else
+                                                 'owner' if outcome == 'owner_confirmed' else None)
         return response
+
+    def broker_for(self, row):
+        provider = json.loads(row['form']).get('provider') if row['kind'] == 'sign_in' else None
+        return self.broker if provider == 'oak_synthetic' else self.website_login if provider in {'google', 'instagram', 'website'} else None
 
     def _terminal(self, row, outcome, values=None):
         response = self._response(row, outcome, values)
+        delivery = 'not_required' if row['id'] in self.website_workspaces else 'ready'
         with self.db:
-            changed = self.db.execute("UPDATE input_requests SET outcome=?,response=?,delivery='ready' "
-                                      "WHERE id=? AND outcome='pending'", (outcome, bounded(response), row['id'])).rowcount
+            changed = self.db.execute("UPDATE input_requests SET outcome=?,response=?,delivery=? "
+                                      "WHERE id=? AND outcome='pending'", (outcome, bounded(response), delivery, row['id'])).rowcount
         future = self.waiters.get(row['id'])
         if changed and future is not None and not future.done():
             future.set_result(response)
-        if changed and self.broker:
-            self.broker.revoke(row['id'])
+        broker = self.broker_for(row)
+        if changed and broker:
+            broker.revoke(row['id'])
 
     async def _ask(self, metadata, adapter, presentation, kind='ordinary'):
         chat = self.controller.chat_for_thread(metadata.get('threadId'))
@@ -166,7 +190,8 @@ class InputRequests:
             await self.controller.emit(chat, {'type': 'CUSTOM', 'name': 'input_request',
                                               'value': {'id': identifier, 'kind': kind,
                                                         'summary': 'Oak потребує уточнення.' if kind == 'ordinary' else
-                                                                   ('Тестовий запит входу Oak.' if presentation.get('simulated') else 'Потрібен вхід в Instagram.')}})
+                                                                   ('Тестовий запит входу Oak.' if presentation.get('simulated') else
+                                                                    'Потрібна дія на сайті ' + presentation.get('destination', '') + '.')}})
             try:
                 return await asyncio.wait_for(asyncio.shield(future), TTL)
             except asyncio.TimeoutError:
@@ -179,8 +204,52 @@ class InputRequests:
             with self.db:
                 self.db.execute("UPDATE input_requests SET outcome='cancelled',delivery='abandoned' "
                                 "WHERE id=? AND outcome='pending'", (identifier,))
-            if self.broker:
-                self.broker.revoke(identifier)
+            broker = self.broker_for(self.row(owner, chat, identifier))
+            if broker:
+                broker.revoke(identifier)
+
+    async def website(self, metadata, url):
+        from .login_broker import website_target
+        destination = website_target(url)
+        available = bool(self.website_login and await self.website_login.available('website'))
+        return await self._ask(metadata, 'tool', {'provider': 'website', 'destination': destination,
+                               'url': url, 'capability': available, 'simulated': False,
+                               'reason': 'website_form_available' if available else 'trusted_channel_unavailable',
+                               'handoff': 'trusted_user_required'}, 'sign_in')
+
+    async def website_workspace(self, metadata, url):
+        """Publish a private workspace without suspending the native agent."""
+        from .login_broker import website_target
+        destination = website_target(url)
+        if not self.website_login or not await self.website_login.available('website'):
+            raise RequestUnavailable('The private website channel is unavailable.')
+        chat = self.controller.chat_for_thread(metadata.get('threadId'))
+        if chat is None or not self.controller.web_app_url(chat):
+            raise RequestUnavailable('Mini App input is unavailable.')
+        identifier = uuid.uuid4().hex
+        presentation = {'provider': 'website', 'destination': destination, 'url': url,
+                        'capability': True, 'simulated': False, 'agentic': True,
+                        'reason': 'website_form_available', 'handoff': 'trusted_user_required'}
+        async with self.controller._lock(chat):
+            owner, chat, thread, turn, native = self._binding(metadata)
+            with self.db:
+                if self.db.execute('SELECT 1 FROM input_requests WHERE runtime_epoch=? AND native_id=?',
+                                   (self.epoch, native)).fetchone():
+                    raise RequestUnavailable('Native request has already been handled.')
+                if any(self.db.execute("SELECT 1 FROM input_requests WHERE id=? AND chat_id=? AND outcome='pending'",
+                                       (key, chat)).fetchone() for key in self.website_workspaces):
+                    raise RequestUnavailable('Use the existing private website workspace for this task.')
+                self.db.execute('INSERT INTO input_requests VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)',
+                                (identifier, owner, chat, thread, turn, self.epoch, native, 'tool', 'sign_in',
+                                 bounded(presentation), time.time() + TTL, 'pending', 'not_required'))
+            self.website_workspaces.add(identifier)
+        try:
+            await self.controller.emit(chat, {'type': 'CUSTOM', 'name': 'input_request',
+                'value': {'id': identifier, 'kind': 'sign_in', 'summary': 'Потрібна дія на сайті ' + destination + '.'}})
+        except BaseException:
+            self._terminal(self.row(owner, chat, identifier), 'cancelled')
+            raise
+        return {'request_id': identifier, 'state': 'waiting_for_owner'}
 
     async def template(self, metadata, name):
         if name == 'synthetic_sign_in' and self.broker:
@@ -188,9 +257,13 @@ class InputRequests:
             return await self._ask(metadata, 'tool', {'provider': 'oak_synthetic',
                                    'destination': 'synthetic loopback provider', 'capability': True,
                                    'simulated': True, 'handoff': 'trusted_user_required'}, 'sign_in')
-        if name == 'instagram_sign_in':
-            return await self._ask(metadata, 'tool', {'provider': 'instagram', 'destination': 'https://www.instagram.com',
-                                   'capability': False, 'reason': 'trusted_channel_unavailable',
+        if name in {'google_sign_in', 'instagram_sign_in'}:
+            provider = name.removesuffix('_sign_in')
+            available = bool(self.website_login and await self.website_login.available(provider))
+            return await self._ask(metadata, 'tool', {'provider': provider,
+                                   'destination': 'https://accounts.google.com' if provider == 'google' else 'https://www.instagram.com',
+                                   'capability': available, 'simulated': False,
+                                   'reason': 'website_login_available' if available else 'trusted_channel_unavailable',
                                    'handoff': 'trusted_user_required'}, 'sign_in')
         if name not in TEMPLATES:
             raise ValueError('Unknown ordinary-input template.')
@@ -266,8 +339,9 @@ class InputRequests:
             row = self.row(owner, chat, identifier)
         result = {'id': row['id'], 'kind': row['kind'], 'revision': 1, 'expires': row['expires'],
                   'outcome': row['outcome'], 'delivery': row['delivery'], 'form': json.loads(row['form'])}
-        if row['kind'] == 'sign_in' and self.broker and result['form'].get('provider') == 'oak_synthetic':
-            result['broker'] = self.broker.snapshot(identifier)
+        broker = self.broker_for(row)
+        if broker:
+            result['broker'] = broker.snapshot(identifier)
         return result
 
     async def decide(self, owner, chat, identifier, data):
@@ -282,7 +356,7 @@ class InputRequests:
         async with self.controller._lock(chat):
             row = self.row(owner, chat, identifier)
             if row['kind'] == 'sign_in' and data['decision'] != 'cancel':
-                raise ValueError('Website authentication is unavailable.')
+                raise ValueError('Use the separate human login channel, never ordinary form values.')
             values = data.get('values')
             if data['decision'] == 'submit':
                 fields = json.loads(row['form'])['fields']
@@ -305,17 +379,21 @@ class InputRequests:
                 self._terminal(row, 'expired')
                 raise RequestUnavailable('Request expired.')
             outcome = 'submitted' if data['decision'] == 'submit' else 'cancelled'
-            result = {'outcome': outcome, 'delivery': 'ready'}
+            delivery = 'not_required' if identifier in self.website_workspaces else 'ready'
+            result = {'outcome': outcome, 'delivery': delivery}
             # No awaits inside this commit; receipt and consumption form one transaction.
             response = self._response(row, outcome, values)
             with self.db:
-                self.db.execute("UPDATE input_requests SET outcome=?,response=?,delivery='ready' WHERE id=? AND outcome='pending'",
-                                (outcome, bounded(response), identifier))
+                self.db.execute("UPDATE input_requests SET outcome=?,response=?,delivery=? WHERE id=? AND outcome='pending'",
+                                (outcome, bounded(response), delivery, identifier))
                 self.db.execute('INSERT INTO input_request_receipts VALUES (?,?,?,?)',
                                 (identifier, action_id, fingerprint, bounded(result)))
-            self.waiters[identifier].set_result(response)
-            if self.broker:
-                self.broker.revoke(identifier)
+            future = self.waiters.get(identifier)
+            if future is not None and not future.done():
+                future.set_result(response)
+            broker = self.broker_for(row)
+            if broker:
+                broker.revoke(identifier)
             return result
 
     def delivered(self, epoch, native_id, status):
@@ -335,3 +413,7 @@ class InputRequests:
                 future.cancel()
             if self.broker:
                 self.broker.revoke(row['id'])
+        if self.website_login:
+            self.website_login.end_turn(thread, turn)
+        self.website_workspaces.difference_update(row['id'] for row in self.db.execute(
+            'SELECT id FROM input_requests WHERE thread_id=? AND turn_id=?', (thread, turn)))

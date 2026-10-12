@@ -1,5 +1,10 @@
 # Oak architecture
 
+For UI changes, first read the canonical [DESIGN.md](../DESIGN.md): current
+renderer/protocol pins, component reuse, private-input boundaries, visual sources
+and acceptance criteria. [A2UI details](a2ui.md) and the
+[website UI review](website-ui-architecture.md) supplement that contract.
+
 Oak combines a persistent conversation controller, Telegram and web transports,
 and a catalog of local tools. The runtime process owns inference, its conversation
 history and its native tools. Oak owns routing, deployment context, long-term

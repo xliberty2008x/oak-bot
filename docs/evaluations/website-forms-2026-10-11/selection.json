@@ -1,0 +1,350 @@
+{
+  "version": 1,
+  "frozen_at_utc": "2026-10-11T20:16:33.901479+00:00",
+  "runtime_revision": "71f966e",
+  "seed": "oak-independent-sites-2026-10-11-v1",
+  "selection_method": "Python 3 random.Random(seed); category order is developer, communication, media, retail, productivity, finance, travel, publishing_community; choose one from each three-site category, then sample four without replacement from the remaining 16. Candidate order is the JSON array order.",
+  "selection_constraints": [
+    "All selected before observing Oak runtime results.",
+    "Google, Instagram, and TikTok excluded.",
+    "No result-dependent replacement; redirects, access blocks, and failures remain in the dataset.",
+    "No account registration, credentials, payments, trading, or login submissions to real account sites.",
+    "Candidate login URLs contain no query string or fragment.",
+    "Popular/recognizable sites are a qualitative category-diverse convenience pool, not a traffic-weighted statistical sample."
+  ],
+  "candidates": [
+    {
+      "name": "GitHub",
+      "category": "developer",
+      "url": "https://github.com/login"
+    },
+    {
+      "name": "GitLab",
+      "category": "developer",
+      "url": "https://gitlab.com/users/sign_in"
+    },
+    {
+      "name": "Stack Overflow",
+      "category": "developer",
+      "url": "https://stackoverflow.com/users/login"
+    },
+    {
+      "name": "Discord",
+      "category": "communication",
+      "url": "https://discord.com/login"
+    },
+    {
+      "name": "Slack",
+      "category": "communication",
+      "url": "https://slack.com/signin"
+    },
+    {
+      "name": "Zoom",
+      "category": "communication",
+      "url": "https://zoom.us/signin"
+    },
+    {
+      "name": "Spotify",
+      "category": "media",
+      "url": "https://accounts.spotify.com/en/login"
+    },
+    {
+      "name": "Netflix",
+      "category": "media",
+      "url": "https://www.netflix.com/login"
+    },
+    {
+      "name": "Twitch",
+      "category": "media",
+      "url": "https://www.twitch.tv/login"
+    },
+    {
+      "name": "Amazon",
+      "category": "retail",
+      "url": "https://www.amazon.com/ap/signin"
+    },
+    {
+      "name": "eBay",
+      "category": "retail",
+      "url": "https://signin.ebay.com/signin/"
+    },
+    {
+      "name": "Etsy",
+      "category": "retail",
+      "url": "https://www.etsy.com/signin"
+    },
+    {
+      "name": "Notion",
+      "category": "productivity",
+      "url": "https://www.notion.so/login"
+    },
+    {
+      "name": "Dropbox",
+      "category": "productivity",
+      "url": "https://www.dropbox.com/login"
+    },
+    {
+      "name": "Atlassian",
+      "category": "productivity",
+      "url": "https://id.atlassian.com/login"
+    },
+    {
+      "name": "PayPal",
+      "category": "finance",
+      "url": "https://www.paypal.com/signin"
+    },
+    {
+      "name": "Wise",
+      "category": "finance",
+      "url": "https://wise.com/login"
+    },
+    {
+      "name": "Coinbase",
+      "category": "finance",
+      "url": "https://login.coinbase.com/signin"
+    },
+    {
+      "name": "Airbnb",
+      "category": "travel",
+      "url": "https://www.airbnb.com/login"
+    },
+    {
+      "name": "Booking.com",
+      "category": "travel",
+      "url": "https://account.booking.com/sign-in"
+    },
+    {
+      "name": "Expedia",
+      "category": "travel",
+      "url": "https://www.expedia.com/login"
+    },
+    {
+      "name": "WordPress.com",
+      "category": "publishing_community",
+      "url": "https://wordpress.com/log-in"
+    },
+    {
+      "name": "Medium",
+      "category": "publishing_community",
+      "url": "https://medium.com/m/signin"
+    },
+    {
+      "name": "Reddit",
+      "category": "publishing_community",
+      "url": "https://www.reddit.com/login"
+    }
+  ],
+  "sample": [
+    {
+      "name": "Stack Overflow",
+      "category": "developer",
+      "url": "https://stackoverflow.com/users/login"
+    },
+    {
+      "name": "Discord",
+      "category": "communication",
+      "url": "https://discord.com/login"
+    },
+    {
+      "name": "Netflix",
+      "category": "media",
+      "url": "https://www.netflix.com/login"
+    },
+    {
+      "name": "Etsy",
+      "category": "retail",
+      "url": "https://www.etsy.com/signin"
+    },
+    {
+      "name": "Notion",
+      "category": "productivity",
+      "url": "https://www.notion.so/login"
+    },
+    {
+      "name": "Coinbase",
+      "category": "finance",
+      "url": "https://login.coinbase.com/signin"
+    },
+    {
+      "name": "Airbnb",
+      "category": "travel",
+      "url": "https://www.airbnb.com/login"
+    },
+    {
+      "name": "Medium",
+      "category": "publishing_community",
+      "url": "https://medium.com/m/signin"
+    },
+    {
+      "name": "Atlassian",
+      "category": "productivity",
+      "url": "https://id.atlassian.com/login"
+    },
+    {
+      "name": "GitLab",
+      "category": "developer",
+      "url": "https://gitlab.com/users/sign_in"
+    },
+    {
+      "name": "Reddit",
+      "category": "publishing_community",
+      "url": "https://www.reddit.com/login"
+    },
+    {
+      "name": "Twitch",
+      "category": "media",
+      "url": "https://www.twitch.tv/login"
+    }
+  ],
+  "official_reference_verification": [
+    {
+      "name": "Stack Overflow",
+      "reference_url": "https://stackoverflow.com/users/login",
+      "note": "Official login page exposes email/password and social sign-in text in the documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Discord",
+      "reference_url": "https://discord.com/login",
+      "note": "Official entry resolves; documentation reader receives JavaScript-required application shell.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Netflix",
+      "reference_url": "https://help.netflix.com/en/node/311830241325668",
+      "note": "Official Netflix help explicitly identifies netflix.com/login as the browser login entry. Direct web reader access was restricted; sample retained.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Etsy",
+      "reference_url": "https://www.etsy.com/signin",
+      "note": "Official Sign in page resolves in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Notion",
+      "reference_url": "https://www.notion.so/login",
+      "note": "Official old login entry redirects to https://app.notion.com/login; original frozen URL retained to measure redirect handling.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Coinbase",
+      "reference_url": "https://login.coinbase.com/signin",
+      "note": "Official Coinbase login host resolves; documentation reader receives JavaScript-required application shell.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Airbnb",
+      "reference_url": "https://www.airbnb.com/login",
+      "note": "Official Log In / Sign Up page resolves; exposes a phone/email entry and Continue text in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Medium",
+      "reference_url": "https://help.medium.com/hc/en-us/articles/115004915268-Sign-in-or-sign-up-to-Medium",
+      "note": "Official help documents email/social sign-in and one-time link/code, not password login. Frozen entry resolves as a minimal shell in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Atlassian",
+      "reference_url": "https://id.atlassian.com/login",
+      "note": "Official account login page resolves; documentation reader explicitly names required frontend script domain.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "GitLab",
+      "reference_url": "https://gitlab.com/users/sign_in",
+      "note": "Official Sign in to GitLab page resolves in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Reddit",
+      "reference_url": "https://www.reddit.com/login",
+      "note": "Official login entry redirects to same-origin /login/ and exposes username/password plus alternate flows in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    },
+    {
+      "name": "Twitch",
+      "reference_url": "https://help.twitch.tv/s/article/signing-up-logging-in-social-accounts?language=en_US",
+      "note": "Official support documents account/social login; frozen login entry resolves as a JavaScript shell in documentation reader.",
+      "method": "Official website text reader or official help search; no Oak runtime probing."
+    }
+  ],
+  "sites": [
+    {
+      "site_id": "stack_overflow",
+      "name": "Stack Overflow",
+      "category": "developer",
+      "url": "https://stackoverflow.com/users/login"
+    },
+    {
+      "site_id": "discord",
+      "name": "Discord",
+      "category": "communication",
+      "url": "https://discord.com/login"
+    },
+    {
+      "site_id": "netflix",
+      "name": "Netflix",
+      "category": "media",
+      "url": "https://www.netflix.com/login"
+    },
+    {
+      "site_id": "etsy",
+      "name": "Etsy",
+      "category": "retail",
+      "url": "https://www.etsy.com/signin"
+    },
+    {
+      "site_id": "notion",
+      "name": "Notion",
+      "category": "productivity",
+      "url": "https://www.notion.so/login"
+    },
+    {
+      "site_id": "coinbase",
+      "name": "Coinbase",
+      "category": "finance",
+      "url": "https://login.coinbase.com/signin"
+    },
+    {
+      "site_id": "airbnb",
+      "name": "Airbnb",
+      "category": "travel",
+      "url": "https://www.airbnb.com/login"
+    },
+    {
+      "site_id": "medium",
+      "name": "Medium",
+      "category": "publishing_community",
+      "url": "https://medium.com/m/signin"
+    },
+    {
+      "site_id": "atlassian",
+      "name": "Atlassian",
+      "category": "productivity",
+      "url": "https://id.atlassian.com/login"
+    },
+    {
+      "site_id": "gitlab",
+      "name": "GitLab",
+      "category": "developer",
+      "url": "https://gitlab.com/users/sign_in"
+    },
+    {
+      "site_id": "reddit",
+      "name": "Reddit",
+      "category": "publishing_community",
+      "url": "https://www.reddit.com/login"
+    },
+    {
+      "site_id": "twitch",
+      "name": "Twitch",
+      "category": "media",
+      "url": "https://www.twitch.tv/login"
+    }
+  ],
+  "references_verified_at_utc": "2026-10-11T20:17:29.898932+00:00",
+  "verification_scope": "All 12 selected entries checked through official pages/help. The 12 unselected pool URLs are candidate entry points, not individually verified or runtime-probed.",
+  "frozen_sites_sha256": "9e3f114796eb3b1d7cc3d81fd432558c5470dfd85c458348edc19e1620cd2505"
+}

@@ -1,0 +1,119 @@
+{
+  "artifact": "heldout_v1_postrun_os_closure",
+  "database_rows_read": false,
+  "executor_process_count": 6,
+  "executor_processes": [
+    {
+      "pid": 1189549,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745198
+    },
+    {
+      "pid": 1189550,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745208
+    },
+    {
+      "pid": 1189551,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745209
+    },
+    {
+      "pid": 1189582,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745396
+    },
+    {
+      "pid": 1189583,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745405
+    },
+    {
+      "pid": 1189584,
+      "predates_v1_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745406
+    }
+  ],
+  "executor_uid": 1900,
+  "gateway_child_cleanup_ack_recovered": false,
+  "limits": [
+    "separate_postrun_os_observation",
+    "does_not_prove_child_finalizers_completed",
+    "does_not_replace_missing_gateway_ack",
+    "does_not_recover_unscanned_native_log_channel",
+    "does_not_convert_failed_first_trial_to_pass",
+    "production_broker_aggregate_reuses_root_reviewed_status"
+  ],
+  "native_log_contents_read": false,
+  "native_log_scan_recovered": false,
+  "only_root_reviewed_old_production_instances_observed": true,
+  "owned_child_pids_absent": {
+    "1191345": true,
+    "1191346": true
+  },
+  "owned_unix_sockets_absent": {
+    "control": true,
+    "gateway": true,
+    "human": true
+  },
+  "postrun_owned_os_resource_closure_confirmed": true,
+  "processes_killed": 0,
+  "production_broker_aggregate": {
+    "idle": true,
+    "modified_by_this_artifact": false,
+    "refreshed_by_this_artifact": false,
+    "source": "root_reviewed_read_only_status",
+    "uncertain_count": 5
+  },
+  "raw_command_lines_read": false,
+  "read_only_observation_unix_ms": 1791805611644,
+  "tests_or_models_started": 0,
+  "v1_acceptance_status_changed": false,
+  "v1_claim_sha256": "f829672b92382712cbb63c18b2e069a8b23d599f59bd2c35ad9da19a3905a693",
+  "v1_estimated_start_unix_ms": 1791805033948,
+  "v1_fixture_contexts": 0,
+  "v1_jev_calls": 0,
+  "v1_leases_created": 0,
+  "v1_native_instance_observed": false,
+  "v1_receipt_and_claim_modified": false,
+  "v1_receipt_cleanup_confirmed": false,
+  "v1_receipt_sha256": "96acbfd3a5610c2e164b96b515d6754999a4aeb71ab82366496c286eef9aff15",
+  "v1_receipt_status": "failed",
+  "version": 1
+}

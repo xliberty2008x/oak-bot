@@ -2,7 +2,7 @@
 
 import argparse
 import asyncio
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 import fcntl
 import json
 import os
@@ -29,6 +29,12 @@ def load_config(config_path):
     if config.get('web', {}).get('access_key_file'):
         key = Path(config['web']['access_key_file']).expanduser()
         config['web']['access_key_file'] = str(key if key.is_absolute() else config_file.parent / key)
+    if config.get('execution') is not None:
+        execution = config['execution']
+        if not isinstance(execution, dict) or not isinstance(execution.get('profile'), str):
+            raise ValueError('Execution requires an immutable profile path.')
+        profile = Path(execution['profile']).expanduser()
+        execution['profile'] = str(profile if profile.is_absolute() else config_file.parent / profile)
     return config_file, config
 
 
@@ -36,16 +42,28 @@ async def doctor(config_path=None):
     config = load_config(config_path)[1] if config_path else {}
     computer = {'enabled': bool(config.get('computer', {}).get('enabled'))}
     if computer['enabled']:
-        from .computer import ComputerTools
-        from .desktop import desktop_environment
         computer['managed'] = bool(config['computer'].get('managed'))
-        with desktop_environment(config):
+        if config.get('execution') is not None:
+            from .executor import ExecutionClient
+            worker = ExecutionClient(config['execution'])
             try:
-                desktop = ComputerTools(config['workspace'], config['computer'].get('display', ':90'))
-                computer.update(await desktop.status())
+                await worker.start()
+                computer.update(await worker.call('computer.status', {}))
             except (RuntimeError, OSError) as exc:
-                computer.update(available=False, detail=str(exc))
-    async with RuntimeClient(home=config.get('runtime_home'), config=config.get('runtime_config')) as client:
+                computer.update(available=False, detail=type(exc).__name__)
+            finally:
+                await worker.close()
+        else:
+            from .computer import ComputerTools
+            from .desktop import desktop_environment
+            with desktop_environment(config):
+                try:
+                    desktop = ComputerTools(config['workspace'], config['computer'].get('display', ':90'))
+                    computer.update(await desktop.status())
+                except (RuntimeError, OSError) as exc:
+                    computer.update(available=False, detail=str(exc))
+    async with RuntimeClient(home=config.get('runtime_home'), config=config.get('runtime_config'),
+                             execution=config.get('execution')) as client:
         models = await client.request('model/list', {})
         available = any(m.get('model') == MODEL or m.get('id') == MODEL for m in models['data'])
         apps = await client.request('app/installed', {'forceRefresh': True})
@@ -82,9 +100,11 @@ async def smoke(config_path=None):
             return ''.join(e.get('delta', '') for e in events if e['type'] == 'TEXT_MESSAGE_CONTENT')
 
         token = 'LOCAL_' + uuid.uuid4().hex[:12]
-        async with RuntimeClient(cwd=tmp, sandbox='read-only', home=config.get('runtime_home'),
+        runtime_cwd = config['workspace'] if config.get('execution') is not None else tmp
+        async with RuntimeClient(cwd=runtime_cwd, sandbox='read-only', home=config.get('runtime_home'),
+                                 execution=config.get('execution'),
                                  config={**config.get('runtime_config', {}), 'approval_policy': 'never'}) as client:
-            controller = Controller(client, Path(tmp) / 'state.sqlite', tmp, emit)
+            controller = Controller(client, Path(tmp) / 'state.sqlite', runtime_cwd, emit)
             pump = asyncio.create_task(controller.run_events())
             try:
                 await controller.submit(1, f'Remember this smoke-test token: {token}. Reply only READY. Do not use any tools.', 1)
@@ -158,8 +178,10 @@ async def run(config_path):
             raise RuntimeError('Another gateway is already using this state directory.') from None
         ready_file = state_dir / 'gateway-ready.json'
         ready_file.unlink(missing_ok=True)
-        async with ManagedDesktop(config) as desktop, RuntimeClient(cwd=cwd, sandbox=config.get('sandbox', 'workspace-write'),
+        desktop_context = nullcontext(None) if config.get('execution') is not None else ManagedDesktop(config)
+        async with desktop_context as desktop, RuntimeClient(cwd=cwd, sandbox=config.get('sandbox', 'workspace-write'),
                                  home=config.get('runtime_home'),
+                                 execution=config.get('execution'),
                                  config={'web_search': 'live', **config.get('runtime_config', {})}) as client:
             controller = Controller(client, state_dir / 'state.sqlite', cwd, None,
                                     load_context(config, config_file.parent), config=config)
@@ -176,6 +198,7 @@ async def run(config_path):
             web_gateway = None
             tunnel = None
             try:
+                await controller.tools.start()
                 identity = await gateway._api('getMe', {})
                 expected = config.get('telegram_username')
                 if expected and identity.get('username') != expected.lstrip('@'):
@@ -244,7 +267,7 @@ async def run(config_path):
                     group.create_task(controller.scheduler.run())
                     if tunnel:
                         group.create_task(tunnel.maintain(config['web'].get('port', 8765), publish_tunnel))
-                    if desktop.enabled:
+                    if desktop is not None and desktop.enabled:
                         group.create_task(desktop.wait())
             finally:
                 with suppress(OSError, ValueError):
@@ -255,7 +278,7 @@ async def run(config_path):
                     await web_gateway.close()
                 if tunnel:
                     await tunnel.close()
-                await controller.tools.browser.close()
+                await controller.tools.close()
                 gateway.db.close()
                 controller.close()
 

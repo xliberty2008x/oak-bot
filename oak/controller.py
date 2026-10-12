@@ -251,12 +251,26 @@ class Controller:
                         'Call oak_send_file for files you create with shell or other tools. Native image outputs '
                         'are delivered automatically. Use connected Figma/Canva apps for their tasks; ask before '
                         'publishing, purchases or destructive external actions. Be honest about unavailable services. '
-                        'Remember explicit owner preferences with oak_memory_remember; search memory when needed.')
+                        'Remember explicit owner preferences with oak_memory_remember; search memory when needed.'
+                        '\n\nPresent structured results as an oak_a2ui card when layout helps more than prose: '
+                        'daily targets, plans, menus, comparisons, budgets, progress or numeric series. Compose Metric rows, '
+                        'Progress, Table, Chart, Image, Badge and Text inside a Card; read the catalogue first. '
+                        'The same card appears in Telegram as a rich message and in the Mini App with full layout; '
+                        'later updates of that surface edit the Telegram card in place. Keep a short normal reply '
+                        'and do not repeat the card content in prose. Simple answers stay plain text.')
             if self.web_app_url(chat_id):
                 context += ('\n\nWhen required ordinary data must resume the current native request, use '
                             'oak_request_input with a server-owned template; it keeps that request waiting. '
                             'Never collect passwords, OTP, tokens or cookies through chat, A2UI or ordinary forms. '
-                            'instagram_sign_in only shows the unavailable trusted channel and allows cancellation. '
+                            'For website login, call oak_website_task once with the public website URL. It delegates '
+                            'navigation and private form composition through MCP and continues after human input. '
+                            'If delegation returns requires_agent, continue its existing request_id with oak_website_agent: '
+                            'inspect the actual page, choose observed actions and compose fields from its catalogue. '
+                            'Use oak_website_agent directly for other dynamic website form tasks. '
+                            'Keep the same workspace while waiting; never invent a login URL or claim success from a form appearing. '
+                            'Keep the native turn open while a private human step is pending: call wait with its event_seq, '
+                            'or observe before the first attachment. Do not send a final answer while waiting for that step '
+                            'unless the workspace ended or the owner cancels or changes the task. '
                             'Use oak_a2ui proactively for nonblocking cards with several structured preferences or '
                             'a choice the owner may want to revise, such as a plan with a topic, pace and duration. '
                             'Do not wait for the owner to mention forms or the Mini App. Collect the missing choices '
@@ -478,9 +492,38 @@ class Controller:
         items, details = [], []
         workspace = Path(self.cwd)
         inbox = workspace / 'inbox'
-        inbox.mkdir(exist_ok=True)
+        files = getattr(self.tools, 'files', None)
+        if attachments and files is None:
+            inbox.mkdir(exist_ok=True)
         state_inbox = Path(self.config.get('state_dir', workspace)) / 'inbox'
         for attachment in attachments:
+            if files is not None:
+                source = Path(attachment['path'])
+                if source.is_relative_to(state_inbox):
+                    # Only resolve gateway-owned input, never a worker pathname.
+                    source = source.resolve()
+                    if not source.is_relative_to(state_inbox.resolve()) or not source.is_file():
+                        raise ValueError('Unsupported attachment location.')
+                else:
+                    source = await files.snapshot(files.path(source))
+                destination = inbox / (uuid.uuid4().hex[:12] + '-' + source.name)
+                destination, size = await files.write_trusted(source, destination)
+                mime = attachment.get('mime', '')
+                if mime.startswith('image/'):
+                    items.append({'type': 'localImage', 'path': str(destination)})
+                elif mime.startswith('audio/') and size <= 100 * 1024 * 1024:
+                    try:
+                        transcript = await self.tools.transcribe(destination)
+                    except (ValueError, RuntimeError):
+                        details.append('Attached audio available to tools: ' + str(destination))
+                    else:
+                        details.append('Голосове повідомлення:\n' + transcript)
+                elif destination.suffix.lower() in ('.txt', '.md', '.csv', '.json', '.py', '.html'):
+                    with source.open(errors='replace') as attached:
+                        details.append('Attached file ' + attachment.get('name', destination.name) + ':\n' + attached.read(64000))
+                else:
+                    details.append('Attached file available to tools: ' + str(destination))
+                continue
             source = Path(attachment['path']).resolve()
             if not source.is_file() or not any(source.is_relative_to(root.resolve()) for root in (workspace, state_inbox)):
                 raise ValueError('Unsupported attachment location.')
@@ -682,6 +725,14 @@ class Controller:
                 await self.emit(chat_id, event)
             item = params.get('item', {})
             if msg.get('method') == 'item/completed' and item.get('type') == 'imageGeneration' and item.get('savedPath') and self.tools:
+                files = getattr(self.tools, 'files', None)
+                if files is not None:
+                    source = Path(item['savedPath'])
+                    snapshot = await files.snapshot(source, namespace='generated_images')
+                    target = Path(self.cwd) / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + snapshot.suffix)
+                    await files.write_trusted(snapshot, target)
+                    await self.tools.artifact(chat_id, target, 'Зображення')
+                    continue
                 source = Path(item['savedPath']).resolve()
                 image_root = self.client.home / 'generated_images'
                 if source.is_file() and source.is_relative_to(image_root.resolve()):

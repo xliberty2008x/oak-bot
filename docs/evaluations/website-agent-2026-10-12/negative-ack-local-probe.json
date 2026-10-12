@@ -1,0 +1,83 @@
+{
+  "cases": [
+    {
+      "body_observed": false,
+      "error_class": "Error",
+      "http_status": 200,
+      "iteration": 0,
+      "own_line": 59,
+      "reader_cancel": false,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": false,
+      "error_class": "Error",
+      "http_status": 200,
+      "iteration": 1,
+      "own_line": 59,
+      "reader_cancel": false,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 2,
+      "reader_cancel": false,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 3,
+      "reader_cancel": false,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 4,
+      "reader_cancel": false,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 0,
+      "reader_cancel": true,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 1,
+      "reader_cancel": true,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 2,
+      "reader_cancel": true,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 3,
+      "reader_cancel": true,
+      "renderer_acknowledged": true
+    },
+    {
+      "body_observed": true,
+      "http_status": 200,
+      "iteration": 4,
+      "reader_cancel": true,
+      "renderer_acknowledged": true
+    }
+  ],
+  "external_requests": 0,
+  "local_only": true,
+  "owner_inputs": 0,
+  "paid_calls": 0,
+  "renderer_call_sha256": "81185dada7b8be8299c9dfa5058aa4b3feed4bf420491765109c192925605b8f"
+}

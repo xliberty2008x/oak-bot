@@ -46,10 +46,11 @@ def run(args, **kwargs):
 def compatibility_report(release, machine, python_version):
     """Pure installer eligibility; vendor artifacts do not verify a deployment."""
     reasons = []
+    ubuntu_arm = (release.get('ID'), release.get('VERSION_ID'), machine) == ('ubuntu', '22.04', 'aarch64')
     if (release.get('ID'), release.get('VERSION_ID')) not in {
-            ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')}:
+            ('ubuntu', '24.04'), ('debian', '12'), ('debian', '13')} and not ubuntu_arm:
         reasons.append('unsupported_os')
-    if machine != 'x86_64':
+    if machine != 'x86_64' and not ubuntu_arm:
         reasons.append('unsupported_architecture')
     if tuple(python_version[:2]) < (3, 11):
         reasons.append('python_below_3_11')
@@ -586,7 +587,8 @@ def main():
     if os.geteuid() == 0:
         raise ValueError('Run as a normal deployment user with sudo, not root.')
     if current_compatibility()['status'] != 'eligible':
-        raise ValueError('Supported: Ubuntu 24.04 or Debian 12/13 on amd64, Python 3.11+.')
+        raise ValueError('Supported: Ubuntu 24.04 or Debian 12/13 on amd64, '
+                         'or Ubuntu 22.04 on ARM64 (aarch64); Python 3.11+ is required.')
     if args.owner_id is not None and args.owner_id <= 0:
         raise ValueError('Use a positive numeric Telegram owner ID.')
     if args.bot_username and not re.fullmatch(r'@?[A-Za-z0-9_]{5,32}', args.bot_username):

@@ -1,0 +1,10 @@
+{"event":"evaluation_started","max_attempts":4,"fixtures_sha256":"1058ad2be62ff8a63455f654316984242bc7daa75ba1991869cd9da036c2aee8","source_commit":"71f966e57230b68971a44347a78882e31295ba9b","real_api":true,"per_request_timeout_seconds":20,"retries":0}
+{"event":"attempt_started","attempt":1,"case":"chooser"}
+{"event":"attempt_finished","attempt":1,"case":"chooser","status":"abstained","code":"no_candidate","expected_choice":"g4","elapsed_ms":511}
+{"event":"attempt_started","attempt":2,"case":"membership"}
+{"event":"attempt_finished","attempt":2,"case":"membership","status":"selected","expected_choice":"g1","matched_expected":true,"model":"typesafe/jev-1.13-20260917","elapsed_ms":258,"decision":{"choice":"g1","confidence":0.52,"probabilities":{"g1":0.68,"g6":0.0,"none":0.32}},"cost_usd":3.717e-05}
+{"event":"attempt_started","attempt":3,"case":"validation_route"}
+{"event":"attempt_finished","attempt":3,"case":"validation_route","status":"selected","expected_choice":"g9","matched_expected":true,"model":"typesafe/jev-1.13-20260917","elapsed_ms":278,"decision":{"choice":"g9","confidence":0.62,"probabilities":{"g9":0.75,"g17":0.0,"none":0.25}},"cost_usd":3.8682e-05}
+{"event":"attempt_started","attempt":4,"case":"one_time_proof"}
+{"event":"attempt_finished","attempt":4,"case":"one_time_proof","status":"selected","expected_choice":"g1","matched_expected":true,"model":"typesafe/jev-1.13-20260917","elapsed_ms":256,"decision":{"choice":"g1","confidence":0.18,"probabilities":{"g1":0.59,"none":0.41}},"cost_usd":3.087e-05}
+{"event":"evaluation_finished","attempts":4,"selected":3,"abstained":1,"failed":0,"matched_expected":3,"cost_usd_known":0.00010672200000000001,"unknown_cost_attempts":1,"elapsed_ms_total":1320,"real_api":true,"retries":0,"authenticating_accounts":false}

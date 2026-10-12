@@ -51,6 +51,87 @@ try:
 finally:
     x.XCloseDisplay(display)
 '''
+_KEYMAP_NOTIFY = '''
+import ctypes as c, select, sys, time
+class Mapping(c.Structure):
+    _fields_ = [("type", c.c_int), ("serial", c.c_ulong), ("send_event", c.c_int),
+                ("display", c.c_void_p), ("window", c.c_ulong), ("request", c.c_int),
+                ("first_keycode", c.c_int), ("count", c.c_int)]
+class Client(c.Structure):
+    _fields_ = [("type", c.c_int), ("serial", c.c_ulong), ("send_event", c.c_int),
+                ("display", c.c_void_p), ("window", c.c_ulong), ("message_type", c.c_ulong),
+                ("format", c.c_int), ("data", c.c_long * 5)]
+class Event(c.Union):
+    _fields_ = [("type", c.c_int), ("mapping", Mapping), ("client", Client), ("pad", c.c_long * 24)]
+x = c.CDLL("libX11.so.6")
+for name, result, args in (
+    ("XOpenDisplay", c.c_void_p, [c.c_char_p]),
+    ("XCloseDisplay", c.c_int, [c.c_void_p]),
+    ("XDefaultRootWindow", c.c_ulong, [c.c_void_p]),
+    ("XDisplayKeycodes", c.c_int, [c.c_void_p, c.POINTER(c.c_int), c.POINTER(c.c_int)]),
+    ("XSendEvent", c.c_int, [c.c_void_p, c.c_ulong, c.c_int, c.c_long, c.POINTER(Event)]),
+    ("XInternAtom", c.c_ulong, [c.c_void_p, c.c_char_p, c.c_int]),
+    ("XGetWMProtocols", c.c_int, [c.c_void_p, c.c_ulong, c.POINTER(c.POINTER(c.c_ulong)), c.POINTER(c.c_int)]),
+    ("XFree", c.c_int, [c.c_void_p]),
+    ("XSelectInput", c.c_int, [c.c_void_p, c.c_ulong, c.c_long]),
+    ("XFlush", c.c_int, [c.c_void_p]),
+    ("XPending", c.c_int, [c.c_void_p]),
+    ("XNextEvent", c.c_int, [c.c_void_p, c.POINTER(Event)]),
+    ("XConnectionNumber", c.c_int, [c.c_void_p]),
+):
+    fn = getattr(x, name); fn.restype = result; fn.argtypes = args
+display = x.XOpenDisplay(sys.argv[1].encode())
+if not display:
+    raise RuntimeError("Cannot synchronize desktop keyboard")
+try:
+    window = int(sys.argv[2])
+    if sys.argv[3] == "notify":
+        low, high = c.c_int(), c.c_int()
+        x.XDisplayKeycodes(display, c.byref(low), c.byref(high))
+        event = Event()
+        event.mapping = Mapping(34, 0, 0, display, window, 1, low.value, high.value - low.value + 1)
+        if not x.XSendEvent(display, window, False, 0, c.byref(event)):
+            raise RuntimeError("Cannot notify desktop keyboard mapping")
+    ping = x.XInternAtom(display, b"_NET_WM_PING", False)
+    protocols = x.XInternAtom(display, b"WM_PROTOCOLS", False)
+    atoms, count = c.POINTER(c.c_ulong)(), c.c_int()
+    supported = False
+    if x.XGetWMProtocols(display, window, c.byref(atoms), c.byref(count)):
+        try:
+            supported = ping in atoms[:count.value]
+        finally:
+            x.XFree(atoms)
+    x.XFlush(display)
+    if not supported:
+        # Other X11 clients may not implement EWMH ping; retain the old grace period.
+        time.sleep(0.3)
+    else:
+        root = x.XDefaultRootWindow(display)
+        x.XSelectInput(display, root, 1 << 19)
+        stamp = time.monotonic_ns() & 0x7fffffff
+        event = Event()
+        event.client = Client(33, 0, 0, display, window, protocols, 32,
+                              (c.c_long * 5)(ping, stamp, window, 0, 0))
+        if not x.XSendEvent(display, window, False, 0, c.byref(event)):
+            raise RuntimeError("Cannot synchronize desktop keyboard")
+        x.XFlush(display)
+        deadline = time.monotonic() + 2
+        while True:
+            while x.XPending(display):
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("Desktop keyboard synchronization timed out")
+                x.XNextEvent(display, c.byref(event))
+                if (event.type == 33 and event.client.message_type == protocols
+                        and event.client.format == 32 and event.client.window == root
+                        and list(event.client.data)[:3] == [ping, stamp, window]):
+                    sys.exit(0)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("Desktop keyboard synchronization timed out")
+            select.select([x.XConnectionNumber(display)], [], [], remaining)
+finally:
+    x.XCloseDisplay(display)
+'''
 _BUTTONS = {'left': '1', 'middle': '2', 'right': '3'}
 _SCROLL = {'up': '4', 'down': '5', 'left': '6', 'right': '7'}
 
@@ -122,13 +203,21 @@ class ComputerTools:
                 await self._await_cleanup(self._exec('xdotool', 'keyup', '--', chord))
             raise
 
-    async def _clear_borrowed_keys(self, codes):
+    async def _sync_keymap(self, window, notify=True):
+        await self._exec(sys.executable, '-c', _KEYMAP_NOTIFY, self.display, str(window),
+                         'notify' if notify else 'drain')
+
+    async def _clear_borrowed_keys(self, codes, window):
         try:
-            await self._exec('xdotool', 'keyup', '--', *(str(code) for code in codes))
+            # A single digit is a keysym to xdotool; pad raw keycode 8 explicitly.
+            await self._exec('xdotool', 'keyup', '--', *(str(code).zfill(3) for code in codes))
         finally:
             # Clients must consume the final key events before these mappings vanish.
-            await asyncio.sleep(0.3)
-            await self._exec('xmodmap', '-', data=''.join(f'keycode {code} =\n' for code in codes).encode())
+            try:
+                await self._sync_keymap(window, notify=False)
+            finally:
+                await self._exec('xmodmap', '-', data=''.join(f'keycode {code} =\n' for code in codes).encode())
+                await self._sync_keymap(window)
 
     async def _type(self, text):
         before = await self._modifiers()
@@ -140,6 +229,9 @@ class ComputerTools:
                     if line.isascii():
                         await self._exec('xdotool', 'type', '--delay', '0', '--file', '-', data=line.encode())
                         break
+                    window = int(await self._exec('xdotool', 'getwindowfocus'))
+                    if window <= 1:
+                        raise RuntimeError('Unicode typing requires a focused X11 application.')
                     table = (await self._exec('xmodmap', '-pke')).decode()
                     spare = re.findall(r'^keycode\s+(\d+)\s*=\s*$', table, re.MULTILINE)
                     if not spare:
@@ -157,11 +249,12 @@ class ComputerTools:
                                       for char, code in bindings.items()).encode()
                     try:
                         await self._exec('xmodmap', '-', data=mapping)
-                        # xdotool's per-character temporary mapping races client caches.
-                        await asyncio.sleep(0.3)
+                        # Chromium can miss the server's XKB map-change notification.
+                        # Notify this client directly, without replacing the user's layout.
+                        await self._sync_keymap(window)
                         await self._exec('xdotool', 'type', '--delay', '0', '--file', '-', data=run.encode())
                     finally:
-                        await self._await_cleanup(self._clear_borrowed_keys(list(bindings.values())))
+                        await self._await_cleanup(self._clear_borrowed_keys(list(bindings.values()), window))
         except BaseException:
             with contextlib.suppress(Exception):
                 await self._await_cleanup(self._release_typing_modifiers(before))

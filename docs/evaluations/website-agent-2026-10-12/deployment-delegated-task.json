@@ -1,0 +1,23 @@
+{
+  "source_commit": "fb0af107e806d7b4653a1ef66ee28c0c3e14d427",
+  "release": "a85b94c67089185aa951",
+  "runtime_digest": "3119e344afe4495d687b3e98d67ca2087d9e31d00e50288d89b0ea84f1ee23c2",
+  "runtime_files": 129,
+  "broker_config_before_resource_activation": "d0b5491842eda528b61cfbae7126c46b19467fec1a8b2106f740cdb47f1411fe",
+  "broker_config_after_resource_activation": "456adca7c35e6ae0f23be403b31ec620c82fb0bcae0ca2f4be2fb7dba5fd87bf",
+  "anonymous_static_resources": true,
+  "resource_activation_explicitly_owner_approved": true,
+  "authentication_host_grants_changed": false,
+  "boundary_verified": true,
+  "broker_health_ready": true,
+  "broker_website_task_capability": true,
+  "gateway_restarts_after_cutover": 0,
+  "preexisting_uncertain_intake_preserved": 5,
+  "first_openrouter_mcp_handoff": "passed_with_native_agent_continuation",
+  "first_github_mcp_handoff": "passed_jev_only",
+  "first_random_site_mcp_handoffs_passed": 0,
+  "first_random_site_mcp_handoffs_total": 3,
+  "first_mcp_trials_anonymous_static_resources": false,
+  "owner_authentication_verified": false,
+  "telegram_ios_acceptance_verified": false
+}

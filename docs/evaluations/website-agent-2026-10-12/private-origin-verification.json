@@ -1,0 +1,69 @@
+{
+  "compatibility_first_run": {
+    "cause": "obsolete surface mock and startup fixture",
+    "elapsed_seconds": 76.691,
+    "errors": 2,
+    "log_sha256": "eddb84437926db3e4721ccf60e5647ac59f992df07b11d3348a349e6520ab3fa",
+    "outcome": "failed",
+    "tests": 109
+  },
+  "final_combined_first_run": {
+    "cause": "privacy test matched public select_options limit key as forbidden substring",
+    "elapsed_seconds": 191.831,
+    "failures": 1,
+    "log_sha256": "d3b6cd8e2fcc595e43c0df2746dd2289030e8989fe2f384a8b683a619cdc5d45",
+    "outcome": "failed",
+    "tests": 455
+  },
+  "first_live_navigation": {
+    "authentication_verified": false,
+    "complete_form_verified": false,
+    "model_calls": 0,
+    "outcome": "google_identifier_observed",
+    "owner_input_count": 0,
+    "receipt_sha256": "4ec42db96474a6dfac6032b6e44d8dd8ff694b713cc91028b1346ed3584aa995"
+  },
+  "kind": "private-origin-approval-verification",
+  "large_select": {
+    "elapsed_seconds": 19.465,
+    "log_sha256": "3a8dc8fbb4defabebbd66ab1f8ea4e027fae7be085569050f5b906942c7b61a1",
+    "outcome": "pass",
+    "tests": 14
+  },
+  "live_full_presentation": {
+    "authentication_verified": false,
+    "model_calls": 0,
+    "native_mcp_telegram_verified": false,
+    "outcome": "google_full_private_form_presented",
+    "owner_input_count": 0,
+    "receipt_sha256": "0ef16125261f18ce2378d0562de584dfcee31bd686a4208e1f9467f0c7230e1d"
+  },
+  "local_adapter": {
+    "elapsed_seconds": 7.882,
+    "log_sha256": "ae60ff03002fcc8a7f413efab1dcaa72a292764592db1a89a761bf50f000add6",
+    "outcome": "pass",
+    "tests": 4
+  },
+  "models_in_local_tests": false,
+  "owner_authentication": false,
+  "production": false,
+  "projection_after_test_correction": {
+    "elapsed_seconds": 0.022,
+    "includes_one_new_large_select_case": true,
+    "log_sha256": "bd44e404cf5c9a3a34e75fb4ddb397e0534c1f15dcbd8abcd57161001680cbd1",
+    "outcome": "pass",
+    "tests": 7
+  },
+  "regression": {
+    "elapsed_seconds": 102.798,
+    "log_sha256": "6a9562f4584315e300ced94eccc552813ebed75c9849bcb87defb4f71ba3e0e3",
+    "outcome": "pass",
+    "tests": 281
+  },
+  "transport": {
+    "elapsed_seconds": 13.971,
+    "log_sha256": "8a1946fc004433a8c6d5a2257049f3769791dbf3866f0fe2d505a9ac9f33c41b",
+    "outcome": "pass",
+    "tests": 36
+  }
+}

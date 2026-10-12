@@ -1,0 +1,26 @@
+{
+  "source_commit": "89961c998f1283a96787b4f5e670697626546722",
+  "previous_production_commit": "7fc161d5f8708c895ffa3a34f85530217b747085",
+  "deployed_release": "7afc5a69c130bbe89875",
+  "runtime_digest": "4182a2a7444ef894278b47b44688ee97523b02f6aebda7b2e950d09009808ebe",
+  "runtime_files": 125,
+  "broker_config_sha256": "d0b5491842eda528b61cfbae7126c46b19467fec1a8b2106f740cdb47f1411fe",
+  "network_policy_changed": false,
+  "existing_clerk_grant_preserved": true,
+  "boundary_verified": true,
+  "broker_health_ready": true,
+  "gateway_restarts_after_cutover": 0,
+  "broker_restarts_after_cutover": 0,
+  "preexisting_uncertain_intake_preserved": 5,
+  "full_suite": {
+    "tests": 712,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 237.510,
+    "log_sha256": "5896ccd239dceb1c8abc507a42c7ca1da808280c637dc7cddf064c92f713d1dd"
+  },
+  "live_harness_sha256": "02f4cb5c9ddc7e2a15c91edd2727e591de1353af182847bdca7753e00cca7b28",
+  "owner_authentication_verified": false,
+  "telegram_ios_verified": false
+}

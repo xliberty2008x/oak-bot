@@ -2,23 +2,25 @@ import {renderRequestFields} from './a2ui.js';
 
 export function createInputRequests({api, epoch, scope, available, changed}) {
   const $ = id => document.getElementById(id), dialog = $('input-request'), fields = $('input-request-fields');
-  let current = null, readValues = null, submitting = false, generation = 0, poll = null;
+  let current = null, readValues = null, submitting = false, generation = 0, poll = null, removeFrameListeners = null;
   const labels = {submitted: 'Відповідь збережено.', cancelled: 'Запит скасовано.', expired: 'Час очікування минув.',
-    authenticated: 'Синтетичний вхід перевірено.', failed: 'Вхід завершився помилкою.'};
+    authenticated: 'Синтетичний вхід перевірено.', owner_confirmed: 'Ти підтвердив завершення форми. Oak може продовжити цю задачу.', failed: 'Вхід завершився помилкою.'};
   function resultLabel(value) {
-    const prefix = labels[value.outcome] || 'Запит недоступний.';
-    const cleanup = value.broker?.cleanup === 'uncertain' ? ' Закриття тестового браузера не підтверджено.' :
-      value.broker?.cleanup === 'attempted' ? ' Очікуємо закриття тестового браузера.' : '';
+    const real = value.kind === 'sign_in' && value.form?.simulated === false;
+    const prefix = value.outcome === 'authenticated' && real ? 'Вхід підтверджено для поточної задачі.' : labels[value.outcome] || 'Запит недоступний.';
+    const cleanup = value.broker?.cleanup === 'uncertain' ? ' Закриття браузера не підтверджено.' :
+      value.broker?.cleanup === 'attempted' ? ' Очікуємо закриття браузера.' : '';
     if (value.delivery === 'ready') return prefix + ' Очікуємо передавання до початкової задачі.' + cleanup;
     if (value.delivery === 'uncertain') return prefix + ' Передавання не підтверджено. Перевір задачу в Telegram; автоматичного повтору немає.' + cleanup;
     if (value.delivery === 'sent') return prefix + ' Надіслано початковому запиту; продовження задачі перевір у Telegram.' + cleanup;
     return prefix + cleanup;
   }
   function status(message) { $('input-request-status').textContent = message; }
-  function clear() { generation++; current = readValues = null; submitting = false; fields.replaceChildren(); dialog.close(); clearInterval(poll); poll = null; }
+  function releaseFrame() { removeFrameListeners?.(); removeFrameListeners = null; dialog.classList.remove('signin-host', 'signin-loading'); }
+  function clear() { generation++; current = readValues = null; submitting = false; releaseFrame(); fields.replaceChildren(); dialog.close(); clearInterval(poll); poll = null; }
   function controls(disabled) { $('input-request-cancel').disabled = disabled; $('input-request-submit').disabled = disabled; for (const control of fields.querySelectorAll('input,select')) control.disabled = disabled; }
   function ended(value) {
-    current = value; fields.replaceChildren(); readValues = null; controls(true);
+    current = value; releaseFrame(); fields.replaceChildren(); readValues = null; controls(true);
     $('input-request-cancel').disabled = false; $('input-request-cancel').textContent = 'Закрити';
     status(resultLabel(value));
   }
@@ -52,6 +54,67 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
       } catch { if (generation === startGeneration) status('Не вдалося підтвердити відкриття каналу. Автоматично не повторюємо; скасуй запит.'); }
     }, {once: true});
   }
+  function website(value, startEpoch, startGeneration) {
+    const generic = value.form.provider === 'website';
+    const name = value.form.provider === 'google' ? 'Google' : generic ? value.form.destination : 'Instagram';
+    $('input-request-title').textContent = generic ? 'Вхід до ' + new URL(value.form.destination).hostname : 'Вхід у ' + name;
+    $('input-request-description').textContent = 'Введи дані в окремій формі. Доступ Oak до цієї задачі діє до 15 хвилин.';
+    $('input-request-destination').textContent = value.form.destination;
+    const start = document.createElement('button'); start.type = 'button'; start.textContent = 'Продовжити вхід';
+    fields.append(start); readValues = null;
+    if (value.broker?.phase !== 'available') { start.disabled = true; status('Вхід уже розпочато. Автоматичного повтору немає.'); return; }
+    status('Пароль і коди вводяться лише в окремій формі входу.');
+    const launchWebsite = async () => {
+      if (start.disabled || generation !== startGeneration || epoch() !== startEpoch || !available()) return;
+      start.disabled = true;
+      try {
+        const launch = await api('/api/requests/' + value.id + '/signin?conversation=' + encodeURIComponent(scope()), {});
+        if (epoch() !== startEpoch || generation !== startGeneration || submitting
+            || current?.id !== value.id || current?.outcome !== 'pending') {
+          if (launch && typeof launch === 'object') launch.ticket = null;
+          return;
+        }
+        if (launch.provider !== value.form.provider || launch.simulated !== false || launch.request_id !== value.id || !/^[A-Za-z0-9_-]{43}$/.test(launch.ticket)) throw new Error('Invalid channel');
+        const target = new URL(launch.origin);
+        if (target.origin !== launch.origin || target.protocol !== 'https:' || target.origin === location.origin) throw new Error('Invalid origin');
+        const frame = document.createElement('iframe'); frame.title = 'Вхід у ' + name;
+        frame.referrerPolicy = 'no-referrer'; frame.className = 'signin-broker';
+        frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        let attached = false, laidOut = false;
+        const receive = message => {
+          if (generation !== startGeneration || epoch() !== startEpoch || message.source !== frame.contentWindow || message.origin !== launch.origin) return;
+          const data = message.data;
+          if (attached && data?.type === 'oak-login-layout' && Object.keys(data).length === 2
+              && Number.isInteger(data.height) && data.height >= 1 && data.height <= 4096) {
+            frame.style.height = Math.max(240, data.height) + 'px';
+            laidOut = true;
+            clearTimeout(handshake);
+            dialog.classList.remove('signin-loading');
+          } else if (!attached && data?.type === 'oak-login-ready') {
+            attached = true;
+            frame.contentWindow.postMessage({type: 'oak-login-attach', request_id: launch.request_id, ticket: launch.ticket}, launch.origin);
+            launch.ticket = null;
+          }
+        };
+        const handshake = setTimeout(() => {
+          if (generation !== startGeneration || epoch() !== startEpoch || laidOut) return;
+          releaseFrame(); fields.replaceChildren();
+          status('Форма не завантажилась. Скасуй запит і почни новий вхід.');
+        }, 30000);
+        releaseFrame();
+        removeFrameListeners = () => { clearTimeout(handshake); window.removeEventListener('message', receive); launch.ticket = null; };
+        window.addEventListener('message', receive);
+        frame.src = launch.origin + '/'; fields.replaceChildren(frame); dialog.classList.add('signin-host', 'signin-loading'); status('Відкриваємо захищену форму…');
+      } catch {
+        if (generation === startGeneration && epoch() === startEpoch && !submitting
+            && current?.id === value.id && current?.outcome === 'pending') {
+          status('Форму входу не відкрито. Перевір стан або скасуй запит.');
+        }
+      }
+    };
+    start.addEventListener('click', launchWebsite, {once: true});
+    return launchWebsite;
+  }
   function watch(id, startEpoch, startGeneration) {
     clearInterval(poll);
     poll = setInterval(async () => {
@@ -63,7 +126,7 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
           ended(fresh);
           if (fresh.delivery !== 'ready' && fresh.broker?.cleanup !== 'attempted') { clearInterval(poll); poll = null; }
         } else if (fresh.broker?.phase === 'uncertain') {
-          status('Стан відкриття тестового каналу невідомий. Автоматично не повторюємо; запит можна скасувати.');
+          status('Стан відкриття каналу невідомий. Автоматично не повторюємо; запит можна скасувати.');
         }
       } catch {
         if (generation !== startGeneration) return;
@@ -83,15 +146,18 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
     try {
       const value = await inspect(id, startEpoch, startGeneration); if (!value) return;
       current = value; controls(false); $('input-request-cancel').textContent = 'Скасувати';
+      let launchWebsite = null;
       $('input-request-destination').hidden = value.kind !== 'sign_in';
       $('input-request-submit').hidden = value.kind === 'sign_in';
       if (value.kind === 'sign_in') {
         if (value.form.provider === 'oak_synthetic' && value.form.simulated === true && value.form.capability === true) {
           synthetic(value, startEpoch, startGeneration);
+        } else if (['google', 'instagram', 'website'].includes(value.form.provider) && value.form.simulated === false && value.form.capability === true) {
+          launchWebsite = website(value, startEpoch, startGeneration);
         } else {
-        $('input-request-title').textContent = 'Вхід в Instagram';
+        $('input-request-title').textContent = value.form.provider === 'website' ? 'Форма сайту' : 'Вхід у ' + (value.form.provider === 'google' ? 'Google' : 'Instagram');
         $('input-request-description').textContent = 'Захищений вхід ще недоступний. Oak не має підтвердженого доступу. Скасуй запит, щоб повідомити задачі про це.';
-        $('input-request-destination').textContent = 'instagram.com — ціль входу. Поточне підключення до сайту не перевірено.';
+        $('input-request-destination').textContent = value.form.destination + ' — ціль форми. Поточне підключення до сайту не перевірено.';
         status('Потрібен окремий захищений канал входу.'); readValues = null;
         }
       } else {
@@ -102,6 +168,7 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
       dialog.showModal();
       if (value.outcome !== 'pending') ended(value);
       if (value.outcome === 'pending' || value.delivery === 'ready') watch(id, startEpoch, startGeneration);
+      if (value.outcome === 'pending') void launchWebsite?.();
     } catch { if (generation === startGeneration) { clear(); changed('Запит недоступний, завершений або належить іншій сесії.'); } }
   }
   async function decide(decision) {

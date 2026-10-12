@@ -1,0 +1,89 @@
+test_exact_local_asset_routes_csp_and_materialized_identity (test_a2ui_renderer.A2UIAssetTests.test_exact_local_asset_routes_csp_and_materialized_identity) ... ok
+test_canonical_bindings_full_ui_incremental_update_and_drafts_under_csp (test_a2ui_renderer.A2UIRendererTests.test_canonical_bindings_full_ui_incremental_update_and_drafts_under_csp) ... Executing <Task pending name='Task-14' coro=<A2UIRendererTests.asyncSetUp() running at /home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py:66> wait_for=<Future pending cb=[Task.task_wakeup()] created at /opt/oak-runtime/python-3.12.15/lib/python3.12/asyncio/base_events.py:448> cb=[_run_until_complete_cb() at /opt/oak-runtime/python-3.12.15/lib/python3.12/asyncio/base_events.py:181] created at /opt/oak-runtime/python-3.12.15/lib/python3.12/asyncio/runners.py:100> took 0.116 seconds
+ok
+test_partial_surface_delete_and_literal_text (test_a2ui_renderer.A2UIRendererTests.test_partial_surface_delete_and_literal_text) ... ok
+test_required_cancel_duplicate_busy_expiry_and_reset (test_a2ui_renderer.A2UIRendererTests.test_required_cancel_duplicate_busy_expiry_and_reset) ... ok
+test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) ... Executing <Task pending name='Task-162' coro=<Connection.run() running at /opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py:356> created at /opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/async_api/_context_manager.py:37> took 0.145 seconds
+
+  test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='cycle') ... ERROR
+  test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='depth') ... ERROR
+  test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='limits') ... ERROR
+
+======================================================================
+ERROR: test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='cycle')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 187, in test_unknown_components_functions_and_properties_fail_closed
+    await self.open()
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 118, in open
+    await self.page.locator('body[data-oak-ready=true]').wait_for(state='attached')
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/async_api/_generated.py", line 20672, in wait_for
+    await self._impl_obj.wait_for(timeout=to_milliseconds(timeout), state=state)
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 752, in wait_for
+    await self._frame.wait_for_selector(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 395, in wait_for_selector
+    await self._channel.send(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Locator.wait_for: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("body[data-oak-ready=true]")
+
+
+======================================================================
+ERROR: test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='depth')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 187, in test_unknown_components_functions_and_properties_fail_closed
+    await self.open()
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 117, in open
+    await self.page.goto('https://a2ui.example.test/')
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/async_api/_generated.py", line 9901, in goto
+    await self._impl_obj.goto(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_page.py", line 562, in goto
+    return await self._main_frame.goto(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 157, in goto
+    await self._channel.send(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "https://a2ui.example.test/", waiting until "load"
+
+
+======================================================================
+ERROR: test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) (change='limits')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 187, in test_unknown_components_functions_and_properties_fail_closed
+    await self.open()
+  File "/home/ubuntu/oak-login-20261011/source/tests/test_a2ui_renderer.py", line 117, in open
+    await self.page.goto('https://a2ui.example.test/')
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/async_api/_generated.py", line 9901, in goto
+    await self._impl_obj.goto(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_page.py", line 562, in goto
+    return await self._main_frame.goto(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 157, in goto
+    await self._channel.send(
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/oak-runtime/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "https://a2ui.example.test/", waiting until "load"
+
+
+----------------------------------------------------------------------
+Ran 5 tests in 107.211s
+
+FAILED (errors=3)

@@ -1,9 +1,11 @@
 """Authenticated, ephemeral RFB bridge for manual control of the Oak desktop."""
 
 import asyncio
+import base64
 import contextlib
 import hashlib
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -26,6 +28,76 @@ def valid_key(value):
             and all(modifier in {'ctrl', 'alt', 'shift'} for modifier in modifiers))
 
 
+class ExecutorRemote:
+    """One worker-owned RFB lease; no gateway X11 socket or child process."""
+    CHUNK = 64 * 1024
+
+    def __init__(self, client, identifier):
+        if not isinstance(identifier, str) or not re.fullmatch(r'[a-f0-9]{32}', identifier):
+            raise OSError('Invalid desktop lease')
+        self.client, self.identifier = client, identifier
+        self.closed = False
+
+    async def _relay_call(self, operation, args):
+        task = asyncio.create_task(self.client.call(operation, args))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            # Cancelling a normal WS relay should finish its short RPC before
+            # remote.close, rather than disconnecting the whole executor.
+            try:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(asyncio.shield(task), 5)
+            finally:
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            raise
+
+    async def read(self):
+        while not self.closed:
+            value = await self._relay_call('remote.read', {'id': self.identifier})
+            if (not isinstance(value, dict) or set(value) != {'data', 'eof'} or type(value['eof']) is not bool
+                    or not isinstance(value['data'], str) or len(value['data']) > 4 * ((self.CHUNK + 2) // 3)):
+                raise OSError('Invalid desktop data')
+            try:
+                data = base64.b64decode(value['data'], validate=True)
+            except ValueError:
+                raise OSError('Invalid desktop data') from None
+            if len(data) > self.CHUNK:
+                raise OSError('Invalid desktop data')
+            if data or value['eof']:
+                return data
+        return b''
+
+    async def write(self, data):
+        if not isinstance(data, bytes) or len(data) > 256 * 1024:
+            raise OSError('Invalid desktop input')
+        for offset in range(0, len(data), self.CHUNK):
+            if self.closed:
+                raise OSError('Desktop lease closed')
+            chunk = data[offset:offset + self.CHUNK]
+            value = await self._relay_call('remote.write', {
+                'id': self.identifier, 'data': base64.b64encode(chunk).decode('ascii')})
+            if not isinstance(value, dict) or type(value.get('size')) is not int or value['size'] != len(chunk):
+                raise OSError('Invalid desktop acknowledgement')
+
+    async def input(self, text=None, key=None):
+        if self.closed:
+            raise OSError('Desktop lease closed')
+        name, value = ('text', text) if text is not None else ('key', key)
+        result = await self.client.call('remote.type' if name == 'text' else 'remote.key',
+                                        {'id': self.identifier, name: value})
+        if not isinstance(result, dict) or result.get('accepted') is not True:
+            raise OSError('Input not acknowledged')
+
+    async def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        await asyncio.wait_for(self.client.call('remote.close', {'id': self.identifier}), 15)
+
+
 class RemoteDesktop:
     TICKET_SECONDS = 30
     SESSION_SECONDS = 1800
@@ -39,7 +111,8 @@ class RemoteDesktop:
     def status(self, owner):
         state = self.current
         computer = getattr(self.controller.tools, 'computer', None)
-        return {'configured': computer is not None and shutil.which('x11vnc') is not None,
+        executor = getattr(self.controller.tools, 'executor', None)
+        return {'configured': computer is not None and (executor is not None or shutil.which('x11vnc') is not None),
                 'connected': bool(state and state.get('socket') is not None and state['socket'].prepared),
                 'manual': self.controller.manual_owner is not None,
                 'can_stop': bool(state and state['owner'] == owner)}
@@ -74,7 +147,7 @@ class RemoteDesktop:
             state = {'owner': owner, 'session': session, 'lease': secrets.token_urlsafe(16),
                      'ticket': hashlib.sha256(ticket.encode()).digest(),
                      'expires': now + self.TICKET_SECONDS, 'deadline': now + self.SESSION_SECONDS,
-                     'socket': None, 'process': None, 'launch': None, 'transport': None, 'watch': None}
+                     'socket': None, 'process': None, 'launch': None, 'transport': None, 'watch': None, 'worker': None}
             self.current = state
             state['watch'] = asyncio.create_task(self.watch(state))
             return web.json_response({'ticket': ticket, 'protocol': 'oak-remote.' + ticket, 'lease': state['lease'],
@@ -117,7 +190,12 @@ class RemoteDesktop:
                     raise web.HTTPConflict(text='Ручне керування вже завершено.')
                 # Human input only: reuse the Unicode mapping/cache handling,
                 # without the screenshot/artifact/model path of run().
-                if is_text:
+                bridge = state.get('worker')
+                if getattr(self.controller.tools, 'executor', None) is not None:
+                    if bridge is None:
+                        raise web.HTTPConflict(text='Ручне керування вже завершено.')
+                    await bridge.input(text=value if is_text else None, key=key if is_key else None)
+                elif is_text:
                     await computer._type(value)
                 else:
                     await computer._key(key)
@@ -169,6 +247,10 @@ class RemoteDesktop:
             if launch is not None:
                 with contextlib.suppress(Exception):
                     await asyncio.shield(launch)
+            bridge = state.get('worker')
+            if bridge is not None:
+                with contextlib.suppress(RuntimeError, OSError, asyncio.TimeoutError):
+                    await bridge.close()
             process = state['process']
             if process is not None:
                 if process.returncode is None:
@@ -220,25 +302,48 @@ class RemoteDesktop:
         tasks = []
         child = None
         try:
-            transport, child = socket.socketpair()
-            transport.setblocking(False)
-            state['transport'] = transport
             computer = self.controller.tools.computer
-            async def launch():
-                state['process'] = await asyncio.create_subprocess_exec(
-                    'x11vnc', '-norc', '-quiet', '-inetd', '-nopw', '-display', computer.display,
-                    '-nosel', '-noremote', '-clear_keys', '-timeout', '10', '-wait', '30',
-                    stdin=child, stdout=child, stderr=asyncio.subprocess.DEVNULL,
-                    env={**os.environ, 'DISPLAY': computer.display})
+            executor = getattr(self.controller.tools, 'executor', None)
+            transport = None
+            if executor is not None:
+                async def launch():
+                    result = await executor.call('remote.start', {})
+                    try:
+                        state['worker'] = ExecutorRemote(executor, result['id'])
+                    except (KeyError, TypeError, OSError):
+                        await executor.close()
+                        raise OSError('Desktop bridge unavailable') from None
+            else:
+                transport, child = socket.socketpair()
+                transport.setblocking(False)
+                state['transport'] = transport
+                async def launch():
+                    state['process'] = await asyncio.create_subprocess_exec(
+                        'x11vnc', '-norc', '-quiet', '-inetd', '-nopw', '-display', computer.display,
+                        '-nosel', '-noremote', '-clear_keys', '-timeout', '10', '-wait', '30',
+                        stdin=child, stdout=child, stderr=asyncio.subprocess.DEVNULL,
+                        env={**os.environ, 'DISPLAY': computer.display})
             state['launch'] = asyncio.create_task(launch())
             await asyncio.shield(state['launch'])
-            child.close()
-            child = None
+            if child is not None:
+                child.close()
+                child = None
             loop = asyncio.get_running_loop()
+            async def receive(maximum=64 * 1024):
+                if state.get('worker') is not None:
+                    return await state['worker'].read()
+                return await loop.sock_recv(transport, maximum)
+
+            async def send(data):
+                if state.get('worker') is not None:
+                    await state['worker'].write(data)
+                else:
+                    await loop.sock_sendall(transport, data)
+
             greeting = b''
             async with asyncio.timeout(8):
                 while len(greeting) < 12:
-                    chunk = await loop.sock_recv(transport, 12 - len(greeting))
+                    chunk = await receive(12 - len(greeting))
                     if not chunk:
                         raise OSError('Desktop bridge unavailable.')
                     greeting += chunk
@@ -253,11 +358,11 @@ class RemoteDesktop:
                         break
                     if not self.valid(state):
                         break
-                    await loop.sock_sendall(transport, message.data)
+                    await send(message.data)
 
             async def to_owner():
                 while True:
-                    data = await loop.sock_recv(transport, 64 * 1024)
+                    data = await receive()
                     if not data or not self.valid(state):
                         return
                     await ws.send_bytes(data)
@@ -265,7 +370,7 @@ class RemoteDesktop:
             tasks = [asyncio.create_task(to_desktop()), asyncio.create_task(to_owner())]
             await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             return ws
-        except (OSError, ConnectionError, asyncio.TimeoutError):
+        except (RuntimeError, OSError, ConnectionError, asyncio.TimeoutError):
             if ws.prepared:
                 return ws
             raise web.HTTPServiceUnavailable(text='Не вдалося підключитися до робочого столу.') from None
