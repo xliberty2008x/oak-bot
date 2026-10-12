@@ -138,7 +138,7 @@ class WebGateway:
                     continue
                 socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
-            "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
+            "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data: blob:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
         response.headers['Content-Security-Policy'] += '; frame-src ' + (self.signin.origin if self.signin else "'none'")
         return response
 

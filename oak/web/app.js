@@ -1064,6 +1064,16 @@ async function desktopPanel() {
   if (!$("view-desktop").hidden && !$("workspace").hidden) await panel?.refresh();
 }
 
+async function artifact(id) {
+  const epoch = sessionEpoch, controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch("/api/artifacts/" + encodeURIComponent(id), {credentials: "same-origin", signal: controller.signal,
+      headers: sessionToken ? {Authorization: "Bearer " + sessionToken} : {}});
+    if (!response.ok || epoch !== sessionEpoch || !/^image\//.test(response.headers.get("Content-Type") || "")) throw new Error("Зображення недоступне.");
+    return await response.blob();
+  } finally { clearTimeout(timeout); }
+}
+
 async function dynamicPanel() {
   if (document.querySelector("dialog[open]")) return;
   if (surfaceLaunch && initialConversation === null && sessionsData && authenticated && !$("workspace").hidden && !surfaceLaunch.opened) {
@@ -1071,7 +1081,7 @@ async function dynamicPanel() {
     if (!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]') && !$("confirmation").open) showView("status", false);
   }
   if (!a2uiLoading) a2uiLoading = import('/a2ui.js').then(module => {
-    a2uiPanel = module.createA2UIPanel({api,
+    a2uiPanel = module.createA2UIPanel({api, artifact,
       available: () => authenticated && sessionsData && initialConversation === null && !$("workspace").hidden && !$("view-status").hidden && !document.hidden && !document.querySelector("dialog[open]"),
       epoch: () => sessionEpoch, busy: () => mutationBusy || refreshing || $("confirmation").open,
       target: () => surfaceLaunch?.conversation === selectedSession ? surfaceLaunch.id : null,

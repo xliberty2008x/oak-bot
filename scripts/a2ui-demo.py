@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from aiohttp import web
-from oak.a2ui_demo import form_messages, message, result_messages
+from oak.a2ui_demo import card_messages, form_messages, message, result_messages
 from oak.bus import EventBus
 from oak.controller import Controller
 from oak.runtime import RpcError
@@ -86,6 +86,24 @@ async def main(port):
         gateway.sdk_file.write_text('window.Telegram={WebApp:' + json.dumps(sdk) + '};for(const name of ["ready","expand","close","setHeaderColor","setBackgroundColor"]) window.Telegram.WebApp[name]=()=>{};')
         await controller.tools.execute(11, 'oak_a2ui', {'action': 'publish', 'messages_json': json.dumps(form_messages()),
                                                        'fallback': 'Синтетична локальна форма: реальний агент і Telegram не підключені.'},
+                                       {'threadId': 'demo-thread', 'turnId': 'demo-initial'})
+        card = card_messages()
+        try:
+            from PIL import Image, ImageDraw
+            (root / 'artifacts').mkdir(exist_ok=True)
+            picture = Image.new('RGB', (960, 420), '#13261e')
+            draw = ImageDraw.Draw(picture)
+            for index, colour in enumerate(['#6ea8ff', '#f2c46d', '#3ddc97']):
+                draw.ellipse((120 + index * 260, 90, 360 + index * 260, 330), fill=colour)
+            picture.save(root / 'artifacts' / 'demo-meal.png')
+            body = next(x for x in card[1]['updateComponents']['components'] if x['id'] == 'body')
+            body['children'].insert(1, 'photo')
+            card[1]['updateComponents']['components'].append(
+                {'id': 'photo', 'component': 'Image', 'alt': 'Синтетична ілюстрація меню', 'path': 'artifacts/demo-meal.png'})
+        except ImportError:
+            pass  # Pillow is a production dependency; without it the demo card has no image.
+        await controller.tools.execute(11, 'oak_a2ui', {'action': 'publish', 'messages_json': json.dumps(card),
+                                                       'fallback': 'Синтетична картка денної цілі.'},
                                        {'threadId': 'demo-thread', 'turnId': 'demo-initial'})
         runner = web.AppRunner(gateway.app, access_log=None)
         await runner.setup()

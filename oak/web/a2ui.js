@@ -1,11 +1,108 @@
 // oak-a2ui-dom@1.0.0; A2UI v0.9.1 / urn:oak:a2ui:canonical:v1.
 // Restricted Oak catalogue. Model HTML, URLs, styles and functions are never rendered.
-const VERSION = 'v0.9.1', RENDERER = 'oak-a2ui-dom@1.0.0', CATALOG = 'urn:oak:a2ui:canonical:v1';
-const kinds = new Set(['Card', 'Column', 'Text', 'TextField', 'ChoicePicker', 'Button']);
+const VERSION = 'v0.9.1', RENDERER = 'oak-a2ui-dom@1.1.0', CATALOG = 'urn:oak:a2ui:canonical:v1';
+const kinds = new Set(['Card', 'Column', 'Row', 'Text', 'TextField', 'ChoicePicker', 'Button',
+  'Divider', 'Badge', 'Metric', 'Progress', 'Table', 'Chart', 'Image']);
+const tones = new Set(['neutral', 'success', 'warning', 'danger', 'info']);
 function node(tag, text, className) {
   const element = document.createElement(tag);
   if (text !== undefined) element.textContent = text;
   if (className) element.className = className;
+  return element;
+}
+const SVG = 'http://www.w3.org/2000/svg';
+function svg(tag, attributes = {}, text) {
+  const element = document.createElementNS(SVG, tag);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+const finite = value => typeof value === 'number' && Number.isFinite(value);
+const format = value => Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+function strings(value, low, high) {
+  if (!Array.isArray(value) || value.length < low || value.length > high || value.some(item => typeof item !== 'string')) throw new Error('Invalid list');
+  return value;
+}
+
+function progress(item) {
+  const segments = item.segments;
+  if (!Array.isArray(segments) || !segments.length || segments.length > 6 || segments.some(s => typeof s?.label !== 'string' || !finite(s.value) || s.value < 0)) throw new Error('Invalid progress');
+  const total = segments.reduce((sum, s) => sum + s.value, 0);
+  if (!(total > 0)) throw new Error('Invalid progress');
+  const element = node('figure', undefined, 'a2ui-progress');
+  if (item.label) element.append(node('figcaption', item.label, 'hint'));
+  const bar = node('div', undefined, 'a2ui-progress-bar'), legend = node('div', undefined, 'a2ui-legend');
+  segments.forEach((segment, index) => {
+    const share = Math.round(100 * segment.value / total);
+    const part = node('span', undefined, 'a2ui-series-' + index);
+    part.style.flexGrow = String(segment.value);
+    bar.append(part);
+    legend.append(node('span', segment.label + ' ' + share + '%', 'a2ui-key a2ui-series-' + index));
+  });
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', segments.map(s => s.label + ' ' + Math.round(100 * s.value / total) + '%').join(', '));
+  element.append(bar, legend);
+  return element;
+}
+
+function table(item) {
+  const columns = strings(item.columns, 1, 8);
+  if (!Array.isArray(item.rows) || item.rows.length > 50) throw new Error('Invalid table');
+  const wrapper = node('div', undefined, 'a2ui-table'), element = node('table');
+  if (item.caption) element.append(node('caption', item.caption));
+  const head = node('tr');
+  for (const column of columns) { const cell = node('th', column); cell.scope = 'col'; head.append(cell); }
+  const body = node('tbody');
+  for (const row of item.rows) {
+    const line = node('tr');
+    for (const value of strings(row, columns.length, columns.length)) line.append(node('td', value));
+    body.append(line);
+  }
+  const thead = node('thead'); thead.append(head);
+  element.append(thead, body); wrapper.append(element);
+  return wrapper;
+}
+
+function chart(item) {
+  const labels = strings(item.labels, 1, 32), series = item.series;
+  if (!['bar', 'line'].includes(item.kind) || !Array.isArray(series) || !series.length || series.length > 4
+      || series.some(s => typeof s?.label !== 'string' || !Array.isArray(s.values) || s.values.length !== labels.length || !s.values.every(finite))) throw new Error('Invalid chart');
+  const unit = typeof item.unit === 'string' && item.unit ? ' ' + item.unit : '';
+  const values = series.flatMap(s => s.values), low = Math.min(0, ...values), high = Math.max(0, ...values);
+  const range = high - low || 1, width = 320, height = 180, left = 8, top = 12, bottom = 28, plot = height - top - bottom;
+  const x = index => left + (width - left * 2) * (index + 0.5) / labels.length;
+  const y = value => top + plot * (high - value) / range;
+  const element = node('figure', undefined, 'a2ui-chart');
+  if (item.title) element.append(node('figcaption', item.title, 'a2ui-chart-title'));
+  const canvas = svg('svg', {viewBox: `0 0 ${width} ${height}`, role: 'img'});
+  canvas.setAttribute('aria-label', (item.title ? item.title + ': ' : '') + series.map(s => s.label + ' ' + s.values.map((v, i) => labels[i] + ' ' + format(v) + unit).join(', ')).join('; '));
+  canvas.append(svg('line', {x1: left, x2: width - left, y1: y(0), y2: y(0), class: 'a2ui-axis'}));
+  const step = (width - left * 2) / labels.length, band = step * 0.7 / series.length;
+  series.forEach((line, index) => {
+    if (item.kind === 'bar') {
+      line.values.forEach((value, point) => {
+        const bar = svg('rect', {x: x(point) - step * 0.35 + band * index, y: Math.min(y(value), y(0)), width: Math.max(band - 2, 1),
+          height: Math.max(Math.abs(y(value) - y(0)), 1), rx: 3, class: 'a2ui-fill-' + index});
+        bar.append(svg('title', {}, labels[point] + ' · ' + line.label + ': ' + format(value) + unit));
+        canvas.append(bar);
+      });
+    } else {
+      canvas.append(svg('polyline', {points: line.values.map((value, point) => x(point) + ',' + y(value)).join(' '), class: 'a2ui-stroke-' + index}));
+      line.values.forEach((value, point) => {
+        const dot = svg('circle', {cx: x(point), cy: y(value), r: 3.5, class: 'a2ui-fill-' + index});
+        dot.append(svg('title', {}, labels[point] + ' · ' + line.label + ': ' + format(value) + unit));
+        canvas.append(dot);
+      });
+    }
+  });
+  const every = Math.ceil(labels.length / 8);
+  labels.forEach((label, point) => {
+    if (point % every === 0) canvas.append(svg('text', {x: x(point), y: height - 9, 'text-anchor': 'middle', class: 'a2ui-tick'}, label.length > 12 ? label.slice(0, 11) + '…' : label));
+  });
+  element.append(canvas);
+  const legend = node('div', undefined, 'a2ui-legend');
+  series.forEach((line, index) => legend.append(node('span', line.label + ' · макс. ' + format(Math.max(...line.values)) + unit, 'a2ui-key a2ui-series-' + index)));
+  element.append(legend);
   return element;
 }
 function parts(path) {
@@ -54,9 +151,17 @@ function reconcile(parent, children) {
   while (parent.children.length > children.length) parent.lastElementChild.remove();
 }
 
-export function createA2UIPanel({api, available, epoch, busy, setBusy, target = () => null, targetHandled = () => {}}) {
+export function createA2UIPanel({api, artifact, available, epoch, busy, setBusy, target = () => null, targetHandled = () => {}}) {
   const section = document.getElementById('a2ui-panel'), content = document.getElementById('a2ui-surfaces'), status = document.getElementById('a2ui-status');
-  const surfaces = new Map();
+  const surfaces = new Map(), images = new Map();
+  function image(element, id) {
+    if (element.dataset.artifact === id) return;
+    element.dataset.artifact = id;
+    if (!images.has(id)) images.set(id, artifact(id).then(blob => URL.createObjectURL(blob)).catch(error => { images.delete(id); throw error; }));
+    const loading = generation;
+    images.get(id).then(url => { if (loading === generation && element.dataset.artifact === id) element.src = url; })
+      .catch(() => { if (element.dataset.artifact === id) { delete element.dataset.artifact; element.alt = 'Зображення недоступне: ' + element.alt; } });
+  }
   let loading = false, actionBusy = false, generation = 0, serverBusy = false, targetNotice = '';
   function notice(text, error = false) { status.textContent = text; status.classList.toggle('error-message', error); }
   function disable() {
@@ -75,12 +180,36 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy, target = 
       if (!kinds.has(item.component)) throw new Error('Unsupported component');
       let element = surface.nodes.get(id);
       if (element?.dataset.kind !== item.component) {
-        element = node(item.component === 'Button' ? 'button' : item.component === 'Text' ? 'p' : 'div');
+        element = node({Button: 'button', Text: 'p', Image: 'img', Divider: 'hr', Badge: 'span'}[item.component] || 'div');
         element.dataset.kind = item.component; surface.nodes.set(id, element);
       }
-      if (item.component === 'Card' || item.component === 'Column') {
-        element.className = item.component === 'Card' ? 'topic-form a2ui-card' : 'a2ui-column';
+      if (item.component === 'Card' || item.component === 'Column' || item.component === 'Row') {
+        element.className = {Card: 'topic-form a2ui-card', Column: 'a2ui-column', Row: 'a2ui-row'}[item.component];
         reconcile(element, (item.component === 'Card' ? [item.child] : item.children).map(child => build(child, new Set([...ancestors, id]))));
+      } else if (item.component === 'Divider') {
+        element.className = 'a2ui-divider';
+      } else if (item.component === 'Badge') {
+        const text = resolve(item.text, surface.dataModel);
+        if (text != null && typeof text !== 'string') throw new Error('Invalid badge binding');
+        element.className = 'a2ui-badge a2ui-tone-' + (tones.has(item.tone) ? item.tone : 'neutral');
+        element.textContent = text || '';
+      } else if (item.component === 'Metric') {
+        const value = resolve(item.value, surface.dataModel);
+        if (value != null && typeof value !== 'string') throw new Error('Invalid metric binding');
+        element.className = 'a2ui-metric';
+        const parts = [node('strong', value || '—'), node('span', item.label, 'hint')];
+        if (item.hint) parts.push(node('small', item.hint, 'hint'));
+        element.replaceChildren(...parts);
+      } else if (item.component === 'Progress') {
+        element.className = 'a2ui-block'; element.replaceChildren(progress(item));
+      } else if (item.component === 'Table') {
+        element.className = 'a2ui-block'; element.replaceChildren(table(item));
+      } else if (item.component === 'Chart') {
+        element.className = 'a2ui-block'; element.replaceChildren(chart(item));
+      } else if (item.component === 'Image') {
+        if (typeof item.artifact !== 'string' || !/^[a-f0-9]{32}$/.test(item.artifact)) throw new Error('Invalid image');
+        element.className = 'a2ui-image'; element.alt = item.alt; element.decoding = 'async'; element.loading = 'lazy';
+        image(element, item.artifact);
       } else if (item.component === 'Text') {
         element.className = item.variant === 'hint' ? 'hint' : item.variant === 'heading' ? 'a2ui-heading' : 'a2ui-text';
         const text = resolve(item.text, surface.dataModel);
@@ -162,7 +291,8 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy, target = 
         }
         if (surface.revision !== incoming.revision) {
           Object.assign(surface, incoming, {inputs: {}}); render(surface);
-          notice(serverBusy ? 'Oak ще працює…' : 'Форма для вибраної сесії. Відповідь повернеться Oak у Telegram.');
+          const form = Object.values(surface.components).some(item => ['TextField', 'ChoicePicker', 'Button'].includes(item?.component));
+          notice(serverBusy ? 'Oak ще працює…' : form ? 'Форма для вибраної сесії. Відповідь повернеться Oak у Telegram.' : 'Картка від Oak для вибраної сесії.');
         } else { surface.consumed ||= incoming.consumed; surface.expires = incoming.expires; }
       }
       for (const [id, surface] of surfaces) if (!ids.has(id)) { surface.element.remove(); surfaces.delete(id); }
@@ -183,7 +313,11 @@ export function createA2UIPanel({api, available, epoch, busy, setBusy, target = 
       if (epoch() === startEpoch && generation === startGeneration && available()) { serverBusy = true; disable(); if (target()) section.hidden = false; notice('Форми недоступні. Перевір з’єднання та натисни «Оновити».', true); }
     } finally { if (generation === startGeneration) loading = false; }
   }
-  function reset() { generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice(''); }
+  function reset() {
+    generation++; loading = false; actionBusy = false; serverBusy = false; targetNotice = ''; surfaces.clear(); content.replaceChildren(); section.hidden = true; notice('');
+    for (const url of images.values()) void url.then(URL.revokeObjectURL, () => {});
+    images.clear();
+  }
   const timer = setInterval(() => { void refresh(); }, 3000);
   window.addEventListener('pagehide', () => clearInterval(timer), {once: true});
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
