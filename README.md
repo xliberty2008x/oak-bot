@@ -16,6 +16,7 @@ Mini App. There is no automatic API-key or model fallback.
 | Conversation | Streaming replies, ongoing-task steering, cancellation and persistent sessions |
 | Telegram | Private-chat allowlist, rich messages, safe classic fallback, typing, photos/files/voice input and durable delivery |
 | Web / Mini App | Owner-authenticated control panel: Telegram sessions, task controls, per-session model choice and runtime integration status |
+| Cards | Agent-composed metrics, splits, tables, charts, images and forms; rich Telegram messages edited in place and full layout in the Mini App ([A2UI](docs/a2ui.md)) |
 | Events | Durable AG-UI event stream with independent conversation/run subscribers and separate tool results |
 | Memory | Per-conversation notes, full-text retrieval, forgetting and selected-file import |
 | Scheduling | One-time reminders, recurring reminders and scheduled assistant tasks |

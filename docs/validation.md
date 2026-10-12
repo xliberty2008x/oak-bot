@@ -179,6 +179,23 @@ live A2UI round-trip і deployed Mini App цією feature task не перев�
 Deploy, restart, migration, push, bot-menu changes та external messages не
 виконувались. Rollout і live verification описані в [A2UI](a2ui.md).
 
+## Картки A2UI в Telegram і Mini App — 2026-10-12, Linux cloud VM
+
+- Повна suite: 168 тестів, усі нові й оновлені A2UI/Telegram тести пройшли.
+  П'ять errors лише в sign-in broker/bootstrap verifier через відсутній
+  `playwright` у середовищі; без цих змін ті самі п'ять тестів падають так само.
+- Unit checks покривають нові компоненти й ліміти, chat-scoped image artifacts,
+  перетворення картки на Telegram blocks, перше `sendRichMessage`, редагування
+  на місці, пропуск проміжних revisions, заміну видаленого повідомлення,
+  classic fallback, закриття та розділення сесій. Telegram API у цих тестах mocked.
+- Offline validator з `jsonschema==4.25.1`: 11 server messages, включно з
+  карткою денної цілі, пройшли офіційні A2UI v0.9.1 schemas.
+- Local demo в headless Chromium 390×844: картка з показниками, розподілом,
+  таблицею, SVG-графіком і зображенням через `/api/artifacts` (blob URL) без
+  console errors і горизонтального overflow; наявна форма submit → result працює.
+- Не перевірено: реальний model tool call, живий Telegram `sendRichMessage`
+  з blocks/photo, deployed Mini App і VM revision.
+
 ## Remaining deployment checks
 
 - Browser artifact download is not yet verified: the last browser check had no
