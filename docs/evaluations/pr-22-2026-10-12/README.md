@@ -80,7 +80,32 @@ Telegram message was sent by these review checks.
   nested inside action items. Tests now check those current contracts without
   changing private login runtime behavior or removing secret-isolation checks.
 
-The complete integrated suite and deployment pins are recorded with the release
-receipt after their completion. Local/mock checks do not establish live owner
+The complete integrated suite passed **1058 tests in 391.685 seconds**, with
+provider/browser checks enabled and no failures, errors or skips. Deployment
+pins are recorded with the release receipt. Local/mock checks do not establish live owner
 Telegram acceptance or successful provider account authentication. No model
 configuration, API credential or website authority changed in this integration.
+
+## Host transport correction discovered during deployment
+
+The first HTTPS acceptance check repeatedly stalled while downloading the
+444318-byte Lit bundle, although direct HTTP returned the complete file in
+milliseconds. The existing executor firewall used a negative socket-UID guard
+before the local/private destination rejects. Packets without a full owning
+socket skip that guard and can reach those rejects; this behavior follows the
+[Linux 6.8 metadata evaluation](https://github.com/torvalds/linux/blob/v6.8/net/netfilter/nft_meta.c#L120-L151).
+
+The follow-up changes only the scope of that firewall: a positive executor-UID
+match jumps into a regular chain containing the same DNS exceptions and address
+restrictions. Other UIDs and kernel packets without socket credentials cannot
+enter that chain. An isolated network-namespace regression reproduces the old
+kernel-generated ICMP failure, verifies the corrected behavior, and checks that
+executor loopback denial and the DNS exception remain enforced. The affected
+boundary suite passed **55 tests**, including that real nft/kernel regression.
+An independent namespace TCP probe reproduced the same failure: root and the
+gateway user received only 49152 of 2097152 bytes with the old policy, then the
+complete matching body with positive dispatch; the executor UID remained denied.
+No nginx or
+provider authority is changed. This installer correction is validated separately
+from the complete PR suite above, including a fresh runtime attestation and
+HTTPS asset checks during the final cutover.

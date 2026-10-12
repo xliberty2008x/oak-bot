@@ -110,7 +110,9 @@ class PolicyTests(unittest.TestCase):
 
     def test_egress_is_scoped_to_uid_with_dns_only_exception(self):
         rules = setup_module().firewall(SPEC)
-        self.assertIn('meta skuid != 1900 return', rules)
+        self.assertIn('meta skuid 1900 jump executor', rules)
+        self.assertNotIn('meta skuid !=', rules)
+        self.assertIn(' chain executor {', rules)
         self.assertIn('ip daddr 127.0.0.53 tcp dport 53 accept', rules)
         self.assertLess(rules.index('udp dport 53 accept'), rules.index('fib daddr type local reject'))
         for address in ('127.0.0.0/8', '10.0.0.0/8', '169.254.0.0/16',

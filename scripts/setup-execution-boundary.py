@@ -126,7 +126,12 @@ def firewall(spec):
     lines = [f'add table inet {TABLE}', f'flush table inet {TABLE}',
              f'table inet {TABLE} {{', ' chain output {',
              '  type filter hook output priority -10; policy accept;',
-             f'  meta skuid != {spec["executor_uid"]} return']
+             # A missing socket UID breaks a meta expression's current rule;
+             # a negative guard would fall through into the deny rules below.
+             # Dispatch positively so kernel ACK/FIN/ICMP without socket
+             # credentials, and every other UID, bypass this private chain.
+             f'  meta skuid {spec["executor_uid"]} jump executor',
+             ' }', ' chain executor {']
     for value in spec['dns_addresses']:
         family = 'ip6' if ':' in value else 'ip'
         lines += [f'  {family} daddr {value} udp dport 53 accept',
