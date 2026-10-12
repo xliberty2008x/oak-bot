@@ -1,0 +1,116 @@
+{
+  "artifact": "heldout_v2_postrun_os_closure",
+  "database_rows_read": false,
+  "executor_process_count": 6,
+  "executor_processes": [
+    {
+      "pid": 1189549,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745198
+    },
+    {
+      "pid": 1189550,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745208
+    },
+    {
+      "pid": 1189551,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "native",
+        "ordinal": 74,
+        "peer_pid": 1189548
+      },
+      "start_ticks": 323745209
+    },
+    {
+      "pid": 1189582,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745396
+    },
+    {
+      "pid": 1189583,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745405
+    },
+    {
+      "pid": 1189584,
+      "predates_v2_estimated_start": true,
+      "production_unit": {
+        "gateway_uid": 1002,
+        "kind": "worker",
+        "ordinal": 51,
+        "peer_pid": 1189546
+      },
+      "start_ticks": 323745406
+    }
+  ],
+  "executor_uid": 1900,
+  "gateway_cleanup_error_detail_retained_in_v2_receipt": false,
+  "gateway_cleanup_failure_reason_recovered": false,
+  "limits": [
+    "separate_postrun_os_observation",
+    "does_not_override_gateway_cleanup_false",
+    "does_not_recover_dropped_cleanup_error_phase",
+    "does_not_prove_all_child_finalizers_completed",
+    "does_not_convert_failed_regression_to_pass"
+  ],
+  "native_log_contents_read": false,
+  "only_root_reviewed_old_production_instances_observed": true,
+  "owned_child_pids_absent": {
+    "1192851": true,
+    "1192852": true
+  },
+  "owned_unix_sockets_absent": {
+    "control": true,
+    "gateway": true,
+    "human": true
+  },
+  "postrun_owned_os_resource_closure_confirmed": true,
+  "processes_killed": 0,
+  "raw_command_lines_read": false,
+  "read_only_observation_unix_ms": 1791805856056,
+  "tests_or_models_started": 0,
+  "v1_receipt_sha256": "96acbfd3a5610c2e164b96b515d6754999a4aeb71ab82366496c286eef9aff15",
+  "v1_v2_receipts_and_claims_modified": false,
+  "v2_acceptance_status_changed": false,
+  "v2_broker_cleanup_confirmed": true,
+  "v2_claim_sha256": "3c9f6c036ca6d7432885abf38ffb0dd50419919759fa18dc26a84cc31b814853",
+  "v2_estimated_start_unix_ms": 1791805751277,
+  "v2_fixture_contexts": 0,
+  "v2_gateway_cleanup_confirmed": false,
+  "v2_jev_calls": 0,
+  "v2_native_instance_observed": false,
+  "v2_native_log_scanned_bytes": 54776,
+  "v2_native_tool_calls": 0,
+  "v2_private_posts": 0,
+  "v2_receipt_cleanup_confirmed": false,
+  "v2_receipt_sha256": "925631658a9c2b6fe4dce1e0452cbb9c5ec4df255406718fa8d63b70c9ff7030",
+  "v2_receipt_status": "failed",
+  "version": 1
+}

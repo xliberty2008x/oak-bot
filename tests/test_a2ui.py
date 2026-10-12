@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import copy
 import hashlib
 import hmac
@@ -12,11 +14,13 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from oak.a2ui import StaleSurface, VERSION, input_id, validate_messages
+from oak.a2ui import IMAGE_BYTES, StaleSurface, VERSION, input_id, validate_messages
 from oak.a2ui_demo import card_messages, form_messages, message, result_messages
 from oak.a2ui_telegram import card_blocks
 from oak.bus import EventBus
 from oak.controller import Controller
+from oak.events import validate_event
+from oak.transfer import ExecutorFiles
 from oak.tools import Tools
 from oak.web import WebGateway
 
@@ -119,7 +123,7 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(e.get('name') == 'web_app_link' for e in events))
         cards = [e['value'] for e in events if e.get('name') == 'a2ui_card']
         self.assertNotIn('url', cards[0])
-        self.assertEqual(cards[1], {'surfaceId': 'oak-plan', 'label': cards[0]['label'], 'deleted': True})
+        self.assertEqual(cards[1], {'surfaceId': 'oak-plan', 'label': cards[0]['label'], 'deleted': True, 'revision': cards[0]['revision'] + 1})
         self.assertEqual(len(cards), 2)
         self.assertEqual(sum(e['type'] == 'TEXT_MESSAGE_END' for e in events), 2)
 
@@ -184,6 +188,177 @@ class A2UITests(unittest.IsolatedAsyncioTestCase):
             bad[1]['updateComponents']['components'][1]['path'] = path
             with self.subTest(path=path), self.assertRaises(ValueError):
                 await self.publish([message('deleteSurface', {}), *bad])
+
+    def image_messages(self, path='artifacts/remote.png'):
+        return [message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'}),
+                message('updateComponents', {'components': [
+                    {'id': 'root', 'component': 'Column', 'children': ['photo']},
+                    {'id': 'photo', 'component': 'Image', 'alt': 'Synthetic image', 'path': path}]})]
+
+    def worker_images(self, data=b'\x89PNG\r\n\x1a\nsynthetic', size=None):
+        client = SimpleNamespace(call=AsyncMock())
+        async def rpc(method, args):
+            if method == 'file.open_read':
+                return {'handle': 'fixture-handle', 'size': len(data) if size is None else size}
+            if method == 'file.read_chunk':
+                return {'data': base64.b64encode(data).decode(), 'eof': True}
+            if method == 'file.close':
+                return {}
+            raise AssertionError(method)
+        client.call.side_effect = rpc
+        # The gateway has no direct file at this executor-only workspace path.
+        self.c.tools.files = ExecutorFiles(client, self.root / 'isolated-worker', self.root / 'gateway')
+        return client
+
+    async def test_worker_images_stream_to_private_snapshot_and_reuse_without_rpc(self):
+        client = self.worker_images()
+        await self.publish(self.image_messages())
+        surface = self.c.a2ui.snapshot(11)['surfaces'][0]
+        artifact = surface['components']['photo']['artifact']
+        row = self.c.db.execute('SELECT path,name,mime FROM artifacts WHERE id=?', (artifact,)).fetchone()
+        self.assertTrue(self.c.tools.files.stored(row['path']))
+        self.assertEqual(Path(row['path']).read_bytes(), b'\x89PNG\r\n\x1a\nsynthetic')
+        self.assertEqual(tuple(row)[1:], ('remote.png', 'image/png'))
+        self.assertEqual([call.args[0] for call in client.call.await_args_list],
+                         ['file.open_read', 'file.read_chunk', 'file.close'])
+        self.assertNotIn('remote.png', json.dumps(self.bus.replay(11)))
+        self.assertNotIn('isolated-worker', json.dumps(self.bus.replay(11)))
+        client.call.reset_mock()
+        await self.publish([message('updateComponents', {'components': [
+            {'id': 'photo', 'component': 'Image', 'alt': 'Again', 'artifact': artifact}]})])
+        client.call.assert_not_awaited()
+
+    async def test_oversized_worker_image_is_rejected_before_any_read(self):
+        client = self.worker_images(size=IMAGE_BYTES + 1)
+        with self.assertRaises(ValueError):
+            await self.publish(self.image_messages())
+        self.assertEqual([call.args[0] for call in client.call.await_args_list], ['file.open_read', 'file.close'])
+        self.assertEqual(list(self.c.tools.files.directory.iterdir()), [])
+        self.assertEqual(self.c.db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0], 0)
+        self.assertEqual(self.bus.replay(11), [])
+
+    async def test_rejected_image_batch_registers_nothing_and_stale_scope_does_not_read(self):
+        client = self.worker_images()
+        invalid = self.image_messages()
+        invalid[1]['updateComponents']['components'][0]['children'].append('root')
+        with self.assertRaises(ValueError):
+            await self.publish(invalid)
+        self.assertEqual(self.c.db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0], 0)
+        self.assertEqual(self.c.a2ui.snapshot(11)['surfaces'], [])
+        client.call.reset_mock()
+        with self.assertRaises(StaleSurface):
+            await self.publish(self.image_messages(), {'threadId': 'old-thread', 'turnId': 'old-run'})
+        client.call.assert_not_awaited()
+
+    async def test_session_change_during_snapshot_does_not_register_or_publish(self):
+        client = self.worker_images()
+        original = client.call.side_effect
+        async def rpc(method, args):
+            response = await original(method, args)
+            if method == 'file.read_chunk':
+                self.c.threads[11] = 'replacement-thread'
+            return response
+        client.call.side_effect = rpc
+        with self.assertRaises(StaleSurface):
+            await self.publish(self.image_messages())
+        self.assertEqual(self.c.db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0], 0)
+        self.assertEqual(self.bus.replay(11), [])
+
+    async def test_concurrent_publish_cards_keep_committed_state_and_thread(self):
+        blocked, release = asyncio.Event(), asyncio.Event()
+        async def emit(chat, event):
+            if event.get('name') == 'a2ui' and event['value']['revisions'].get('oak-plan') == 1:
+                blocked.set()
+                await release.wait()
+            await self.bus.emit(chat, event)
+        self.c.emit = emit
+        first = asyncio.create_task(self.publish())
+        try:
+            await asyncio.wait_for(blocked.wait(), 2)
+            await self.publish([message('updateDataModel', {'path': '/form/topic', 'value': 'New revision'})],
+                               {'threadId': 'thread-one', 'turnId': 'second-turn'})
+            self.c.threads[11] = 'replacement-thread'
+            self.c.active[11] = 'replacement-turn'
+        finally:
+            release.set()
+            await first
+        cards = [x['event'] for x in self.bus.replay(11) if x['event'].get('name') == 'a2ui_card']
+        self.assertEqual([event['value']['revision'] for event in cards], [2, 1])
+        self.assertEqual(cards[0]['value']['state']['dataModel']['form']['topic'], 'New revision')
+        self.assertNotEqual(cards[1]['value']['state']['dataModel']['form']['topic'], 'New revision')
+        self.assertEqual([event['threadId'] for event in cards], ['thread-one', 'thread-one'])
+        self.assertEqual([event['runId'] for event in cards], ['second-turn', 'form-turn'])
+
+    async def test_late_delete_has_tombstone_revision_older_than_recreated_card(self):
+        await self.publish()
+        blocked, release = asyncio.Event(), asyncio.Event()
+        async def emit(chat, event):
+            if event.get('name') == 'a2ui' and any('deleteSurface' in m for m in event['value']['messages']):
+                blocked.set()
+                await release.wait()
+            await self.bus.emit(chat, event)
+        self.c.emit = emit
+        deletion = asyncio.create_task(self.publish([message('deleteSurface', {})]))
+        try:
+            await asyncio.wait_for(blocked.wait(), 2)
+            recreated = await self.publish()
+        finally:
+            release.set()
+            removed = await deletion
+        cards = [x['event']['value'] for x in self.bus.replay(11) if x['event'].get('name') == 'a2ui_card']
+        self.assertEqual([card['revision'] for card in cards], [1, 3, 2])
+        self.assertTrue(cards[-1]['deleted'])
+        self.assertEqual(recreated['revisions'], {'oak-plan': 3})
+        self.assertEqual(removed['revisions'], {})
+        self.assertEqual(self.c.a2ui.row(11, 'oak-plan')['revision'], 3)
+        for revision in (None, 0, True):
+            event = {'type': 'CUSTOM', 'threadId': 'thread-one', 'runId': 'form-turn',
+                     'name': 'a2ui_card', 'value': {**cards[-1], 'revision': revision}}
+            with self.assertRaises(ValueError):
+                validate_event(event)
+
+    async def test_rootless_fallback_does_not_leak_into_replacement_thread(self):
+        blocked, release = asyncio.Event(), asyncio.Event()
+        async def emit(chat, event):
+            if event.get('name') == 'a2ui':
+                blocked.set()
+                await release.wait()
+            await self.bus.emit(chat, event)
+        self.c.emit = emit
+        publication = asyncio.create_task(self.publish([
+            message('createSurface', {'catalogId': 'urn:oak:a2ui:canonical:v1'})]))
+        try:
+            await asyncio.wait_for(blocked.wait(), 2)
+            self.c.threads[11] = 'replacement-thread'
+        finally:
+            release.set()
+            result = await publication
+        self.assertEqual(result['telegram_cards'], 0)
+        events = [x['event'] for x in self.bus.replay(11)]
+        self.assertEqual([event.get('name') for event in events], ['a2ui'])
+        self.assertEqual(events[0]['threadId'], 'thread-one')
+
+    async def test_card_event_rejects_private_paths_and_unvalidated_component_state(self):
+        await self.publish()
+        event = next(x['event'] for x in self.bus.replay(11) if x['event'].get('name') == 'a2ui_card')
+        validate_event(event)
+        variants = []
+        forged = copy.deepcopy(event)
+        forged['value']['state']['components']['photo'] = {
+            'id': 'photo', 'component': 'Image', 'alt': 'Unsafe', 'path': 'private.png'}
+        variants.append(forged)
+        forged = copy.deepcopy(event)
+        forged['value']['state']['private'] = 'not a catalogue field'
+        variants.append(forged)
+        forged = copy.deepcopy(event)
+        forged['value']['state']['components']['root']['id'] = 'mismatched'
+        variants.append(forged)
+        forged = copy.deepcopy(event)
+        forged['value']['state']['components']['unknown'] = {'id': 'unknown', 'component': 'HTML', 'text': '<script>'}
+        variants.append(forged)
+        for forged in variants:
+            with self.assertRaises(ValueError):
+                validate_event(forged)
 
     def test_telegram_blocks_for_display_card(self):
         state = {'components': {}, 'dataModel': {}}

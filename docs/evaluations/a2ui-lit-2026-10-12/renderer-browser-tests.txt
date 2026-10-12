@@ -1,0 +1,10 @@
+test_exact_local_asset_routes_csp_and_materialized_identity (test_a2ui_renderer.A2UIAssetTests.test_exact_local_asset_routes_csp_and_materialized_identity) ... ok
+test_canonical_bindings_full_ui_incremental_update_and_drafts_under_csp (test_a2ui_renderer.A2UIRendererTests.test_canonical_bindings_full_ui_incremental_update_and_drafts_under_csp) ... ok
+test_partial_surface_delete_and_literal_text (test_a2ui_renderer.A2UIRendererTests.test_partial_surface_delete_and_literal_text) ... ok
+test_required_cancel_duplicate_busy_expiry_and_reset (test_a2ui_renderer.A2UIRendererTests.test_required_cancel_duplicate_busy_expiry_and_reset) ... ok
+test_unknown_components_functions_and_properties_fail_closed (test_a2ui_renderer.A2UIRendererTests.test_unknown_components_functions_and_properties_fail_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 8.950s
+
+OK

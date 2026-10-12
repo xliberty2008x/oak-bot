@@ -1,0 +1,103 @@
+{
+  "bundle_sha256": "1edacc2604b5f5354be7cd0e6fc87d3d8498985312ae6f91aafadc6eb34c766e",
+  "packages": [
+    {
+      "name": "@a2ui/lit",
+      "version": "0.13.0",
+      "license": "Apache-2.0",
+      "archive": "https://registry.npmjs.org/@a2ui/lit/-/lit-0.13.0.tgz",
+      "integrity": "sha512-dFqWFjW6R+XSjbTCP+MV/PIlFxRr22t7JfjtIpc0mAt6iZdu/WZI5Pc2ac4r26h5T+cbw6xcyxFwBmZ3Iiq9rQ=="
+    },
+    {
+      "name": "@a2ui/web_core",
+      "version": "0.13.0",
+      "license": "Apache-2.0",
+      "archive": "https://registry.npmjs.org/@a2ui/web_core/-/web_core-0.13.0.tgz",
+      "integrity": "sha512-4Clpksne0RY9KAheQoPoTwVDJ+6XI0Es2yqVME/PN0aWQ1321Wih69SEr8Nkc+7uKMyV5FlK32o88uoyM7ZBCw=="
+    },
+    {
+      "name": "@lit/context",
+      "version": "1.1.6",
+      "license": "BSD-3-Clause",
+      "archive": "https://registry.npmjs.org/@lit/context/-/context-1.1.6.tgz",
+      "integrity": "sha512-M26qDE6UkQbZA2mQ3RjJ3Gzd8TxP+/0obMgE5HfkfLhEEyYE3Bui4A5XHiGPjy0MUGAyxB3QgVuw2ciS0kHn6A=="
+    },
+    {
+      "name": "@lit/reactive-element",
+      "version": "2.1.2",
+      "license": "BSD-3-Clause",
+      "archive": "https://registry.npmjs.org/@lit/reactive-element/-/reactive-element-2.1.2.tgz",
+      "integrity": "sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A=="
+    },
+    {
+      "name": "@preact/signals-core",
+      "version": "1.14.4",
+      "license": "MIT",
+      "archive": "https://registry.npmjs.org/@preact/signals-core/-/signals-core-1.14.4.tgz",
+      "integrity": "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="
+    },
+    {
+      "name": "lit",
+      "version": "3.3.3",
+      "license": "BSD-3-Clause",
+      "archive": "https://registry.npmjs.org/lit/-/lit-3.3.3.tgz",
+      "integrity": "sha512-fycuvZg/hkpozL00lm1pEJH5nN/lr9ZXd6mJI2HSN4+Bzc+LDNdEApJ6HFbPkdFNHLvOplIIuJvxkS4XUxqirw=="
+    },
+    {
+      "name": "lit-element",
+      "version": "4.2.2",
+      "license": "BSD-3-Clause",
+      "archive": "https://registry.npmjs.org/lit-element/-/lit-element-4.2.2.tgz",
+      "integrity": "sha512-aFKhNToWxoyhkNDmWZwEva2SlQia+jfG0fjIWV//YeTaWrVnOxD89dPKfigCUspXFmjzOEUQpOkejH5Ly6sG0w=="
+    },
+    {
+      "name": "lit-html",
+      "version": "3.3.3",
+      "license": "BSD-3-Clause",
+      "archive": "https://registry.npmjs.org/lit-html/-/lit-html-3.3.3.tgz",
+      "integrity": "sha512-el8M6jK2o3RXBnrSHX3ZKrsN8zEV63pSExTO1wYJz7QndGYZ8353e2a5PPX+qHe2aGayfnchQmkAojaWAREOIA=="
+    },
+    {
+      "name": "redos-detector",
+      "version": "6.1.4",
+      "license": "MIT",
+      "archive": "https://registry.npmjs.org/redos-detector/-/redos-detector-6.1.4.tgz",
+      "integrity": "sha512-lPlka1rEH6kK42gtgokvvxMmpAvyc28DcRjQbGxeP5RJsJWgAduBOdGedVCDPdSyCr4ay/JDxq3nGYsJZyt8tA=="
+    },
+    {
+      "name": "signal-polyfill",
+      "version": "0.2.2",
+      "license": "Apache-2.0",
+      "archive": "https://registry.npmjs.org/signal-polyfill/-/signal-polyfill-0.2.2.tgz",
+      "integrity": "sha512-p63Y4Er5/eMQ9RHg0M0Y64NlsQKpiu6MDdhBXpyywRuWiPywhJTpKJ1iB5K2hJEbFZ0BnDS7ZkJ+0AfTuL37Rg=="
+    },
+    {
+      "name": "signal-utils",
+      "version": "0.21.1",
+      "license": "MIT",
+      "archive": "https://registry.npmjs.org/signal-utils/-/signal-utils-0.21.1.tgz",
+      "integrity": "sha512-i9cdLSvVH4j8ql8mz2lyrA93xL499P8wEbIev3ldSriXeUwqh+wM4Q5VPhIZ19gPtIS4BOopJuKB8l1+wH9LCg=="
+    },
+    {
+      "name": "validate-color",
+      "version": "2.2.4",
+      "license": "MIT",
+      "archive": "https://registry.npmjs.org/validate-color/-/validate-color-2.2.4.tgz",
+      "integrity": "sha512-Znolz+b6CwW6eBXYld7MFM3O7funcdyRfjKC/X9hqYV/0VcC5LB/L45mff7m3dIn9wdGdNOAQ/fybNuD5P/HDw=="
+    },
+    {
+      "name": "zod",
+      "version": "3.25.76",
+      "license": "MIT",
+      "archive": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz",
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
+    },
+    {
+      "name": "zod-to-json-schema",
+      "version": "3.25.2",
+      "license": "ISC",
+      "archive": "https://registry.npmjs.org/zod-to-json-schema/-/zod-to-json-schema-3.25.2.tgz",
+      "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="
+    }
+  ]
+}

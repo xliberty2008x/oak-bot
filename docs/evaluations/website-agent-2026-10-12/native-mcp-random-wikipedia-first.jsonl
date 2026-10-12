@@ -1,0 +1,101 @@
+{"kind": "timing_mark", "name": "main_started", "t_ms": 221.376}
+{"anonymous_static_resources": false, "harness_version": 5, "kind": "start", "manual_navigation_choices": 0, "max_model_tool_calls": 19, "max_seconds": 220, "model": "gpt-6.1-sol", "runtime_digest": "3119e344afe4495d687b3e98d67ca2087d9e31d00e50288d89b0ea84f1ee23c2", "t_ms": 223.499, "target": "wikipedia", "target_path": "/", "timing_protocol": "native-mcp-random-sites-acceptance-v1"}
+{"elapsed_ms": 17.169, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/health", "start_ms": 225.105, "t_ms": 242.288}
+{"kind": "timing_mark", "name": "native_start_started", "t_ms": 244.208}
+{"elapsed_ms": 32.026, "kind": "timing_span", "name": "native_process_setup", "ok": true, "start_ms": 244.205, "t_ms": 277.292}
+{"elapsed_ms": 1373.676, "kind": "timing_span", "name": "native_initialize", "ok": true, "start_ms": 281.548, "t_ms": 1655.237}
+{"elapsed_ms": 335.344, "kind": "timing_span", "name": "native_auth_check", "ok": true, "start_ms": 1659.205, "t_ms": 1994.563}
+{"elapsed_ms": 1750.851, "kind": "timing_span", "name": "native_start_total", "ok": true, "start_ms": 245.729, "t_ms": 1996.591}
+{"kind": "timing_mark", "name": "native_authenticated", "t_ms": 1998.152}
+{"elapsed_ms": 58.422, "kind": "timing_span", "name": "native_thread_start", "ok": true, "start_ms": 1999.509, "t_ms": 2057.944}
+{"kind": "timing_mark", "name": "native_turn_sent", "t_ms": 2061.69}
+{"elapsed_ms": 12.215, "kind": "timing_span", "name": "native_turn_start", "ok": true, "start_ms": 2061.591, "t_ms": 2073.817}
+{"gap_ms": 4187.42, "kind": "tool_arrival", "ordinal": 1, "since": "turn_sent", "t_ms": 6249.147}
+{"kind": "timing_mark", "name": "parent_delegation_received", "t_ms": 6251.336}
+{"elapsed_ms": 18.723, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/create", "start_ms": 6252.844, "t_ms": 6271.579}
+{"kind": "timing_mark", "name": "renderer_attach_started", "t_ms": 6274.836}
+{"elapsed_ms": 472.325, "kind": "timing_span", "name": "renderer_playwright_start", "ok": true, "start_ms": 6277.007, "t_ms": 6749.345}
+{"elapsed_ms": 164.139, "kind": "timing_span", "name": "renderer_browser_launch", "ok": true, "start_ms": 6751.402, "t_ms": 6915.553}
+{"elapsed_ms": 42.734, "kind": "timing_span", "name": "renderer_context_create", "ok": true, "start_ms": 6919.208, "t_ms": 6961.957}
+{"elapsed_ms": 65.774, "kind": "timing_span", "name": "renderer_parent_navigation", "ok": true, "start_ms": 7106.424, "t_ms": 7172.213}
+{"elapsed_ms": 213.868, "kind": "timing_span", "name": "renderer_status_attached", "ok": true, "start_ms": 7176.068, "t_ms": 7389.95}
+{"kind": "timing_mark", "name": "renderer_ready", "t_ms": 7398.504}
+{"elapsed_ms": 1126.037, "kind": "timing_span", "name": "renderer_attach_total", "ok": true, "start_ms": 6274.832, "t_ms": 7400.884}
+{"action_count": 0, "cancel_visible": false, "error": "none", "field_types": [], "kind": "ui_state", "t_ms": 7476.498}
+{"kind": "timing_mark", "name": "private_attach_request_started", "t_ms": 7482.633}
+{"elapsed_ms": 28.376, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 7481.231, "t_ms": 7509.62}
+{"elapsed_ms": 986.601, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 8016.002, "t_ms": 9002.62}
+{"kind": "timing_mark", "name": "broker_active", "t_ms": 9007.845}
+{"elapsed_ms": 740.137, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 8281.972, "t_ms": 9022.122}
+{"elapsed_ms": 1566.932, "kind": "timing_span", "name": "renderer_http_attach", "ok": true, "start_ms": 7482.629, "t_ms": 9049.574}
+{"kind": "timing_mark", "name": "private_attach_request_finished", "t_ms": 9053.598}
+{"elapsed_ms": 60.037, "kind": "timing_span", "method": "initialize", "name": "mcp_rpc", "ok": true, "start_ms": 9021.315, "t_ms": 9081.364, "tool": null}
+{"elapsed_ms": 59.241, "kind": "timing_span", "method": "notifications/initialized", "name": "mcp_rpc", "ok": true, "start_ms": 9085.485, "t_ms": 9144.741, "tool": null}
+{"elapsed_ms": 35.188, "kind": "timing_span", "method": "tools/list", "name": "mcp_rpc", "ok": true, "start_ms": 9149.304, "t_ms": 9184.506, "tool": null}
+{"elapsed_ms": 167.016, "kind": "timing_span", "name": "mcp_initialize_total", "ok": true, "start_ms": 9021.302, "t_ms": 9188.334}
+{"kind": "timing_mark", "name": "mcp_task_start_sent", "t_ms": 9191.922}
+{"elapsed_ms": 194.149, "kind": "timing_span", "method": "tools/call", "name": "mcp_rpc", "ok": true, "start_ms": 9194.296, "t_ms": 9388.46, "tool": "website_sign_in"}
+{"elapsed_ms": 198.84, "kind": "timing_span", "name": "mcp_task_start", "ok": true, "start_ms": 9194.286, "t_ms": 9393.141}
+{"calls": 0, "error": null, "kind": "task_state", "phase": "observing", "progress": {"event_seq": 0, "outcome": "idle"}, "state": "running", "steps": 0, "t_ms": 9397.033}
+{"action_count": 0, "cancel_visible": true, "error": "none", "field_types": [], "kind": "ui_state", "t_ms": 9474.778}
+{"elapsed_ms": 35.592, "kind": "timing_span", "method": "tools/call", "name": "mcp_rpc", "ok": true, "start_ms": 9980.125, "t_ms": 10015.732, "tool": "website_task_status"}
+{"calls": 1, "error": "unsupported", "kind": "task_state", "phase": "stopped", "progress": {"event_seq": 0, "outcome": "idle"}, "state": "requires_agent", "steps": 1, "t_ms": 10019.345}
+{"kind": "timing_mark", "name": "delegation_requires_agent", "t_ms": 10056.107}
+{"elapsed_ms": 88.214, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 10057.981, "t_ms": 10146.209}
+{"elapsed_ms": 17.327, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/diagnostics", "start_ms": 10151.094, "t_ms": 10168.434}
+{"elapsed_ms": 423, "kind": "delegated_diagnostics", "known_cost": 0.000134862, "requests": [{"cost": 0.000134862, "elapsed_ms": 423, "error": null, "model": "typesafe/jev-1.13-20260917", "phase": "anchor", "status": "abstained"}], "t_ms": 10170.299, "unknown_cost_calls": 0}
+{"elapsed_ms": 16.389, "kind": "timing_span", "name": "mcp_close", "ok": true, "start_ms": 10171.901, "t_ms": 10188.303}
+{"elapsed_ms": 16.229, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 10190.219, "t_ms": 10206.461}
+{"kind": "timing_mark", "name": "fallback_handoff_ready", "t_ms": 10207.988}
+{"action": "delegate", "delegation": "requires_agent", "kind": "model_tool", "ordinal": 1, "state": "active", "t_ms": 10209.332}
+{"action": "delegate", "elapsed_ms": 3961.553, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 1, "start_ms": 6249.108, "t_ms": 10210.669}
+{"kind": "tool_response_sent", "ordinal": 1, "t_ms": 10212.899}
+{"elapsed_ms": 18.908, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 11026.351, "t_ms": 11045.273}
+{"elapsed_ms": 17.57, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 13050.034, "t_ms": 13067.619}
+{"elapsed_ms": 18.622, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 15070.358, "t_ms": 15088.997}
+{"gap_ms": 5158.549, "kind": "tool_arrival", "ordinal": 2, "since": "tool_response", "t_ms": 15371.483}
+{"kind": "timing_mark", "name": "first_fallback_tool_received", "t_ms": 15373.449}
+{"elapsed_ms": 463.381, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "act", "route": "/agent", "start_ms": 15375.281, "t_ms": 15838.677}
+{"action": "act", "action_count": 31, "control_count": 1, "event_seq": 0, "kind": "model_tool", "mode": "gpt_fallback", "ordinal": 2, "stage": "agent_working", "state": "active", "t_ms": 15852.572}
+{"action": "fallback", "elapsed_ms": 487.374, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 2, "start_ms": 15371.443, "t_ms": 15858.83}
+{"kind": "tool_response_sent", "ordinal": 2, "t_ms": 15865.479}
+{"elapsed_ms": 17.375, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 17092.857, "t_ms": 17110.261}
+{"elapsed_ms": 19.264, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 19113.783, "t_ms": 19133.062}
+{"gap_ms": 4746.376, "kind": "tool_arrival", "ordinal": 3, "since": "tool_response", "t_ms": 20611.884}
+{"elapsed_ms": 108.094, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "act", "route": "/agent", "start_ms": 20613.932, "t_ms": 20722.192}
+{"action": "act", "error_code": "stale_form", "kind": "model_tool", "mode": "gpt_fallback", "ordinal": 3, "state": "active", "t_ms": 20724.309}
+{"action": "fallback", "elapsed_ms": 113.999, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 3, "start_ms": 20611.851, "t_ms": 20725.859}
+{"kind": "tool_response_sent", "ordinal": 3, "t_ms": 20727.922}
+{"elapsed_ms": 61.468, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 21135.997, "t_ms": 21197.48}
+{"elapsed_ms": 17.208, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 23202.347, "t_ms": 23219.571}
+{"gap_ms": 3074.1, "kind": "tool_arrival", "ordinal": 4, "since": "tool_response", "t_ms": 23802.053}
+{"elapsed_ms": 98.812, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "observe", "route": "/agent", "start_ms": 23804.265, "t_ms": 23903.091}
+{"action": "observe", "action_count": 64, "control_count": 1, "event_seq": 0, "kind": "model_tool", "mode": "gpt_fallback", "ordinal": 4, "stage": "agent_working", "state": "active", "t_ms": 23910.805}
+{"action": "fallback", "elapsed_ms": 112.076, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 4, "start_ms": 23802.02, "t_ms": 23914.107}
+{"kind": "tool_response_sent", "ordinal": 4, "t_ms": 23917.713}
+{"elapsed_ms": 18.89, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 25223.427, "t_ms": 25242.331}
+{"elapsed_ms": 17.57, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 27245.827, "t_ms": 27263.413}
+{"gap_ms": 4610.356, "kind": "tool_arrival", "ordinal": 5, "since": "tool_response", "t_ms": 28528.099}
+{"elapsed_ms": 131.925, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "act", "route": "/agent", "start_ms": 28530.715, "t_ms": 28662.655}
+{"action": "act", "error_code": "navigation_requires_owner", "kind": "model_tool", "mode": "gpt_fallback", "ordinal": 5, "state": "active", "t_ms": 28664.913}
+{"action": "fallback", "elapsed_ms": 138.372, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 5, "start_ms": 28528.065, "t_ms": 28666.447}
+{"kind": "tool_response_sent", "ordinal": 5, "t_ms": 28668.492}
+{"elapsed_ms": 25.87, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 29270.327, "t_ms": 29296.212}
+{"elapsed_ms": 17.357, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 31300.636, "t_ms": 31318.008}
+{"elapsed_ms": 36.73, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 33322.343, "t_ms": 33359.089}
+{"elapsed_ms": 19.377, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 35363.756, "t_ms": 35383.148}
+{"elapsed_ms": 19.323, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 37386.025, "t_ms": 37405.364}
+{"gap_ms": 8815.948, "kind": "tool_arrival", "ordinal": 6, "since": "tool_response", "t_ms": 37484.469}
+{"elapsed_ms": 117.371, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": "present", "route": "/agent", "start_ms": 37486.648, "t_ms": 37604.036}
+{"action": "present", "error_code": "invalid_plan", "kind": "model_tool", "mode": "gpt_fallback", "ordinal": 6, "state": "active", "t_ms": 37605.986}
+{"action": "fallback", "elapsed_ms": 123.279, "kind": "timing_span", "name": "model_tool_handler", "ok": true, "ordinal": 6, "start_ms": 37484.436, "t_ms": 37607.725}
+{"kind": "tool_response_sent", "ordinal": 6, "t_ms": 37609.637}
+{"elapsed_ms": 17.619, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 39408.378, "t_ms": 39426.013}
+{"elapsed_ms": 19.795, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 41429.402, "t_ms": 41449.213}
+{"kind": "timing_mark", "name": "native_turn_completed", "t_ms": 41792.36}
+{"elapsed_ms": 17.39, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 43453.162, "t_ms": 43470.567}
+{"kind": "timing_mark", "name": "evaluation_finished", "t_ms": 43835.794}
+{"elapsed_ms": 110.712, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/cancel", "start_ms": 44068.719, "t_ms": 44179.446}
+{"elapsed_ms": 29.913, "kind": "timing_span", "name": "broker_call", "ok": true, "operation": null, "route": "/status", "start_ms": 44182.471, "t_ms": 44212.399}
+{"kind": "timing_mark", "name": "cleanup_finished", "t_ms": 44218.114}
+{"actual_chromium": true, "anonymous_static_resources": false, "auth": "chatgpt", "authentication_tested": false, "blocked_renderer_requests": 0, "broker_jev_response_observed": true, "cleanup": "confirmed", "config_unchanged": true, "delegated_diagnostics": {"elapsed_ms": 423, "known_cost": 0.000134862, "requests": [{"cost": 0.000134862, "elapsed_ms": 423, "error": null, "model": "typesafe/jev-1.13-20260917", "phase": "anchor", "status": "abstained"}], "unknown_cost_calls": 0}, "error_code": "acceptance_not_met", "error_type": "Failed", "external_jev_worker": false, "fallback_call_limit": 18, "fallback_time_limit_seconds": 180, "fallback_tool_calls": 5, "fallback_used": true, "first_input_ui_excludes_remaining_test_human_wait": true, "first_ui_poll_interval_seconds": 0.5, "gateway_dispatch_tested": false, "harness_reads_api_keys": false, "ios_tested": false, "jev_initial_outcome": "requires_agent", "kind": "result", "last_ui": {"action_count": 0, "cancel_visible": true, "error": "none", "field_types": []}, "mcp_cleanup": "confirmed", "mcp_start_calls": 1, "mobile_viewport_simulation": true, "model": "gpt-6.1-sol", "model_actions": [{"action": "delegate", "delegation": "requires_agent", "ordinal": 1, "state": "active"}, {"action": "act", "action_count": 31, "control_count": 1, "event_seq": 0, "mode": "gpt_fallback", "ordinal": 2, "stage": "agent_working", "state": "active"}, {"action": "act", "error_code": "stale_form", "mode": "gpt_fallback", "ordinal": 3, "state": "active"}, {"action": "observe", "action_count": 64, "control_count": 1, "event_seq": 0, "mode": "gpt_fallback", "ordinal": 4, "stage": "agent_working", "state": "active"}, {"action": "act", "error_code": "navigation_requires_owner", "mode": "gpt_fallback", "ordinal": 5, "state": "active"}, {"action": "present", "error_code": "invalid_plan", "mode": "gpt_fallback", "ordinal": 6, "state": "active"}], "model_gap_includes_runtime_transport": true, "model_gaps": [{"gap_ms": 4187.42, "ordinal": 1, "since": "turn_sent"}, {"gap_ms": 5158.549, "ordinal": 2, "since": "tool_response"}, {"gap_ms": 4746.376, "ordinal": 3, "since": "tool_response"}, {"gap_ms": 3074.1, "ordinal": 4, "since": "tool_response"}, {"gap_ms": 4610.356, "ordinal": 5, "since": "tool_response"}, {"gap_ms": 8815.948, "ordinal": 6, "since": "tool_response"}], "model_tool_errors": 0, "native_turn_status": "completed", "new_timing_experiment": true, "observer_agent_reads": 0, "observer_error_count": 0, "owner_inputs": 0, "parent_page_observations": 3, "parent_tool_calls": 6, "private_attach_timing_includes_broker_site_browser_start": true, "private_credential_fields_visible": false, "private_input_fields_visible": false, "private_renderer_tested": true, "production_broker": true, "production_mcp": true, "real_native_model": true, "renderer_browser_closed": true, "renderer_context_closed": true, "renderer_ready_means_iframe_mounted": true, "replaces_first_acceptance": false, "runtime_digest": "3119e344afe4495d687b3e98d67ca2087d9e31d00e50288d89b0ea84f1ee23c2", "runtime_unchanged": true, "screenshot_inputs_empty": true, "screenshot_sha256": "81ef66671a57bf2d39459754d583b42eafe3dc9e03d9d9116bca3f148a53def4", "served_resource_hashes": {"/form-controls.js": "1fc6df1ea44c6cd79a47452907c71b61a654cbe296d9c078c1b095501abd007c", "/login.css": "9ec220f6a23f83d41e6224272294008fb1af8793fff9e60758d11e4f1f861019", "/login.js": "7c6136db4e8f889adf1a4064e85f0776a7a7e611904be19ab9cb5de7590bf33d"}, "served_resources_match": true, "site_submit_attempts": 0, "status": "failed", "t_ms": 44238.886, "target": "wikipedia", "target_path": "/", "task_sent_origin": "native_turn_request_sent", "task_states": [{"calls": 0, "error": null, "phase": "observing", "progress": {"event_seq": 0, "outcome": "idle"}, "state": "running", "steps": 0}, {"calls": 1, "error": "unsupported", "phase": "stopped", "progress": {"event_seq": 0, "outcome": "idle"}, "state": "requires_agent", "steps": 1}], "task_tool_calls": 1, "telegram_tested": false, "test_present_wait_seconds": 20, "timing_includes_instrumentation_overhead": true, "timing_marks_ms": {"broker_active": 9007.841, "cleanup_finished": 44218.111, "delegation_requires_agent": 10056.105, "evaluation_finished": 43835.791, "fallback_handoff_ready": 10207.985, "first_fallback_tool_received": 15373.446, "main_started": 221.373, "mcp_task_start_sent": 9191.917, "native_authenticated": 1998.15, "native_start_started": 244.205, "native_turn_completed": 41792.357, "native_turn_sent": 2061.688, "parent_delegation_received": 6251.333, "private_attach_request_finished": 9053.594, "private_attach_request_started": 7482.631, "renderer_attach_started": 6274.832, "renderer_ready": 7398.499}, "timing_protocol": "native-mcp-random-sites-acceptance-v1", "timing_spans_overlap_do_not_sum": true, "timing_summary_ms": {"broker_call_sum_including_concurrent_heartbeat": 3353.32, "broker_jev_api_sum": 423, "evaluation_total": 43614.418, "fallback_handoff_to_first_input_ui": null, "fallback_parent_model_gap_total": 26405.329, "first_fallback_tool_to_first_input_ui": null, "initial_parent_model_gap": 4187.42, "jev_only_task_start_to_first_input_ui": null, "jev_phase_to_requires_agent": 864.188, "main_to_first_input_ui": null, "mcp_initialize_total": 167.016, "mcp_rpc_sum": 384.207, "mcp_task_start": 198.84, "mcp_task_start_to_first_input_ui": null, "model_gap_total": 30592.749, "native_auth_check": 335.344, "native_initialize": 1373.676, "native_process_setup": 32.026, "native_start_total": 1750.851, "native_thread_start": 58.422, "native_turn_sent_to_first_input_ui": null, "native_turn_start": 12.215, "parent_tool_received_to_first_input_ui": null, "renderer_attach_total": 1126.037, "renderer_http_attach": 1566.932, "renderer_ready_to_first_input_ui": null, "task_sent_to_first_input_ui": null, "test_human_wait_total": 0, "total_including_cleanup": 43996.738, "turn_sent_to_broker_active": 6946.153}, "ui_samples": [{"action_count": 0, "cancel_visible": false, "error": "none", "field_types": []}, {"action_count": 0, "cancel_visible": true, "error": "none", "field_types": []}], "unexpected_native_items": 0, "viewport": {"height": 900, "width": 430}}

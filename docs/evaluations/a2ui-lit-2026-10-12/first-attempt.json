@@ -1,0 +1,10 @@
+{
+  "scope": "isolated local prototype, no provider/account/model requests",
+  "outcome": "failed",
+  "cause": "Catalog.fromSchema did not retain GenericBinder semantic metadata for Oak's narrow bindings and action schema",
+  "observed_errors": ["setValue is not a function", "action is not a function"],
+  "actions_emitted": 0,
+  "model_changed_after_input": false,
+  "csp_violations": 0,
+  "followup": "Add upstream binder REF metadata to the same restricted schema. A union with never preserves path-only validation. Retest actual canonical fixtures rather than treating package installation as compatibility."
+}

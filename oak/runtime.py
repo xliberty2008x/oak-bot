@@ -35,12 +35,14 @@ def require_chatgpt_account(result):
 
 class RuntimeClient:
     def __init__(self, cwd=None, sandbox="workspace-write", approval_handler=None,
-                 tool_handler=None, request_input_handler=None, config=None, home=None):
+                 tool_handler=None, request_input_handler=None, config=None, home=None,
+                 execution=None):
         if sandbox not in {"read-only", "workspace-write"}:
             raise ValueError("sandbox must be read-only or workspace-write")
         self.cwd = cwd
         self.sandbox = sandbox
         self.config = dict(config or {})
+        self.execution = None if execution is None else dict(execution)
         self.approval_policy = self.config.get("approval_policy", "on-request")
         if self.approval_policy not in {"on-request", "untrusted", "never"}:
             raise ValueError("Unsupported approval_policy")
@@ -86,10 +88,18 @@ class RuntimeClient:
         overrides = []
         for key, value in config.items():
             overrides.extend(("-c", f"{key}={_toml_value(value)}"))
+        command = ['codex', 'app-server', '--listen', 'stdio://', *overrides]
+        if self.execution is not None:
+            from .executor import runtime_command
+            command = runtime_command(self.execution, command)
+            env.pop('DISPLAY', None)
+            env.pop('XAUTHORITY', None)
         self.process = await asyncio.create_subprocess_exec(
-            "codex", "app-server", "--listen", "stdio://", *overrides,
+            *command,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE, cwd=self.cwd, env=env,
+            # Codex secures its workspace to0700 as the execution UID. The
+            # gateway proxy has no reason to enter that untrusted directory.
+            stderr=asyncio.subprocess.PIPE, cwd='/' if self.execution is not None else self.cwd, env=env,
             limit=16 * 1024 * 1024,
         )
         self._reader = asyncio.create_task(self._read_loop())

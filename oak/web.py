@@ -67,6 +67,10 @@ class WebGateway:
         if config.get('credential_broker'):
             from .signin import SignInBridge
             self.signin = SignInBridge(self, config['credential_broker'])
+        self.website_login = None
+        if config.get('website_login'):
+            from .login import WebsiteLogin
+            self.website_login = WebsiteLogin(self, config['website_login'])
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -84,7 +88,9 @@ class WebGateway:
             web.get('/', self.static), web.get('/app.js', self.static), web.get('/style.css', self.static),
             web.get('/remote.js', self.static), web.get('/vendor/novnc/{path:.+}', self.remote_vendor),
             web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
+            web.get('/a2ui-theme.css', self.static), web.get('/vendor/a2ui/runtime.js', self.static),
             web.get('/requests.js', self.static),
+            web.get('/form-controls.js', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
@@ -139,7 +145,8 @@ class WebGateway:
                 socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
             "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data: blob:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
-        response.headers['Content-Security-Policy'] += '; frame-src ' + (self.signin.origin if self.signin else "'none'")
+        frames = [channel.origin for channel in (self.signin, self.website_login) if channel]
+        response.headers['Content-Security-Policy'] += '; frame-src ' + (' '.join(frames) if frames else "'none'")
         return response
 
     def owner(self, request):
@@ -174,7 +181,9 @@ class WebGateway:
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
-                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/a2ui-catalog.json': 'a2ui-catalog.json'}[request.path]
+                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/form-controls.js': 'form-controls.js',
+                '/a2ui-catalog.json': 'a2ui-catalog.json', '/a2ui-theme.css': 'a2ui-theme.css',
+                '/vendor/a2ui/runtime.js': 'vendor/a2ui/runtime.js'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
 
     async def remote_vendor(self, request):
@@ -464,10 +473,14 @@ class WebGateway:
     async def signin_start(self, request):
         from .requests import RequestUnavailable
         owner, chat, _ = self.request_scope(request)
-        if not self.signin or await request.json() != {}:
+        row = self.controller.requests.row(owner, chat, request.match_info['id'])
+        channel = self.controller.requests.broker_for(row)
+        if await request.json() != {}:
             raise web.HTTPBadRequest(text='Канал входу недоступний.')
+        if not channel:
+            raise web.HTTPConflict(text='Канал входу недоступний.')
         try:
-            value = await self.signin.start(owner, chat, request.match_info['id'], request)
+            value = await channel.start(owner, chat, request.match_info['id'], request)
         except RequestUnavailable:
             raise web.HTTPConflict(text='Запит входу недоступний або вже розпочатий.') from None
         return web.json_response(value)
@@ -523,7 +536,7 @@ class WebGateway:
         if (chat != owner and self.controller.sessions.owner(chat) != owner
                 and not self.db.execute('SELECT 1 FROM web_conversations WHERE chat_id=? AND owner=?', (chat, owner)).fetchone()):
             raise web.HTTPNotFound()
-        path = self.bus.artifact_path(chat, identifier)
+        path = await self.bus.artifact_path(chat, identifier)
         response = web.FileResponse(path, headers={'Content-Type': row[1]})
         response.headers['Content-Disposition'] = "attachment; filename*=UTF-8''" + __import__('urllib.parse', fromlist=['quote']).quote(path.name)
         return response
@@ -534,6 +547,8 @@ class WebGateway:
         await web.TCPSite(self.runner, self.config.get('host', '127.0.0.1'), int(self.config.get('port', 8765))).start()
 
     async def close(self):
+        if self.website_login:
+            await self.website_login.close()
         if self.signin:
             await self.signin.close()
         if self.runner:

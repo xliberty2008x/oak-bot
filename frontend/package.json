@@ -1,0 +1,9 @@
+{
+  "name": "oak-a2ui-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "node build.mjs", "check": "node build.mjs --check"},
+  "dependencies": {"@a2ui/lit": "0.13.0", "@a2ui/web_core": "0.13.0"},
+  "devDependencies": {"esbuild": "0.25.12"}
+}

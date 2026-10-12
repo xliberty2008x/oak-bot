@@ -1,0 +1,15 @@
+{
+  "tests_run": 550,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 176.642,
+  "browser_fixtures_enabled": true,
+  "scope": "Full local/protocol/intercepted Chromium suite; no new live CDN policy activated",
+  "code_sha256": {
+    "oak/website_resources.py": "65082384463308ed18080e6998d722f992714fb5af12066d99f5e3e3f474ac7a",
+    "oak/website_forms.py": "5f6132cb32ac55e7d35f605ca2ec4dcccf244e51098d634fc8c4934b51b5aa94",
+    "oak/login_broker.py": "b686eb2b6e2c72869a01b67ace2f27412ad0436a8030d439afb064b56cd48d9c",
+    "scripts/setup-website-forms.py": "97dbca102482074832dbcc627bca0837e691ae68c07840c81a4d640ed2d47325"
+  }
+}

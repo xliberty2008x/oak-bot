@@ -1,5 +1,9 @@
 # Oak control panel
 
+UI implementation and dependency changes follow [DESIGN.md](../DESIGN.md).
+It separates the current custom A2UI renderer from upstream evaluation and
+defines the existing visual language and private-form boundary.
+
 The Mini App manages Oak while conversation stays in Telegram. Its five views
 show owned Telegram sessions, current state, the most recent 100 scheduled tasks,
 installed runtime integrations, deployment settings and computer-use permission. `/new`,

@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "frozen_at_utc": "2026-10-11T22:24:00.248778+00:00",
+  "prior_selection_sha256": "c85b624a59f38e98fb0d5d1c18c2704b068cbd2fd59ea41e0606985ecadf3ac4",
+  "prior_seed": "oak-independent-sites-2026-10-11-v1",
+  "candidate_code_sha256": {
+    "oak/login_broker.py": "5ad933ea9b3cdbfb66aaf7efa9dac2a70540d3042939d74436622c826741920c",
+    "oak/signin_providers.py": "6f938919d91aa4f9252007a021bcf86986145c1721863035c75b8e4a7fbc65fd",
+    "oak/website_forms.py": "dc787189da01fe5f617db07bbb920b34253e8ae8f69c3dd698d5e63ff2aaed31",
+    "oak/website_resources.py": "106f9c8c6cab5fa43b02f9b73181248d9f6104979345813883439374c679f268",
+    "oak/website_ui.py": "1c9360c34085da7486b923f287d97dda90f1c2afef33910607832240f2b92b01",
+    "oak/website_planner.py": "3aaf215c33d09122f3281c8b24b6fc50baf8a3c200e1e620c466642a179d34a5",
+    "oak/website_composer.py": "26bfa931705b6f6ecbf1bd951e0da2ffb88e45f464af936730c42e6f31b3fb6e",
+    "oak/executor.py": "6bb37b8960235bdeafd2548babf5b8c874b8de6c2d2a0d7a74a7a062056de50f"
+  },
+  "candidate_source_digest": "08e678e4050bafe619635904f01e65ef8bc66c7dac50418852153547a3fb1927",
+  "candidate_source_digest_definition": "SHA256 of sorted compact JSON mapping actual code file paths to their SHA256; excludes docs and Git revision. Snapshot only, not final runtime pins.",
+  "source_commit": null,
+  "runtime_digest": null,
+  "runtime_pin_status": "pending_final_commit",
+  "constraints": [
+    "All sites frozen before any new runtime probe or model call.",
+    "Preserve frozen URLs/order; redirects, blocks and failures retained, no replacements.",
+    "Fresh broker leases only; no owner profile, credential input, account creation, registration, payment or trading.",
+    "No provider or browser network-policy changes as part of benchmark.",
+    "Qualitative recognizable-site convenience pool; not traffic-weighted and not a new random draw."
+  ],
+  "protocol": {
+    "reads_per_attached_lease": 2,
+    "seconds_between_reads": 2,
+    "operation_timeout_seconds": 35,
+    "concurrency": 1,
+    "retries": 0,
+    "optional_method_step": {
+      "max_attempts_per_lease": 1,
+      "fields_must_equal": [],
+      "total_action_count_must_equal": 1,
+      "full_casefolded_action_label_allowlist": [
+        "use email",
+        "continue with email",
+        "sign in with email",
+        "log in with email",
+        "use password",
+        "log in with password"
+      ],
+      "values": {},
+      "post_step_observations": 1
+    },
+    "cleanup": "cancel and confirm status for every obtained broker scope; preserve uncertainty"
+  },
+  "evaluation_kind": "fixed_original_regression",
+  "selection_method": "Original 12 sites and order retained; already observed and not a holdout.",
+  "sites": [
+    {
+      "site_id": "stack_overflow",
+      "name": "Stack Overflow",
+      "category": "developer",
+      "url": "https://stackoverflow.com/users/login"
+    },
+    {
+      "site_id": "discord",
+      "name": "Discord",
+      "category": "communication",
+      "url": "https://discord.com/login"
+    },
+    {
+      "site_id": "netflix",
+      "name": "Netflix",
+      "category": "media",
+      "url": "https://www.netflix.com/login"
+    },
+    {
+      "site_id": "etsy",
+      "name": "Etsy",
+      "category": "retail",
+      "url": "https://www.etsy.com/signin"
+    },
+    {
+      "site_id": "notion",
+      "name": "Notion",
+      "category": "productivity",
+      "url": "https://www.notion.so/login"
+    },
+    {
+      "site_id": "coinbase",
+      "name": "Coinbase",
+      "category": "finance",
+      "url": "https://login.coinbase.com/signin"
+    },
+    {
+      "site_id": "airbnb",
+      "name": "Airbnb",
+      "category": "travel",
+      "url": "https://www.airbnb.com/login"
+    },
+    {
+      "site_id": "medium",
+      "name": "Medium",
+      "category": "publishing_community",
+      "url": "https://medium.com/m/signin"
+    },
+    {
+      "site_id": "atlassian",
+      "name": "Atlassian",
+      "category": "productivity",
+      "url": "https://id.atlassian.com/login"
+    },
+    {
+      "site_id": "gitlab",
+      "name": "GitLab",
+      "category": "developer",
+      "url": "https://gitlab.com/users/sign_in"
+    },
+    {
+      "site_id": "reddit",
+      "name": "Reddit",
+      "category": "publishing_community",
+      "url": "https://www.reddit.com/login"
+    },
+    {
+      "site_id": "twitch",
+      "name": "Twitch",
+      "category": "media",
+      "url": "https://www.twitch.tv/login"
+    }
+  ],
+  "site_count": 12,
+  "category_counts": {
+    "developer": 2,
+    "communication": 1,
+    "media": 2,
+    "retail": 1,
+    "productivity": 2,
+    "finance": 1,
+    "travel": 1,
+    "publishing_community": 2
+  },
+  "frozen_sites_sha256": "9e3f114796eb3b1d7cc3d81fd432558c5470dfd85c458348edc19e1620cd2505"
+}

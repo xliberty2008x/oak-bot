@@ -106,6 +106,12 @@ limits; those are separate from receiving a file.
 
 ## Web and Telegram Mini App
 
+For agent-generated forms based on a website's current controls, see
+[dynamic website forms](website-forms.md). This optional private channel requires
+`execution.profile` and `web.website_login`; ordinary A2UI forms and manual desktop
+control remain available without it. Do not put passwords, OTPs or cookies in
+configuration or ordinary forms.
+
 Add this object to the private deployment config to enable the web interface:
 
 ```json
@@ -188,7 +194,10 @@ without `--browser`. System libraries may be required by [Playwright](https://pl
 ## Computer use
 
 Oak controls a configured Linux X11 desktop using `xdotool`, `xmodmap` and Pillow's
-XCB screen capture.
+XCB screen capture. Unicode typing temporarily assigns unused keycodes and
+notifies the focused application of the changed mapping. Applications supporting
+EWMH ping acknowledge keyboard processing before Oak restores the keymap;
+restoration also runs when typing is cancelled.
 
 ### Managed desktop
 

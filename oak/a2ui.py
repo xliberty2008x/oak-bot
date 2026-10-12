@@ -15,7 +15,7 @@ import time
 import uuid
 
 VERSION = 'v0.9.1'
-RENDERER = 'oak-a2ui-dom@1.1.0'
+RENDERER = 'oak-a2ui-lit@1.1.0'
 CATALOG = 'urn:oak:a2ui:canonical:v1'
 LIMIT = 65536
 OPERATIONS = {'createSurface', 'updateComponents', 'updateDataModel', 'deleteSurface'}
@@ -110,7 +110,7 @@ def resolve(value, model):
 
 
 def number(value):
-    if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 1e15:
+    if type(value) not in (int, float) or abs(value) > 1e15 or not math.isfinite(value):
         raise ValueError('Invalid A2UI number.')
 
 
@@ -130,6 +130,7 @@ def display(value, limit):
 
 DISPLAY = {'Text': 'text', 'Metric': 'value', 'Badge': 'text'}
 IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp', 'image/gif'}
+IMAGE_BYTES = 10 * 1024 * 1024
 
 
 def component(value):
@@ -363,6 +364,23 @@ def bindings(state):
             raise ValueError('Editable data paths cannot contain other bindings.')
 
 
+def validate_state(state):
+    """Stored/emitted ordinary card state; image filesystem paths never leave Oak."""
+    fields(state, ['components', 'dataModel'])
+    if not isinstance(state['components'], dict) or not isinstance(state['dataModel'], dict):
+        raise ValueError('Invalid A2UI state.')
+    for key, item in state['components'].items():
+        component(item)
+        if key != item['id'] or item['component'] == 'Image' and 'path' in item:
+            raise ValueError('A2UI state requires registered components and image artifacts.')
+    graph(state['components'])
+    bindings(state)
+    bounded_json(state)
+    if sum(item['component'] == 'Image' for item in state['components'].values()) > 8:
+        raise ValueError('Oak supports at most eight images per surface.')
+    return state
+
+
 class A2UIStore:
     def __init__(self, controller):
         self.controller, self.db = controller, controller.db
@@ -381,30 +399,46 @@ class A2UIStore:
         ''')
         self.db.commit()
 
-    def attach_images(self, chat, messages):
+    async def attach_images(self, chat, messages):
         """Model-supplied workspace paths become conversation-scoped artifact IDs."""
         messages = copy.deepcopy(messages)
-        registered = {}
+        registered, artifacts = {}, {}
+        files = getattr(self.controller.tools, 'files', None)
+        images = {(key, item[key]) for message in messages
+                  for item in message.get('updateComponents', {}).get('components', [])
+                  if item['component'] == 'Image' for key in ('path', 'artifact') if key in item}
+        if len(images) > 32:  # Four surfaces × eight images, including streamed replacements.
+            raise ValueError('Oak supports at most 32 image sources per batch.')
+
+        async def image_path(value):
+            path = await files.snapshot(value, limit=IMAGE_BYTES) if files else self.controller.tools.file(value)
+            info = path.stat()
+            if info.st_nlink != 1 or not 0 < info.st_size <= IMAGE_BYTES:
+                raise ValueError('Image must be a PNG, JPEG, WebP or GIF of at most 10 MiB.')
+            return path
+
         for message in messages:
             for item in message.get('updateComponents', {}).get('components', []):
                 if item['component'] != 'Image':
                     continue
                 if 'artifact' in item:
-                    row = self.db.execute('SELECT mime FROM artifacts WHERE id=? AND chat_id=?', (item['artifact'], chat)).fetchone()
-                    if not row or row[0] not in IMAGE_TYPES:
+                    row = self.db.execute('SELECT path,name,mime FROM artifacts WHERE id=? AND chat_id=?', (item['artifact'], chat)).fetchone()
+                    if not row or row[2] not in IMAGE_TYPES:
                         raise ValueError('Image artifact is not available in this conversation.')
+                    if item['artifact'] not in artifacts:
+                        path = await image_path(row[0])
+                        artifacts[item['artifact']] = (item['artifact'], chat, str(path), row[1], row[2])
                     continue
-                path = self.controller.tools.file(item.pop('path'))
-                mime = mimetypes.guess_type(path.name)[0]
-                if mime not in IMAGE_TYPES or path.stat().st_size > 10 * 1024 * 1024:
+                source = self.controller.tools.file(item.pop('path'))
+                mime = mimetypes.guess_type(source.name)[0]
+                if mime not in IMAGE_TYPES:
                     raise ValueError('Image must be a PNG, JPEG, WebP or GIF of at most 10 MiB.')
-                if path not in registered:
-                    registered[path] = uuid.uuid4().hex
-                    with self.db:
-                        self.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)',
-                                        (registered[path], chat, str(path), path.name, mime))
-                item['artifact'] = registered[path]
-        return messages
+                if source not in registered:
+                    path = await image_path(source)
+                    registered[source] = uuid.uuid4().hex
+                    artifacts[registered[source]] = (registered[source], chat, str(path), source.name, mime)
+                item['artifact'] = registered[source]
+        return messages, artifacts.values()
 
     def row(self, chat, surface):
         row = self.db.execute('SELECT * FROM a2ui_surfaces WHERE chat_id=? AND id=?', (chat, surface)).fetchone()
@@ -432,13 +466,21 @@ class A2UIStore:
     async def publish(self, chat, messages, fallback, metadata=None):
         validate_messages(messages)
         string(fallback, 2000)
-        messages = self.attach_images(chat, messages)
         c = self.controller
         async with c._lock(chat):
             thread = c.threads.get(chat)
             if not thread or c.sessions.deleted(chat) or (metadata and metadata.get('threadId') != thread):
                 raise StaleSurface('Session changed.')
             run = (metadata or {}).get('turnId')
+            turn = self.db.execute('SELECT status FROM turns WHERE turn_id=?', (run,)).fetchone()
+            if run and ((turn and turn['status'] in {'interrupted', 'failed', 'uncertain'})
+                        or (chat in c.active and c.active[chat] != run)):
+                raise StaleSurface('A2UI update belongs to an inactive run.')
+            messages, artifacts = await self.attach_images(chat, messages)
+            # File transfer yields; a closed/replaced session cannot register or
+            # publish its pending images after that boundary.
+            if c.threads.get(chat) != thread or c.sessions.deleted(chat):
+                raise StaleSurface('Session changed.')
             turn = self.db.execute('SELECT status FROM turns WHERE turn_id=?', (run,)).fetchone()
             if run and ((turn and turn['status'] in {'interrupted', 'failed', 'uncertain'})
                         or (chat in c.active and c.active[chat] != run)):
@@ -470,50 +512,52 @@ class A2UIStore:
             if len(states) > 4:
                 raise ValueError('Oak supports at most four surfaces per session.')
             for state in states.values():
-                graph(state['components'])
-                bindings(state)
-                bounded_json(state)
-                if sum(x['component'] == 'Image' for x in state['components'].values()) > 8:
-                    raise ValueError('Oak supports at most eight images per surface.')
-            revisions = {}
+                validate_state(state)
+            revisions, card_revisions = {}, {}
             with self.db:
+                self.db.executemany('INSERT OR REPLACE INTO artifacts VALUES (?,?,?,?,?)', artifacts)
                 for key in touched:
+                    previous = self.db.execute('SELECT revision FROM a2ui_revisions WHERE chat_id=? AND id=?', (chat, key)).fetchone()
+                    revision = (previous[0] if previous else 0) + 1
+                    card_revisions[key] = revision
+                    self.db.execute('INSERT OR REPLACE INTO a2ui_revisions VALUES (?,?,?)', (chat, key, revision))
                     if key not in states:
                         self.db.execute('DELETE FROM a2ui_surfaces WHERE chat_id=? AND id=?', (chat, key))
                         continue
-                    previous = self.db.execute('SELECT revision FROM a2ui_revisions WHERE chat_id=? AND id=?', (chat, key)).fetchone()
-                    revision = (previous[0] if previous else 0) + 1
                     revisions[key] = revision
-                    self.db.execute('INSERT OR REPLACE INTO a2ui_revisions VALUES (?,?,?)', (chat, key, revision))
                     self.db.execute('INSERT OR REPLACE INTO a2ui_surfaces VALUES (?,?,?,?,?,?,?,?)',
                                     (chat, key, thread, (metadata or {}).get('turnId') or c.active.get(chat),
                                      revision, time.time() + 3600, 0, bounded_json(states[key])))
-        # The existing durable bus delivers the same messages to other AG-UI consumers.
-        await c.emit(chat, {'type': 'CUSTOM', 'name': 'a2ui',
-                           'value': {'messages': messages, 'revisions': revisions}})
-        # Each visible surface is mirrored as one Telegram card that later revisions edit in place.
-        url, cards = None, 0
-        for key in sorted(touched):
-            card = {'surfaceId': key, 'label': fallback}
-            if key in revisions:
-                try:
-                    state = json.loads(self.row(chat, key)['state'])
-                except StaleSurface:
-                    continue
-                # Streaming surfaces become useful once the renderer has a root.
-                if 'root' not in state['components']:
-                    continue
-                interactive = any(x['component'] in {'TextField', 'ChoicePicker', 'Button'} for x in state['components'].values())
-                link = c.web_app_url(chat, surface=key)
-                url = url or link
-                card.update(revision=revisions[key], state=state,
-                            button_label='Відкрити форму' if interactive else 'Відкрити в Oak',
-                            **({'url': link} if link else {}))
-            else:
-                card['deleted'] = True
-            await c.emit(chat, {'type': 'CUSTOM', 'name': 'a2ui_card', 'value': card})
-            cards += 'deleted' not in card
-        if not cards:
+            # Capture the committed revision and its routing metadata together.
+            # Another publish/session change may run while the durable bus awaits
+            # its sinks; never re-read a newer row for an older revision.
+            route = {'threadId': thread, 'runId': run or c.active.get(chat) or 'notice-' + uuid.uuid4().hex}
+            events = [{'type': 'CUSTOM', 'name': 'a2ui', **route,
+                       'value': {'messages': messages, 'revisions': revisions}}]
+            url, cards = None, 0
+            for key in sorted(touched):
+                card = {'surfaceId': key, 'label': fallback}
+                if key in revisions:
+                    state = copy.deepcopy(states[key])
+                    # Streaming surfaces become useful once the renderer has a root.
+                    if 'root' not in state['components']:
+                        continue
+                    interactive = any(x['component'] in {'TextField', 'ChoicePicker', 'Button'}
+                                      for x in state['components'].values())
+                    link = c.web_app_url(chat, surface=key)
+                    url = url or link
+                    card.update(revision=revisions[key], state=state,
+                                button_label='Відкрити форму' if interactive else 'Відкрити в Oak',
+                                **({'url': link} if link else {}))
+                else:
+                    card.update(deleted=True, revision=card_revisions[key])
+                events.append({'type': 'CUSTOM', 'name': 'a2ui_card', **route, 'value': card})
+                cards += 'deleted' not in card
+        # Delivery remains outside the chat lock. Sinks use revisions to reject
+        # late delivery of a previous immutable card.
+        for event in events:
+            await c.emit(chat, event)
+        if not cards and c.threads.get(chat) == thread and not c.sessions.deleted(chat):
             await c.notice(chat, fallback)
         return {'published': True, 'protocol': VERSION, 'revisions': revisions, 'ui_available': bool(url),
                 'telegram_cards': cards, **({'web_app_url': url} if url else {})}

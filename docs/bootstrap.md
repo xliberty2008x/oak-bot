@@ -15,14 +15,17 @@ described in [contextual input](contextual-input.md).
 
 ## Starting point and private inputs
 
-Use Ubuntu 24.04 or Debian 12/13 on amd64, a normal user with `sudo`, Git, and
-outbound HTTPS and SSH access. Run the installer as that user, not root. Oak and
+Use Ubuntu 24.04 or Debian 12/13 on amd64, or Ubuntu 22.04 on ARM64 (`aarch64`),
+a normal user with `sudo`, Git, and outbound HTTPS and SSH access. Provide
+Python 3.11+ as `python3` on `PATH` before running the installer. Ubuntu 22.04's
+default Python 3.10 does not qualify, and installing its `python3` package does
+not upgrade it to 3.11. Run the installer as that user, not root. Oak and
 its browser run without root. The repository must remain at a persistent path
 because the service and reboot entry refer to it. Full reboot setup expects a
 VM running systemd; a container without an init system is only a limited test
 environment and requires `--skip-autostart`.
 
-The installer supplies Python 3.11+ dependencies, Node/npm as needed, Docker,
+The installer supplies Python dependencies, Node/npm as needed, Docker,
 the official local Telegram Bot API, the `codex` runtime, FFmpeg, fonts, Xvfb,
 X11 input utilities, a window manager and Playwright Chromium.
 Runtime `0.159.2` is the pinned installation version when
@@ -167,20 +170,24 @@ config, requesting credentials, building Docker images or starting services.
 `eligible` means the installer matrix matches; it never means a deployment or
 credential isolation was verified. Normal installation retains the matrix guard.
 
-The supported matrix is still Ubuntu 24.04 or Debian 12/13 amd64. The selected
-Oracle host was inspected read-only as Ubuntu 22.04.5 ARM64; no installer, package
-change or service start was performed there. ARM support requires its own tested
-bootstrap and broker isolation design rather than removing the platform guard.
-The local integration uses main `56642238838c5ab13d00063c117e291ee9b01850`,
-including PR19's local Bot API build/cache/migration hooks and PR20's
-endpoint-scoped update cursor. Feature checks supplement these hooks.
+Installer eligibility uses these exact combinations, all with Python 3.11+:
 
-Playwright's [vendor matrix](https://playwright.dev/python/docs/intro#system-requirements)
-includes Ubuntu 22.04 ARM64. That is dependency support, not Oak acceptance:
-the selected Python must be 3.11+, and native Bot API build, pinned runtime,
-system libraries, Chromium sandbox, desktop, voice, cleanup and reboot still
-need tests on the actual ARM host before expanding the guard. This diagnostic
-and its unit matrix perform none of those host checks.
+| OS ID | Version ID | Architecture (`platform.machine()`) |
+| --- | --- | --- |
+| `ubuntu` | `24.04` | `x86_64` |
+| `debian` | `12` | `x86_64` |
+| `debian` | `13` | `x86_64` |
+| `ubuntu` | `22.04` | `aarch64` |
+
+Other combinations remain blocked, including Ubuntu 22.04 amd64 and Ubuntu
+24.04 or Debian ARM64. Ubuntu point releases use the base `VERSION_ID`, such
+as `22.04`. Do not generalize architecture support from dependency artifacts.
+The diagnostic and its unit matrix do not run a native Bot API build, runtime,
+Chromium sandbox, desktop, voice, cleanup or reboot check. Record actual host
+results separately, including any untested deployment features. Installer
+eligibility does not enable the credential broker or establish OS isolation;
+the [broker gates](credential-broker.md) still apply. Bootstrap retains the
+local Bot API build/cache/migration hooks and endpoint-scoped update cursor.
 
 The managed desktop uses private Xauthority and a persistent headed browser
 profile. It supplies the virtual screen, mouse and keyboard Oak needs; it does

@@ -521,10 +521,26 @@ dialog p { color: var(--muted); font-size: 15px; }
 .a2ui-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .a2ui-field { display: grid; gap: 8px; min-width: 0; }
 .a2ui-column > button { justify-self: start; max-width: 100%; }
+.signin-broker { display: block; width: 100%; height: 360px; min-height: 0; max-height: calc(100dvh - 48px); border: 0; background: #292e2b; }
+/* The separate credential origin draws the single sign-in card. */
+dialog.signin-host { width: min(calc(100% - 24px), 560px); max-height: calc(100dvh - 24px); padding: 0; margin: auto; border-radius: 24px; background: #292e2b; overflow: hidden; }
+.signin-host #input-request-title, .signin-host #input-request-description { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.signin-host #input-request-destination, .signin-host #input-request-status, .signin-host .dialog-actions { display: none; }
+.signin-host #input-request-fields { gap: 0; }
+.signin-host.signin-loading .signin-broker { height: 0; min-height: 0; visibility: hidden; }
+.signin-host.signin-loading #input-request-title { position: static; width: auto; height: auto; margin: 0; padding: 20px 24px 8px; clip-path: none; white-space: normal; }
+.signin-host.signin-loading #input-request-status { display: block; margin: 0; padding: 0 24px 16px; }
+.signin-host.signin-loading .dialog-actions { display: flex; margin: 0; padding: 0 24px 20px; }
+@media (max-width: 600px) {
+  dialog.signin-host { width: calc(100% - 16px); max-width: 560px; border: 1px solid var(--line-strong); border-radius: 20px; }
+  .signin-broker { max-height: calc(100dvh - 32px); }
+}
+
 .a2ui-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; min-width: 0; }
 .a2ui-metric { display: grid; gap: 2px; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--glass); }
 .a2ui-metric strong { font-size: 24px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.a2ui-metric small { font-size: 12.5px; }
+.a2ui-metric-label { color: var(--muted); font-size: 13px; }
+.a2ui-metric .hint { font-size: 12.5px; }
 .a2ui-divider { width: 100%; height: 0; margin: 0; border: 0; border-top: 1px solid var(--line); }
 .a2ui-badge { justify-self: start; padding: 3px 11px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--glass-2); font-size: 13px; font-weight: 600; }
 .a2ui-tone-success { color: var(--accent-2); border-color: rgba(61, 220, 151, .35); background: var(--accent-soft); }
@@ -533,9 +549,11 @@ dialog p { color: var(--muted); font-size: 15px; }
 .a2ui-tone-info { color: #9cc8ff; border-color: rgba(120, 170, 255, .35); background: rgba(120, 170, 255, .12); }
 .a2ui-block, .a2ui-progress, .a2ui-chart { min-width: 0; margin: 0; }
 .a2ui-progress { display: grid; gap: 8px; }
-.a2ui-progress-bar { display: flex; gap: 4px; height: 10px; }
-.a2ui-progress-bar span { min-width: 4px; border-radius: 999px; background: currentColor; }
+.a2ui-progress-bar { display: block; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; }
+.a2ui-progress-bar rect { fill: currentColor; }
 .a2ui-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 13px; }
+.a2ui-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.a2ui-legend i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .a2ui-key { display: inline-flex; align-items: center; gap: 6px; }
 .a2ui-key::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .a2ui-legend .a2ui-key { color: var(--muted); }
@@ -546,19 +564,22 @@ dialog p { color: var(--muted); font-size: 15px; }
 .a2ui-series-3 { --series: #e48ad8; color: #e48ad8; }
 .a2ui-series-4 { --series: #ff9a76; color: #ff9a76; }
 .a2ui-series-5 { --series: #9be7ff; color: #9be7ff; }
-.a2ui-table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
-.a2ui-table table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.a2ui-table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.a2ui-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
 .a2ui-table caption { padding: 12px 14px 4px; text-align: left; font-weight: 650; }
 .a2ui-table th, .a2ui-table td { padding: 9px 14px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
 .a2ui-table th { color: var(--muted); font-size: 13px; font-weight: 600; }
 .a2ui-table tbody tr:nth-child(even) { background: var(--glass); }
 .a2ui-chart { display: grid; gap: 8px; }
 .a2ui-chart-title { font-weight: 650; }
-.a2ui-chart svg { width: 100%; height: auto; overflow: visible; }
+.a2ui-chart svg { display: block; width: 100%; max-width: 560px; height: auto; overflow: visible; }
+.a2ui-chart-axis { stroke: var(--line-strong); }
+.a2ui-chart-label { fill: var(--muted); font-size: 12px; }
+.a2ui-chart rect, .a2ui-chart circle { fill: currentColor; }
+.a2ui-chart-line { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .a2ui-axis { stroke: var(--line-strong); }
 .a2ui-tick { fill: var(--muted); font-size: 10px; }
 .a2ui-fill-0 { fill: #6ea8ff; } .a2ui-fill-1 { fill: #f2c46d; } .a2ui-fill-2 { fill: var(--accent); } .a2ui-fill-3 { fill: #e48ad8; }
 .a2ui-stroke-0, .a2ui-stroke-1, .a2ui-stroke-2, .a2ui-stroke-3 { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .a2ui-stroke-0 { stroke: #6ea8ff; } .a2ui-stroke-1 { stroke: #f2c46d; } .a2ui-stroke-2 { stroke: var(--accent); } .a2ui-stroke-3 { stroke: #e48ad8; }
-.a2ui-image { display: block; width: 100%; max-height: 360px; object-fit: cover; border-radius: var(--radius-sm); background: var(--glass); }
-.signin-broker { width: 100%; min-height: 710px; border: 0; border-radius: 12px; background: #111; }
+.a2ui-image { display: block; width: 100%; max-height: 360px; object-fit: contain; border-radius: var(--radius-sm); background: var(--glass); }

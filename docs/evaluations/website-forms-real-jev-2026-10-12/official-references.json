@@ -1,0 +1,121 @@
+{
+  "verified_at_utc": "2026-10-11T22:26:08.967081+00:00",
+  "method": "Official public website documentation reader and domain-restricted official help search; no Oak runtime/browser/model probing.",
+  "selection_urls_unchanged": true,
+  "runtime_probes": 0,
+  "model_calls": 0,
+  "no_replacements": true,
+  "sites": [
+    {
+      "site_id": "github",
+      "frozen_url": "https://github.com/login",
+      "status": "verified_direct",
+      "references": [
+        "https://github.com/login"
+      ],
+      "note": "Official login page names username/email, password, account creation and passkey. Documentation reader also includes a generic loading-error fragment; this is not a broker result."
+    },
+    {
+      "site_id": "slack",
+      "frozen_url": "https://slack.com/signin",
+      "status": "verified_official_help_direct_fetch_failed",
+      "references": [
+        "https://slack.com/signin",
+        "https://slack.com/help/articles/212681477-Sign-in-to-Slack-Sign-in-to-Slack"
+      ],
+      "note": "Frozen entry returned HTTP 403 to the documentation reader. Official Slack sign-in help explicitly identifies slack.com/signin. Entry is retained unchanged."
+    },
+    {
+      "site_id": "zoom",
+      "frozen_url": "https://zoom.us/signin",
+      "status": "verified_direct_title_shell",
+      "references": [
+        "https://zoom.us/signin"
+      ],
+      "note": "Official entry resolves with the Sign In | Zoom title and a largely script-driven/input-only document; useful form extraction is not established."
+    },
+    {
+      "site_id": "spotify",
+      "frozen_url": "https://accounts.spotify.com/en/login",
+      "status": "verified_direct",
+      "references": [
+        "https://accounts.spotify.com/en/login"
+      ],
+      "note": "Official account entry exposes email and Continue plus alternate identity-provider links."
+    },
+    {
+      "site_id": "amazon",
+      "frozen_url": "https://www.amazon.com/ap/signin",
+      "status": "official_entry_fetch_failed",
+      "references": [
+        "https://www.amazon.com/ap/signin",
+        "https://digprjsurvey.amazon.com/csad/help/node/GAM5QWMWMTFCHEQT"
+      ],
+      "note": "Frozen Amazon-domain entry returned HTTP 503 to the documentation reader. Official Amazon help corroborates the account sign-in flow, but exact endpoint content could not be verified. Failure retained; no replacement URL."
+    },
+    {
+      "site_id": "ebay",
+      "frozen_url": "https://signin.ebay.com/signin/",
+      "status": "verified_direct",
+      "references": [
+        "https://signin.ebay.com/signin/"
+      ],
+      "note": "Official login entry exposes email/username, Continue, alternate identity providers and account creation."
+    },
+    {
+      "site_id": "dropbox",
+      "frozen_url": "https://www.dropbox.com/login",
+      "status": "verified_direct_title_and_help",
+      "references": [
+        "https://www.dropbox.com/login",
+        "https://help.dropbox.com/account-access/sign-in-out"
+      ],
+      "note": "Official entry resolves with a Dropbox login/signup title but no extracted document text. Official help corroborates browser login."
+    },
+    {
+      "site_id": "paypal",
+      "frozen_url": "https://www.paypal.com/signin",
+      "status": "verified_direct",
+      "references": [
+        "https://www.paypal.com/signin"
+      ],
+      "note": "Official account login entry exposes email/mobile and Next, with other flows present in static text. No account identity or authenticated session is inferred from template text."
+    },
+    {
+      "site_id": "wise",
+      "frozen_url": "https://wise.com/login",
+      "status": "verified_direct_title_shell",
+      "references": [
+        "https://wise.com/login"
+      ],
+      "note": "Official entry resolves with Wise - Login title and minimal document text; form readiness is not established."
+    },
+    {
+      "site_id": "booking_com",
+      "frozen_url": "https://account.booking.com/sign-in",
+      "status": "verified_direct_script_shell",
+      "references": [
+        "https://account.booking.com/sign-in"
+      ],
+      "note": "Official account entry resolves to a JavaScript-required page; form readiness is not established."
+    },
+    {
+      "site_id": "expedia",
+      "frozen_url": "https://www.expedia.com/login",
+      "status": "verified_direct",
+      "references": [
+        "https://www.expedia.com/login"
+      ],
+      "note": "Official entry exposes email and Continue for a shared sign-in/account-creation flow."
+    },
+    {
+      "site_id": "wordpress_com",
+      "frozen_url": "https://wordpress.com/log-in",
+      "status": "verified_direct_script_shell",
+      "references": [
+        "https://wordpress.com/log-in"
+      ],
+      "note": "Official entry identifies WordPress.com login and requires JavaScript."
+    }
+  ]
+}

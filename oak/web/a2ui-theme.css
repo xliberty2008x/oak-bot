@@ -1,0 +1,21 @@
+oak-a2ui-surface {
+ display:block;min-width:0;
+ --a2ui-color-background:var(--bg);--a2ui-color-on-background:var(--ink);
+ --a2ui-color-surface:var(--bg-2);--a2ui-color-on-surface:var(--ink);
+ --a2ui-color-primary:var(--accent);--a2ui-color-on-primary:var(--accent-ink);
+ --a2ui-color-input:rgba(0,0,0,.3);--a2ui-color-on-input:var(--ink);
+ --a2ui-color-border:var(--line-strong);--a2ui-border-radius:var(--radius-sm);
+ --a2ui-card-background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));
+ --a2ui-card-border:1px solid var(--line);--a2ui-card-border-radius:var(--radius);
+ --a2ui-card-padding:24px;--a2ui-card-margin:0;--a2ui-card-box-shadow:var(--shadow);
+ --a2ui-column-gap:16px;--a2ui-textfield-border-radius:var(--radius-sm);
+ --a2ui-textfield-padding:12px 16px;--a2ui-textfield-label-font-size:14px;
+ --a2ui-textfield-label-font-weight:600;--a2ui-textfield-color-border-focus:var(--accent);
+ --a2ui-spacing-xs:8px;--a2ui-label-font-size:14px;
+}
+oak-a2ui-surface .a2ui-field input,oak-a2ui-surface .a2ui-field select {min-height:50px;font:inherit;min-width:0;}
+oak-a2ui-surface .a2ui-field label {color:var(--muted);}
+oak-a2ui-button {display:block;}
+oak-a2ui-surface a2ui-basic-row {display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px;min-width:0;}
+oak-a2ui-divider,oak-a2ui-badge,oak-a2ui-metric,oak-a2ui-progress,oak-a2ui-table,oak-a2ui-chart,oak-a2ui-image {display:block;min-width:0;}
+oak-a2ui-surface :focus-visible {outline:2px solid var(--focus);outline-offset:3px;}

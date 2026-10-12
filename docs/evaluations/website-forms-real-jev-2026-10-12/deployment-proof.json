@@ -1,0 +1,26 @@
+{
+  "code_commit": "cf7ba70de33d06e74702201f714f65dcdb73b5dd",
+  "runtime_code_digest": "f252874415919f6409ff34fccd795dd331707e2ffcd031d85d7fef618051405c",
+  "current_boot_attestation": true,
+  "checks": {
+    "uid": true,
+    "private_pid": true,
+    "no_privileges": true,
+    "code_readonly": true,
+    "trusted_files_denied": true,
+    "host_proc_denied": true,
+    "sockets_denied": true,
+    "private_network_denied": true,
+    "native_policy": true,
+    "firewall_active": true
+  },
+  "gateway_boundary_check": true,
+  "broker_boundary_check": true,
+  "broker_ready": true,
+  "composer_model": "typesafe/jev-1.13",
+  "max_calls_per_lease": 12,
+  "tiktok_policy_unchanged": true,
+  "owner_authentication_tested": false,
+  "intake_uncertain_before": 5,
+  "intake_uncertain_after": 5
+}

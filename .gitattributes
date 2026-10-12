@@ -1,0 +1,2 @@
+# Generated upstream regex/string literals contain meaningful trailing whitespace.
+oak/web/vendor/a2ui/runtime.js -whitespace

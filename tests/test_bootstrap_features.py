@@ -146,13 +146,15 @@ class BootstrapFeatureTests(unittest.TestCase):
             self.assertTrue(http.call_args.args[0].endswith('/api/bootstrap'))
 
     def test_prepare_and_running_paths_never_start_account_actions(self):
-        for running in (False, True):
-            with self.subTest(running=running), tempfile.TemporaryDirectory() as folder:
+        for version, arch, running in (('24.04', 'x86_64', False), ('24.04', 'x86_64', True),
+                                        ('22.04', 'aarch64', False), ('22.04', 'aarch64', True)):
+            with self.subTest(version=version, arch=arch, running=running), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 config = {'state_dir': str(root / 'state'), 'workspace': str(root / 'work'),
                           'runtime_home': str(root / 'runtime'), 'telegram_api_url': 'http://127.0.0.1:8081'}
-                with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '24.04'}), \
-                        patch.object(self.vm.platform, 'machine', return_value='x86_64'), \
+                with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': version}), \
+                        patch.object(self.vm.platform, 'machine', return_value=arch), \
+                        patch.object(self.vm.sys, 'version_info', (3, 11)), \
                         patch.object(self.vm.os, 'geteuid', return_value=1000), \
                         patch.dict(self.vm.os.environ), \
                         patch.object(self.vm, 'settings', return_value=(root / 'config.json', config)), \
@@ -184,12 +186,27 @@ class BootstrapFeatureTests(unittest.TestCase):
 
     def test_platform_matrix_separates_os_architecture_and_python(self):
         cases = [
-            ('ubuntu', '22.04', 'aarch64', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('ubuntu', '22.04', 'aarch64', (3, 10), ['python_below_3_11']),
+            ('ubuntu', '22.04', 'aarch64', (3, 11), []),
+            ('ubuntu', '22.04', 'aarch64', (3, 12), []),
             ('ubuntu', '22.04', 'x86_64', (3, 12), ['unsupported_os']),
             ('ubuntu', '24.04', 'aarch64', (3, 12), ['unsupported_architecture']),
             ('ubuntu', '24.04', 'x86_64', (3, 10), ['python_below_3_11']),
             ('ubuntu', '24.04', 'x86_64', (3, 11), []),
+            ('debian', '12', 'x86_64', (3, 10), ['python_below_3_11']),
+            ('debian', '12', 'x86_64', (3, 11), []),
+            ('debian', '13', 'x86_64', (3, 10), ['python_below_3_11']),
+            ('debian', '13', 'x86_64', (3, 11), []),
             ('debian', '13', 'x86_64', (3, 13), []),
+            ('debian', '12', 'aarch64', (3, 12), ['unsupported_architecture']),
+            ('debian', '13', 'aarch64', (3, 12), ['unsupported_architecture']),
+            ('ubuntu', '20.04', 'aarch64', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('ubuntu', '22.04.5', 'aarch64', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('ubuntu', '22.04', 'arm64', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('ubuntu', '22.04', 'armv7l', (3, 12), ['unsupported_os', 'unsupported_architecture']),
+            ('debian', '11', 'x86_64', (3, 12), ['unsupported_os']),
+            ('other', '22.04', 'aarch64', (3, 10),
+             ['unsupported_os', 'unsupported_architecture', 'python_below_3_11']),
         ]
         for distro, version, arch, python, reasons in cases:
             with self.subTest(distro=distro, version=version, arch=arch, python=python):
@@ -200,21 +217,30 @@ class BootstrapFeatureTests(unittest.TestCase):
                 self.assertFalse(result['credential_isolation_verified'])
 
     def test_check_platform_never_reads_config_or_provisions_even_as_root(self):
-        output = io.StringIO()
-        with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '22.04'}), \
-                patch.object(self.vm.platform, 'machine', return_value='aarch64'), \
-                patch.object(self.vm.os, 'geteuid', return_value=0), \
-                patch.object(self.vm, 'settings') as settings, patch.object(self.vm, 'run') as run, \
-                patch.object(self.vm, 'prepare_telegram_image') as image, \
-                patch.object(self.vm, 'setup_telegram_api') as setup, \
-                patch.object(self.vm, 'private_json') as write, \
-                patch.object(self.vm.getpass, 'getpass') as prompt, \
-                patch.object(sys, 'argv', ['bootstrap_vm', '--check-platform', '--config', '/synthetic/unread']), \
-                redirect_stdout(output):
-            self.vm.main()
-        self.assertEqual(json.loads(output.getvalue())['reasons'], ['unsupported_os', 'unsupported_architecture'])
-        for action in (settings, run, image, setup, write, prompt):
-            action.assert_not_called()
+        for version, python, reasons in (('22.04', (3, 11), []),
+                                         ('22.04', (3, 10), ['python_below_3_11']),
+                                         ('24.04', (3, 11), ['unsupported_architecture'])):
+            output = io.StringIO()
+            with self.subTest(version=version, python=python), \
+                    patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': version}), \
+                    patch.object(self.vm.platform, 'machine', return_value='aarch64'), \
+                    patch.object(self.vm.sys, 'version_info', python), \
+                    patch.object(self.vm.os, 'geteuid', return_value=0), \
+                    patch.object(self.vm, 'settings') as settings, patch.object(self.vm, 'run') as run, \
+                    patch.object(self.vm, 'prepare_telegram_image') as image, \
+                    patch.object(self.vm, 'setup_telegram_api') as setup, \
+                    patch.object(self.vm, 'private_json') as write, \
+                    patch.object(self.vm.getpass, 'getpass') as prompt, \
+                    patch.object(sys, 'argv', ['bootstrap_vm', '--check-platform', '--config', '/synthetic/unread']), \
+                    redirect_stdout(output):
+                self.vm.main()
+            report = json.loads(output.getvalue())
+            self.assertEqual(report['reasons'], reasons)
+            self.assertEqual(report['status'], 'blocked' if reasons else 'eligible')
+            self.assertFalse(report['deployment_verified'])
+            self.assertFalse(report['credential_isolation_verified'])
+            for action in (settings, run, image, setup, write, prompt):
+                action.assert_not_called()
 
     def test_missing_os_release_fails_closed_without_details(self):
         with patch.object(self.vm.platform, 'freedesktop_os_release', side_effect=OSError('synthetic-canary')), \
@@ -245,16 +271,21 @@ class BootstrapFeatureTests(unittest.TestCase):
             self.assertIn('nothing was installed', result.stderr)
             self.assertNotIn('deployment user', result.stderr)
 
-    def test_unsupported_oracle_platform_is_rejected_before_provisioning(self):
-        with patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '22.04'}), \
-                patch.object(self.vm.platform, 'machine', return_value='aarch64'), \
-                patch.object(self.vm.os, 'geteuid', return_value=1000), \
-                patch.object(sys, 'argv', ['bootstrap_vm', '--prepare-only']), \
-                patch.object(self.vm, 'settings') as settings, patch.object(self.vm, 'run') as run:
-            with self.assertRaisesRegex(ValueError, 'Supported:'):
-                self.vm.main()
-        settings.assert_not_called()
-        run.assert_not_called()
+    def test_unsupported_platform_or_python_is_rejected_before_provisioning(self):
+        for version, arch, python in (('22.04', 'x86_64', (3, 12)),
+                                      ('24.04', 'aarch64', (3, 12)),
+                                      ('22.04', 'aarch64', (3, 10))):
+            with self.subTest(version=version, arch=arch, python=python), \
+                    patch.object(self.vm.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': version}), \
+                    patch.object(self.vm.platform, 'machine', return_value=arch), \
+                    patch.object(self.vm.sys, 'version_info', python), \
+                    patch.object(self.vm.os, 'geteuid', return_value=1000), \
+                    patch.object(sys, 'argv', ['bootstrap_vm', '--prepare-only', '--skip-system']), \
+                    patch.object(self.vm, 'settings') as settings, patch.object(self.vm, 'run') as run:
+                with self.assertRaisesRegex(ValueError, 'Supported:'):
+                    self.vm.main()
+            settings.assert_not_called()
+            run.assert_not_called()
 
 
 class FixtureLifecycleTests(unittest.IsolatedAsyncioTestCase):

@@ -112,16 +112,18 @@ def validate_event(event):
             if not isinstance(value.get('revisions'), dict) or any(type(v) is not int or v < 1 for v in value['revisions'].values()):
                 raise ValueError('Invalid A2UI revisions.')
         if name == 'a2ui_card':
-            from .a2ui import bounded_json
+            from .a2ui import identifier, validate_state
+            identifier(value.get('surfaceId'))
             if 'deleted' in value:
-                if value.keys() != {'surfaceId', 'label', 'deleted'} or value['deleted'] is not True:
+                if (value.keys() != {'surfaceId', 'label', 'deleted', 'revision'} or value['deleted'] is not True
+                        or type(value['revision']) is not int or value['revision'] < 1):
                     raise ValueError('Invalid deleted A2UI card.')
             else:
                 if (value.keys() - {'url'} != {'surfaceId', 'label', 'revision', 'state', 'button_label'}
                         or type(value['revision']) is not int or value['revision'] < 1
                         or not isinstance(value['state'], dict)):
                     raise ValueError('Invalid A2UI card.')
-                bounded_json(value['state'])
+                validate_state(value['state'])
                 _string(value['button_label'], 'value.button_label', 128)
                 if 'url' in value:
                     _string(value['url'], 'value.url', 8192)

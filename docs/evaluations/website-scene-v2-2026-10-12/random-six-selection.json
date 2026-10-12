@@ -1,0 +1,85 @@
+{
+  "code_root": "/var/tmp/oak-scene-final-20261012",
+  "frozen_at_utc": "2026-10-11T23:56:13.843574+00:00",
+  "frozen_before_browser_and_model_probes": true,
+  "limits": {
+    "actions": 0,
+    "anonymous_pages_per_site": 1,
+    "human_inputs": 0,
+    "model_calls_per_site": 2,
+    "model_retries": 0,
+    "new_network_grants": false,
+    "read_interval_seconds": 2,
+    "scheduled_precomposition_reads": 3,
+    "site_request_methods": [
+      "GET",
+      "HEAD"
+    ],
+    "sites": 6
+  },
+  "pool": [
+    "Adobe",
+    "Apple",
+    "Microsoft",
+    "Yahoo",
+    "LinkedIn",
+    "Pinterest",
+    "Quora",
+    "Canva",
+    "Duolingo",
+    "Coursera",
+    "Udemy",
+    "Proton"
+  ],
+  "python_version": "3.12.15",
+  "sampling": "Python random.Random(seed).sample(pool, 6), pool order preserved as supplied",
+  "schema": "oak-public-scene-sample-v1",
+  "scope": "Fresh public-page sample from a convenience pool; no account login, production broker, private renderer or post-input flow proof. Extra GET/HEAD-only guard may prevent JavaScript initialization.",
+  "seed": "oak-scene-v2-final-sites-20261012",
+  "sites": [
+    {
+      "name": "Canva",
+      "official_source": "https://www.canva.com/login/",
+      "order": 1,
+      "url": "https://www.canva.com/login/",
+      "verification": "Official sign-in entry."
+    },
+    {
+      "name": "Udemy",
+      "official_source": "https://www.udemy.com/join/login-popup/",
+      "order": 2,
+      "url": "https://www.udemy.com/join/login-popup/",
+      "verification": "Official entry resolves to Udemy passwordless-auth; keep original entry URL."
+    },
+    {
+      "name": "Adobe",
+      "official_source": "https://helpx.adobe.com/account/individual/sign-in-and-security/sign-in-methods/sign-in-to-adobe-account.html",
+      "order": 3,
+      "url": "https://account.adobe.com/",
+      "verification": "Official account sign-in guidance links account.adobe.com."
+    },
+    {
+      "name": "LinkedIn",
+      "official_source": "https://www.linkedin.com/login",
+      "order": 4,
+      "url": "https://www.linkedin.com/login",
+      "verification": "Official sign-in entry."
+    },
+    {
+      "name": "Yahoo",
+      "official_source": "https://help.yahoo.com/kb/SLN36803.html",
+      "order": 5,
+      "url": "https://login.yahoo.com/",
+      "verification": "Official guidance links login.yahoo.com; web verification of entry returned 429, retained."
+    },
+    {
+      "name": "Pinterest",
+      "official_source": "https://help.pinterest.com/en/article/log-in-and-out-of-pinterest",
+      "order": 6,
+      "url": "https://www.pinterest.com/login/",
+      "verification": "Official login instructions specify pinterest.com/login; web entry returned 403, retained."
+    }
+  ],
+  "source_digest": "0b77c30671a4ae922f3daf2c4105a3e869a45364e33ea3d0d3c76e6e5ef75fb9",
+  "source_file_count": 124
+}

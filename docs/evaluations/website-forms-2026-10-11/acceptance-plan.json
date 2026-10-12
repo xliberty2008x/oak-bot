@@ -1,0 +1,52 @@
+{
+  "recorded_at": "2026-10-11T20:21:51.471613+00:00",
+  "timing_note": "Dataset and baseline policy were frozen before runs. This written plan is recorded after the independent diagnostic pass started; first diagnostic findings exist. The deployed broker pass has not started.",
+  "source_commit": "71f966e57230b68971a44347a78882e31295ba9b",
+  "selection_sha256": "c85b624a59f38e98fb0d5d1c18c2704b068cbd2fd59ea41e0606985ecadf3ac4",
+  "denominator": 12,
+  "replace_failures": false,
+  "runtime_changes_during_baseline": false,
+  "path": "generic WebsiteForms for all 12 sites; actual deployed broker and private API",
+  "baseline": "Fresh anonymous context per site; two scheduled reads; cancel every lease and verify cleanup. Record all failures and read instability.",
+  "composer": "Absent in deployed config. Real Jev NOT_RUN, no mocks; this is not a Jev accuracy benchmark.",
+  "public_method_step": {
+    "enabled_if_runner_supports": true,
+    "max_per_site": 1,
+    "preconditions": [
+      "stage=form",
+      "zero fields",
+      "exactly one eligible action"
+    ],
+    "exact_casefold_labels": [
+      "use email",
+      "continue with email",
+      "sign in with email",
+      "log in with email",
+      "use password",
+      "log in with password"
+    ],
+    "values": {},
+    "no_retry": true,
+    "excluded": [
+      "generic Continue",
+      "SSO",
+      "signup",
+      "account creation",
+      "any field submission"
+    ],
+    "eligibility_clarification": "Implemented and run with the flag enabled: exactly one total action, whose exact casefold label is allowed; no site qualified."
+  },
+  "classifications": [
+    "usable login controls exposed",
+    "chooser only",
+    "empty review/unsupported",
+    "access challenge or blocked page",
+    "navigation/network error",
+    "unstable reads"
+  ],
+  "field_caveat": "Fields alone are not proof of login UI; manually compare public observable metadata. Search, cookie, subscription fields do not count as login.",
+  "full_authentication": "NOT_TESTED: no owner credentials or account login attempts",
+  "frontend": "NOT_TESTED by API runner; do not equate private API schema with verified rendered browser UI",
+  "independent_diagnostics": "Separate read-only pass using installed code and unchanged routing. groupMode observation counts explain ambiguity but are not successful configured model selections.",
+  "claims": "Qualitative diverse convenience sample; no claim of all-web support, real Jev selection, or completed login."
+}

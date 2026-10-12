@@ -44,13 +44,13 @@ The demo starts no Codex process, Telegram poller or external provider page.
 
 ## Gate before an Instagram implementation can run
 
-The user selected ORACLE-VM. A later read-only check through existing host-key
-trust established Ubuntu 22.04.5 on aarch64. No installer, service change or
-isolation activation was performed. The current Oak bootstrap matrix rejects
-that OS and architecture; `--check-platform` separates both reasons before any
-config or provisioning. Other agents' gateway/tool/account state must not be
-modified, copied or reused as broker state. Source and synthetic tests do not
-verify the actual Oracle launcher, browser sandbox or secret isolation.
+The selected ORACLE-VM was originally inspected as Ubuntu 22.04.5 on aarch64.
+That historical inspection did not activate isolation. Installer eligibility
+now includes Ubuntu 22.04/aarch64 with Python 3.11+; `--check-platform` reports
+only the platform gate before any config or provisioning. It does not verify
+or activate broker isolation. Other agents' gateway/tool/account state must
+not be modified, copied or reused as broker state. Source and synthetic tests
+do not verify the actual Oracle launcher, browser sandbox or secret isolation.
 
 The next deployment review must cover these concrete changes before applying
 them: separate runtime UID and fixed launcher; immutable trusted UI/policy;

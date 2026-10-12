@@ -1,0 +1,38 @@
+{
+  "source_commit": "db7d365223f9b037e022df905a69fae331feaec9",
+  "deployed_release": "229231db6d2897635833",
+  "runtime_digest": "b48d6eb4e4b1bb05b1266f2adc9a6b67c29c2fea9b7ea22930e7d30b6eca4851",
+  "runtime_files": 125,
+  "broker_config_sha256": "d0b5491842eda528b61cfbae7126c46b19467fec1a8b2106f740cdb47f1411fe",
+  "network_policy_changed": false,
+  "existing_clerk_grant_preserved": true,
+  "live_harness_sha256": "f4a6988a05ea811fa116c4d015494b48d87db901a769aa121f99b47651f2dfb0",
+  "base_full_suite_commit": "89961c998f1283a96787b4f5e670697626546722",
+  "base_full_suite_tests": 712,
+  "final_focused_suites": [
+    {
+      "scope": "navigation, gateway and broker integration",
+      "tests": 67,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "scope": "modal collection, browser scene and agent",
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "scope": "privacy, legacy composer and broker",
+      "tests": 58,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "focused_suites_overlap": true,
+  "owner_authentication_verified": false,
+  "telegram_ios_verified": false
+}

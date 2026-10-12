@@ -1,0 +1,12 @@
+{
+  "browser_fixtures_enabled": true,
+  "elapsed_seconds": 244.165,
+  "log_sha256": "3876cf8ec7622ae4ec7d60ba19e865eb3b1aeb35d8cad7ade6aa5758e6fdd2f9",
+  "node_env_explicit": true,
+  "runtime_digest": "9c052e2b16e4a9f984a81376256b9ab811ec5cd7ee0c0c8682ffbf9075462a23",
+  "runtime_files": 124,
+  "scope": "local full suite, actual intercepted Chromium, broker/private UI recovery, mocked model protocols; actual model/API outcomes recorded separately",
+  "skipped": 0,
+  "status": "passed",
+  "tests": 667
+}

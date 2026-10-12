@@ -1,0 +1,84 @@
+{
+  "observation_sha256": "f6e6eefd0db64f7c05c9c3a3ce74ceb29e2563f29ae08547508f7d780e8a064f",
+  "original_jev_input_verified": false,
+  "browser_actions": 0,
+  "model_calls": [
+    {
+      "variant": "baseline",
+      "operation": "none",
+      "candidate_index": null,
+      "confidence": 0.5,
+      "probability": 0.5,
+      "usage": {
+        "input_tokens": 10493,
+        "output_tokens": 1173,
+        "cost": 0.000440706
+      },
+      "metadata": [
+        {
+          "phase": "anchor",
+          "status": "abstained",
+          "model": "typesafe/jev-1.13-20260917",
+          "cost": 0.000440706,
+          "elapsed_ms": 332,
+          "error": null
+        }
+      ],
+      "payload_sha256": "57d3cb1f67f06fcd8440952615960cf4c6eb5762c5ca2c4e193f8731450cdd2a"
+    },
+    {
+      "variant": "descriptive",
+      "operation": "none",
+      "candidate_index": null,
+      "confidence": 0.48,
+      "probability": 0.48,
+      "usage": {
+        "input_tokens": 19691,
+        "output_tokens": 1173,
+        "cost": 0.000827022
+      },
+      "metadata": [
+        {
+          "phase": "anchor",
+          "status": "abstained",
+          "model": "typesafe/jev-1.13-20260917",
+          "cost": 0.000827022,
+          "elapsed_ms": 407,
+          "error": null
+        }
+      ],
+      "payload_sha256": "328309f5d480f9c881ae0dd6b5b8a1284d5c137e497f0acd7a627a1e8ae130db"
+    },
+    {
+      "variant": "concise",
+      "operation": "none",
+      "candidate_index": null,
+      "confidence": 0.77,
+      "probability": 0.77,
+      "usage": {
+        "input_tokens": 19494,
+        "output_tokens": 1173,
+        "cost": 0.000818748
+      },
+      "metadata": [
+        {
+          "phase": "anchor",
+          "status": "abstained",
+          "model": "typesafe/jev-1.13-20260917",
+          "cost": 0.000818748,
+          "elapsed_ms": 390,
+          "error": null
+        }
+      ],
+      "payload_sha256": "a5fc1d7ffd5ac9a72fa719bba40afd63956b8e27582729c03a49e766267dfb3c"
+    }
+  ],
+  "scope": "Offline judgments on a sanitized pre-input observation fetched after delegation, not the original Jev planning input or a live navigation test.",
+  "preceding_failed_harness": {
+    "attempted_calls": 3,
+    "results_retained": false,
+    "error": "AttributeError in cleanup before receipt output",
+    "browser_actions": 0
+  },
+  "harness_sha256": "4ebb06350db8120f6a50d102368f3ba1232f4d3c99b07003f64a5b4f3ceccc28"
+}

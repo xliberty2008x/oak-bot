@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="oak-parent-origin" content="PARENT_ORIGIN">
+  <title>Oak — вхід до акаунта</title>
+  <link rel="stylesheet" href="/login.css">
+  <script type="module" src="/login.js"></script>
+</head>
+<body>
+  <main class="login-card" aria-labelledby="title">
+    <header class="site-header">
+      <svg class="site-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/></svg>
+      <p id="destination" class="destination">Очікуємо запит від Oak.</p>
+      <button id="close" class="close-button" type="button" aria-label="Закрити й скасувати вхід" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </header>
+    <h1 id="title" tabindex="-1">Підключення…</h1>
+    <p id="current-origin" class="recipient" hidden></p>
+    <p id="status" role="status" aria-live="polite" aria-atomic="true">Відкриваємо захищену форму входу…</p>
+    <p id="error" role="alert" aria-atomic="true" hidden></p>
+    <section id="origin-approval" aria-labelledby="origin-approval-title" hidden>
+      <h2 id="origin-approval-title">Перехід до сервісу входу</h2>
+      <p id="approval-origin" class="destination"></p>
+      <p id="approval-note">Дозволь перехід, якщо впізнаєш цей сервіс. Дані входу й cookies можуть передаватися йому. Введення даних і натискання кнопок входу залишаються за тобою. Дозвіл діє лише для цього запиту й не підтверджує успішний вхід.</p>
+      <button id="approve-origin" type="button" aria-describedby="approval-origin approval-note">Дозволити перехід</button>
+    </section>
+    <form id="login" autocomplete="off" hidden>
+      <div id="fields"></div>
+      <div id="actions"></div>
+    </form>
+    <footer class="form-footer">
+      <button id="complete" class="quiet" type="button" aria-describedby="complete-note" hidden>Завершити й передати сесію Oak</button>
+      <button id="cancel" class="quiet" type="button" hidden>Скасувати</button>
+    </footer>
+    <p id="complete-note" class="privacy" hidden>Натисни лише коли потрібну дію виконано. Це твоє підтвердження, а не перевірка входу сайтом.</p>
+    <p class="privacy">Захищена форма Oak. Пароль і код не передаються в чат.</p>
+    <noscript>Для форми входу потрібен JavaScript.</noscript>
+  </main>
+</body>
+</html>

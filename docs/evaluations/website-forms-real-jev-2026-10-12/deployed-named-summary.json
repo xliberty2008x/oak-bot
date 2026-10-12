@@ -1,0 +1,107 @@
+{
+  "action": "Instagram fixed a0 with empty values; accepted",
+  "actions_submitted": 1,
+  "actual_model_calls": null,
+  "api_keys_read": 0,
+  "authentication_attempted": false,
+  "cleanups_confirmed": 3,
+  "code_sha256": {
+    "oak/executor.py": "6bb37b8960235bdeafd2548babf5b8c874b8de6c2d2a0d7a74a7a062056de50f",
+    "oak/login_broker.py": "5ad933ea9b3cdbfb66aaf7efa9dac2a70540d3042939d74436622c826741920c",
+    "oak/signin_providers.py": "6f938919d91aa4f9252007a021bcf86986145c1721863035c75b8e4a7fbc65fd",
+    "oak/website_composer.py": "26bfa931705b6f6ecbf1bd951e0da2ffb88e45f464af936730c42e6f31b3fb6e",
+    "oak/website_forms.py": "1b9593facc8c63d9896b52202f7ef03fc56eca41de040fe6af20b6c7a10fa809",
+    "oak/website_planner.py": "3aaf215c33d09122f3281c8b24b6fc50baf8a3c200e1e620c466642a179d34a5",
+    "oak/website_resources.py": "106f9c8c6cab5fa43b02f9b73181248d9f6104979345813883439374c679f268",
+    "oak/website_ui.py": "1c9360c34085da7486b923f287d97dda90f1c2afef33910607832240f2b92b01"
+  },
+  "composition_upper_bound": 18,
+  "cost_usd": null,
+  "credential_inputs": 0,
+  "denominator": 3,
+  "evaluation": "post-deployment named broker readiness",
+  "limitations": [
+    "Actual model calls/cost are not exposed by the pinned broker API.",
+    "No owner credentials, successful authentication or post-login access was tested.",
+    "Only the fixed Instagram a0 action was submitted; no Google or TikTok action was submitted.",
+    "Private renderer was not exercised by this HTTP broker probe."
+  ],
+  "profile_sha256": "358fe144fce883b459a553c903082e3990a77bf9ecb18e540f47fa3e6c55e3ba",
+  "providers": {
+    "google": {
+      "action_counts": [
+        3,
+        3,
+        3
+      ],
+      "cleanup": "confirmed",
+      "field_types_per_read": [
+        [
+          "text"
+        ],
+        [
+          "text"
+        ],
+        [
+          "text"
+        ]
+      ],
+      "provider": "google"
+    },
+    "instagram": {
+      "action_counts": [
+        4,
+        1,
+        4
+      ],
+      "cleanup": "confirmed",
+      "field_types_per_read": [
+        [
+          "text",
+          "password"
+        ],
+        [],
+        [
+          "text",
+          "password"
+        ]
+      ],
+      "fixed_prompt_dismissed_once": true,
+      "provider": "instagram"
+    },
+    "tiktok": {
+      "action_counts": [
+        3,
+        3,
+        3
+      ],
+      "cleanup": "confirmed",
+      "field_types_per_read": [
+        [
+          "text",
+          "password"
+        ],
+        [
+          "text",
+          "password"
+        ],
+        [
+          "text",
+          "password"
+        ]
+      ],
+      "provider": "website",
+      "public_entry": "https://www.tiktok.com/login/phone-or-email/email"
+    }
+  },
+  "receipt": "/var/tmp/oak-jev-broker-evaluation-20261012/named.jsonl",
+  "receipt_mode": "0600",
+  "receipt_sha256": "9aecdbf77d3cef6aa6677b6f85a3131505bfc300a3676fa4680d7a30afef4a9f",
+  "receipt_uid": 1002,
+  "renderer_measured": false,
+  "retries": 0,
+  "runner_sha256": "d2e83acfcb8946ed66bfe87a088e90f8e962692177179e1108b9c8674dad7567",
+  "runtime_digest": "112d1dc3054184cc22fcdcbb0fa1404aafa27df571b759e5384af4bcb9d32279",
+  "source_commit": "cf7ba70de33d06e74702201f714f65dcdb73b5dd",
+  "valid_reads": 9
+}

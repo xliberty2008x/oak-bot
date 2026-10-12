@@ -1,0 +1,22 @@
+{
+  "candidate_code_digest": "38440628e9cec102340a11b6a35e73e9151be93354cd9efccd6c837ea7efaf03",
+  "first_code_digest": "dc64613dcc8084963847f5d5d0572061117720af7c004339b9745efab9043fbb",
+  "known_cost_usd": 0.002019486,
+  "native_controller": false,
+  "owner_account": false,
+  "paid_attempts": 12,
+  "physical_telegram": false,
+  "portable_harness_ast_valid": true,
+  "receipt_sha256": {
+    "compact-sites-checkout-real-jev.jsonl": "f4e077e42e585cb5f47f7a2f729af817c64bce3776c17e06097bf2dc4d9ce68f",
+    "compact-sites-compression-diagnostic.jsonl": "e9f2c5d375e7c7b6e3c9aeabc36523cbf73ad668aad1e60bb110ce187049d39f",
+    "compact-sites-compression-v5.jsonl": "eb8b336af34818869bb02613611387f7c399c0a06f4558e1d5243a99cae3fb2f",
+    "compact-sites-diagnostic-v2.jsonl": "e223efea2a2874ac44bd435a2c9ae110b71d2a6cbcc8f02da6b48c4177eae9cf",
+    "compact-sites-first.jsonl": "98efbd06bee9dad6e43587fc495d8112a3155851c959863dc0598065e2b4c5b0",
+    "compact-sites-public-demo.jsonl": "039631e039fe28ed040ec1a9144a19ae147d41cf59448c304253eb07b99bdad5",
+    "compact-sites-real-jev.jsonl": "c756494ed5424950cf83b01a26f5460d77284e5fc95691c57fb23f61300a7e74",
+    "compact-sites-resources.jsonl": "9a9d1cb563c1d20e91b417c859ac87f8f975df2d355ddb28449daa5f4525e3e9",
+    "compact-sites-wikipedia-v3.jsonl": "fba1bc27b637c90f9ef252e5dacede2aa0ead036a46f4ab2d4446f101770a64e",
+    "compact-sites-wikipedia-v4.jsonl": "7d56575e2e28814fc53a2231b4c35cb3996316e55644dbf77d14677f48582a48"
+  }
+}
