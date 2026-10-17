@@ -188,6 +188,39 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed['due'], due)
         self.c.client.request.assert_not_awaited()
 
+    async def test_artifact_list_and_download_revalidate_selected_topic(self):
+        topic = self.c.sessions.resolve(11, 42)
+        self.c.sessions.resolve(11, 43)
+        path = Path(self.folder.name) / 'synthetic.html'
+        path.write_text('<b>Synthetic document</b>')
+        identifier = 'd' * 32
+        with self.c.db:
+            self.c.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)',
+                              (identifier, topic, str(path), 'report.html', 'text/html'))
+        self.gateway.bus.artifact_path = AsyncMock(return_value=path)
+        listing = await (await self.http.get('/api/artifacts?conversation=topic:42', headers=self.headers)).json()
+        self.assertEqual(listing['items'][0]['mime'], 'application/octet-stream')
+        self.assertNotIn(self.folder.name, json.dumps(listing))
+        self.assertEqual((await (await self.http.get('/api/artifacts', headers=self.headers)).json())['items'], [])
+        route = '/api/artifacts/' + identifier
+        denied = await self.http.get(route + '?conversation=topic:43', headers=self.headers)
+        self.assertEqual(denied.status, 404)
+        self.gateway.bus.artifact_path.assert_not_awaited()
+        download = await self.http.get(route + '?conversation=topic:42', headers=self.headers)
+        self.assertEqual(download.status, 200)
+        self.assertEqual(download.content_type, 'application/octet-stream')
+        self.assertEqual(await download.text(), '<b>Synthetic document</b>')
+        self.gateway.bus.artifact_path.side_effect = FileNotFoundError()
+        self.assertEqual((await self.http.get(route, headers=self.headers)).status, 404)
+        path.unlink()
+        missing = await (await self.http.get('/api/artifacts?conversation=topic:42', headers=self.headers)).json()
+        self.assertFalse(missing['items'][0]['available'])
+        self.assertIsNone(missing['items'][0]['url'])
+        self.c.sessions.delete(topic)
+        self.gateway.bus.artifact_path.reset_mock()
+        self.assertEqual((await self.http.get(route, headers=self.headers)).status, 404)
+        self.gateway.bus.artifact_path.assert_not_awaited()
+
     async def test_recovery_review_is_scoped_and_preserves_unknown_outcome(self):
         with self.c.db:
             self.c.db.execute("INSERT INTO inputs(update_id,chat_id,text,status,attachments) VALUES (1,11,'My request','uncertain','[]')")

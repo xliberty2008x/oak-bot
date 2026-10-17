@@ -98,7 +98,7 @@ class A2UIRendererTests(unittest.IsolatedAsyncioTestCase):
             artifact = app[app.index('async function artifact('):app.index('\nasync function dynamicPanel()')]
             await route.fulfill(content_type='text/javascript', body=artifact + '''
               import {createA2UIPanel} from '/a2ui.js';
-              let sessionEpoch=1,sessionToken='synthetic-image-token';window.invalidateOwner=()=>{sessionEpoch++;ownerEpoch++;panel.reset();};
+              let sessionEpoch=1,selectedSession='telegram',sessionToken='synthetic-image-token';window.invalidateOwner=()=>{sessionEpoch++;ownerEpoch++;panel.reset();};
               window.createdURLs=[];window.revokedURLs=[];
               const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
               URL.createObjectURL=blob=>{const url=create(blob);createdURLs.push(url);return url;};
