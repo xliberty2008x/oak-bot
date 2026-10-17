@@ -35,6 +35,9 @@ Otherwise show jobs in the scheduler's due-time order. Each item includes:
 - Local date/time with numeric UTC offset and the configured IANA timezone.
   Convert from the stored epoch with `scheduler.timezone`; never use host-local
   time. The offset distinguishes repeated clock times at a DST transition.
+  A stored finite epoch outside the platform's datetime range shows
+  `Час поза підтримуваним діапазоном` and retains the cancellation ID; one such
+  record cannot prevent the rest of the schedule from being displayed.
 - Mode (`Нагадування` / `Задача`), status (`Очікує` / `Виконується` /
   `Потребує перевірки`), and recurrence duration when present.
 - Full existing job ID and a usable `/cancel ID` instruction. Inline controls
@@ -42,7 +45,7 @@ Otherwise show jobs in the scheduler's due-time order. Each item includes:
 
 Acceptance: empty list; multiple due times; non-default timezone; both sides of
 a DST fold; long/multiline/markup prompts; recurring and uncertain jobs; another
-conversation's jobs excluded; unchanged database after listing. Existing schedule
+conversation's jobs excluded; out-of-range epoch; unchanged database after listing. Existing schedule
 claim/cancel/recurrence/recovery tests remain applicable.
 
 ## UX-02: command discovery and onboarding
