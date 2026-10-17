@@ -204,6 +204,22 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await (await self.http.post(path, headers=self.headers, json={})).json(), first)
         self.assertEqual(self.c.db.execute('SELECT status FROM inputs WHERE update_id=1').fetchone()[0], 'uncertain')
 
+    async def test_recovery_retry_requires_confirmation_and_dispatches_once(self):
+        with self.c.db:
+            self.c.db.execute("INSERT INTO inputs(update_id,chat_id,text,status,attachments) VALUES (1,11,'Original task','uncertain','[]')")
+        item = (await (await self.http.get('/api/recovery', headers=self.headers)).json())['items'][0]
+        path = '/api/recovery/' + item['id'] + '/retry'
+        payload = {'confirmed': True, 'operation_id': 'a' * 32}
+        self.c.submit = AsyncMock(return_value=True)
+        self.assertEqual((await self.http.post(path, headers=self.headers, json=payload | {'confirmed': False})).status, 400)
+        first = await (await self.http.post(path, headers=self.headers, json=payload)).json()
+        self.assertEqual(first['state'], 'accepted')
+        self.assertEqual(await (await self.http.post(path, headers=self.headers, json=payload)).json(), first)
+        self.c.submit.assert_awaited_once()
+        self.assertTrue(self.c.submit.call_args.kwargs['idle_only'])
+        self.assertNotEqual(self.c.submit.call_args.args[2], 1)
+        self.assertEqual(self.c.db.execute('SELECT status FROM inputs WHERE update_id=1').fetchone()[0], 'uncertain')
+
 
 if __name__ == '__main__':
     unittest.main()
