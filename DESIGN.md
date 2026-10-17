@@ -466,6 +466,12 @@ logout and page hiding abort old reads; late responses cannot update another
 conversation. Live updates preserve settings drafts, contextual form fields and
 unchanged request controls. Raw AG-UI content is not used for panel status.
 
+The Memory view reads only the selected conversation through `MemoryStore`, with
+20 records per page and bounded full-text queries. Add/delete operations commit
+with durable scoped operation receipts; a lost response can be checked with the
+same operation ID without duplicating or resurrecting a note. Memory content is
+never added to panel summaries, events or logs. Polling does not touch the editor.
+
 Legacy approvals also appear in the selected panel conversation as at most 20
 fixed-label snapshots (ID, expiry and decision state). Stored command/request
 metadata never reaches this projection. Panel decisions use the same single-use
