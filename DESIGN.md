@@ -523,6 +523,13 @@ production rollout and successful provider login are separate claims.
 
 ## Existing visual language and components
 
+Chat reminder input uses the explicit grammar in `oak/time_input.py`: durations,
+clock time, next calendar day and ISO date/time. This small standard-library
+parser addresses the seconds-only command; it is not a form/schema engine or a
+new UI dependency. Local wall times are round-trip checked against the configured
+timezone and require an explicit offset at ambiguous or nonexistent DST times.
+Confirmation displays the resolved local date, numeric offset and IANA timezone.
+
 Preserve the existing dark green panel and compact private form. Reuse actual
 CSS and DOM components; this document introduces no redesign, font download or
 spacing framework.
