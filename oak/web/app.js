@@ -1078,8 +1078,10 @@ function taskReschedule(task) {
 function taskPause(task) {
   const paused = task.status !== "paused", button = element("button", taskPauses.has(task.id) ? "Перевірити зміну" : paused ? "Призупинити" : "Відновити", "quiet");
   button.type = "button"; button.dataset.mutation = "task-pause";
-  button.addEventListener("click", () => mutation(paused ? "Призупинити розклад?" : "Відновити розклад?",
-    paused ? "Наступні запуски не відбудуться до відновлення. Час і повторення збережуться." : "Початковий час збережеться. Якщо він уже минув, задача може початися одразу після відновлення.", paused ? "Призупинити" : "Відновити", async epoch => {
+  button.addEventListener("click", () => {
+    const checking = taskPauses.has(task.id);
+    return mutation(checking ? "Перевірити попередню зміну?" : paused ? "Призупинити розклад?" : "Відновити розклад?",
+    checking ? "Oak перевірить попередній запит із тим самим номером. Нової зміни розкладу не буде." : paused ? "Наступні запуски не відбудуться до відновлення. Час і повторення збережуться." : "Початковий час збережеться. Якщо він уже минув, задача може початися одразу після відновлення.", checking ? "Перевірити" : paused ? "Призупинити" : "Відновити", async epoch => {
       if (!taskPauses.has(task.id)) taskPauses.set(task.id, {operation_id: crypto.randomUUID().replace(/-/g, ""), expected_revision: task.revision, paused});
       try {
         const result = await api("/api/tasks/" + encodeURIComponent(task.id) + "/pause", {confirmed: true, ...taskPauses.get(task.id)});
@@ -1090,7 +1092,8 @@ function taskPause(task) {
         if ([400, 403, 404, 409].includes(error.status)) { taskPauses.delete(task.id); message("notice", "Стан задачі змінився або дія недоступна. Онови список перед новою спробою.", true); }
         else { button.textContent = "Перевірити зміну"; message("notice", "Відповідь не отримано. Перевірка використовує той самий запит без нової зміни розкладу.", true); }
       }
-    }));
+    });
+  });
   return button;
 }
 
