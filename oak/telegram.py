@@ -148,6 +148,14 @@ class TelegramGateway:
         os.close(fd)
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
+        self.db.execute('''CREATE TABLE IF NOT EXISTS activity_cards (
+            chat_id INTEGER, run_id TEXT, token TEXT UNIQUE, started REAL,
+            tools TEXT NOT NULL, ended TEXT NOT NULL, state TEXT NOT NULL,
+            message_id INTEGER, sent TEXT, delivery TEXT NOT NULL,
+            PRIMARY KEY(chat_id,run_id))''')
+        with self.db:
+            self.db.execute("UPDATE activity_cards SET state='stale' WHERE state='running'")
+            self.db.execute("UPDATE activity_cards SET delivery='uncertain' WHERE delivery='sending'")
         self.db.executescript('''
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS replies (
@@ -820,7 +828,88 @@ class TelegramGateway:
             for update in updates:
                 await self._ingest(update)
 
+    def _activity_event(self, chat_id, event):
+        from .activity import tool_label
+        run_id, kind = event.get('runId'), event.get('type')
+        if not isinstance(run_id, str) or run_id.startswith(('notice-', 'job-', 'approval-')):
+            return
+        row = self.db.execute('SELECT * FROM activity_cards WHERE chat_id=? AND run_id=?', (chat_id, run_id)).fetchone()
+        if kind == 'RUN_STARTED' and row is None:
+            with self.db:
+                self.db.execute("INSERT INTO activity_cards VALUES (?,?,?,?,?,?,'running',NULL,NULL,'pending')",
+                                (chat_id, run_id, uuid.uuid4().hex[:16], time.time(), '{}', '[]'))
+            return
+        if row is None or row['state'] != 'running':
+            return
+        tools, ended = json.loads(row['tools']), json.loads(row['ended'])
+        call = event.get('toolCallId')
+        state = row['state']
+        if kind == 'TOOL_CALL_START' and isinstance(call, str) and call not in ended and len(tools) < 128:
+            tools[call] = tool_label(event.get('toolCallName'))
+        elif kind in {'TOOL_CALL_RESULT', 'STEP_FINISHED'} and isinstance(call, str):
+            tools.pop(call, None)
+            if call not in ended and len(ended) < 512:
+                ended.append(call)
+        elif kind in {'RUN_FINISHED', 'RUN_ERROR'}:
+            state = ('failed' if kind == 'RUN_ERROR' else 'interrupted'
+                     if event.get('status') == 'interrupted' or event.get('outcome') == 'interrupted' else 'completed')
+            tools.clear()
+        else:
+            return  # TOOL_CALL_END closes arguments, not execution.
+        with self.db:
+            self.db.execute('UPDATE activity_cards SET tools=?,ended=?,state=? WHERE chat_id=? AND run_id=?',
+                            (json.dumps(tools), json.dumps(ended), state, chat_id, run_id))
+
+    def _activity_payload(self, row):
+        labels = {'completed': 'Обробку завершено.', 'failed': 'Задача завершилася з помилкою.',
+                  'interrupted': 'Задачу зупинено.', 'stale': 'Стан задачі після перезапуску потребує перевірки.'}
+        if row['state'] == 'running':
+            activity = list(dict.fromkeys(json.loads(row['tools']).values()))
+            text = ' · '.join(activity[:3]) or 'Працюю…'
+            seconds = max(0, int(time.time() - row['started']))
+            if seconds >= 30:
+                text += ' · ' + str(seconds // 60) + ' хв ' + str(seconds % 60 // 10 * 10) + ' с'
+        else:
+            text = labels.get(row['state'], 'Стан задачі недоступний.')
+        return {'chat_id': row['chat_id'], 'text': text, 'reply_markup': {'inline_keyboard': []}}
+
+    async def _render_activity(self):
+        rows = self.db.execute("SELECT * FROM activity_cards WHERE delivery IN ('pending','delivered')").fetchall()
+        for row in rows:
+            if self.sessions.deleted(row['chat_id']):
+                continue
+            if time.monotonic() - self._last_send.get(self.sessions.owner(row['chat_id']), 0) < 1:
+                continue
+            payload = self._activity_payload(row)
+            serialized = json.dumps(payload)
+            if row['sent'] == serialized:
+                continue
+            editing = type(row['message_id']) is int
+            if not editing and row['state'] != 'running':
+                with self.db:
+                    self.db.execute("UPDATE activity_cards SET delivery='abandoned' WHERE token=?", (row['token'],))
+                continue
+            if editing:
+                payload['message_id'] = row['message_id']
+            else:
+                with self.db:
+                    self.db.execute("UPDATE activity_cards SET delivery='sending' WHERE token=?", (row['token'],))
+            try:
+                result = await self._deliver('editMessageText' if editing else 'sendMessage', payload)
+                message_id = row['message_id'] if editing else result.get('message_id') if isinstance(result, dict) else None
+                if type(message_id) is not int:
+                    raise TelegramError('sendMessage')
+            except TelegramError:
+                with self.db:
+                    self.db.execute("UPDATE activity_cards SET delivery=? WHERE token=?",
+                                    ('failed' if editing else 'uncertain', row['token']))
+                continue  # Cosmetic failure must not interrupt the run or resend its card.
+            with self.db:
+                self.db.execute("UPDATE activity_cards SET delivery=?,message_id=?,sent=? WHERE token=?",
+                                ('delivered' if row['state'] == 'running' else 'settled', message_id, serialized, row['token']))
+
     def _apply(self, chat_id, event):
+        self._activity_event(chat_id, event)
         kind = event.get('type', '')
         if kind == 'CUSTOM':
             name, value = event.get('name'), event.get('value') or {}
@@ -840,6 +929,11 @@ class TelegramGateway:
                 self._queue_delivery(chat_id, method, {
                     'chat_id': chat_id, 'caption': split_text(caption, 1024)[0],
                     '_upload': {'path': str(path), 'mime': mime}})
+            elif name == 'progress':
+                from .activity import UNSUPPORTED_INPUT_MESSAGE
+                if value.get('message') == UNSUPPORTED_INPUT_MESSAGE:
+                    self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id, 'text': UNSUPPORTED_INPUT_MESSAGE},
+                                         f'{chat_id}:unsupported-input:{event.get("runId")}')
             elif name == 'input_request':
                 identifier = str(value.get('id', ''))
                 if not re.fullmatch(r'[a-f0-9]{32}', identifier):
@@ -1150,7 +1244,8 @@ class TelegramGateway:
     async def _settle_approvals(self):
         # Receipts are authority for message identity. Never resend an uncertain card.
         rows = self.db.execute("SELECT * FROM deliveries WHERE method='sendMessage' AND status='delivered' "
-                               "AND id LIKE '%:approval_request:%'").fetchall()
+                               "AND id LIKE '%:approval_request:%' AND "
+                               "coalesce(json_extract(receipt,'$.approval_state'),'pending')='pending'").fetchall()
         for row in rows:
             if self.sessions.deleted(row['chat_id']):
                 continue
@@ -1222,6 +1317,7 @@ class TelegramGateway:
             for chat_id, reply, chunks in pending:
                 if time.monotonic() - self._last_send.get(chat_id, 0) >= 1:
                     await self._render_one(chat_id, reply, chunks)
+            await self._render_activity()
             pending = self._pending()
             pending_chats = [chat_id for chat_id, _, _ in pending] + [row['chat_id'] for row in self._deliveries()]
             delay = min((max(0, 1 - (time.monotonic() - self._last_send.get(chat_id, 0)))
