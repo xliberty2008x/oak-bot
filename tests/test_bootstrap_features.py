@@ -87,6 +87,26 @@ class BootstrapFeatureTests(unittest.TestCase):
             with patch.object(Path, 'read_bytes', changed):
                 self.assertNotEqual(feature_manifest()['code_digest'], baseline['code_digest'])
 
+    def test_helper_only_changes_invalidate_gateway_build_identity(self):
+        original = Path.read_bytes
+        baseline = feature_manifest()
+        helpers = ('activity.py', 'chat_models.py', 'commands.py', 'events.py', 'job_controls.py',
+                   'owner_views.py', 'recovery.py', 'reminders.py', 'schedule.py', 'status.py',
+                   'strings.py', 'time_input.py', 'web/locale.js', 'web/panel-poll.js',
+                   'web/telegram-theme.js', 'web/telegram-bridge.js')
+        for helper in helpers:
+            target = REPO / 'oak' / helper
+
+            def changed(path):
+                return original(path) + (b'\n/* synthetic change */' if path == target else b'')
+
+            with self.subTest(helper=helper), patch.object(Path, 'read_bytes', changed):
+                current = feature_manifest()
+                self.assertFalse(matches_manifest(baseline, current))
+                self.assertNotEqual(current['code_digest'], baseline['code_digest'])
+                self.assertEqual({key: value for key, value in current.items() if key != 'code_digest'},
+                                 {key: value for key, value in baseline.items() if key != 'code_digest'})
+
     def test_verifier_timeout_terminates_then_reaps_its_owned_process(self):
         process = Mock(pid=12345, returncode=None)
         process.poll.return_value = None
