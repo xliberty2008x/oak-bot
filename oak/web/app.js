@@ -751,14 +751,20 @@ function renderPanel(value, live = false) {
   const inputAttention = Array.isArray(session.input_request_attention) ? session.input_request_attention : [];
   const requestKey = JSON.stringify([pendingInputs, inputAttention]);
   const requestsChanged = $("pending-input-requests").dataset.requests !== requestKey;
-  if (requestsChanged) $("pending-input-requests").replaceChildren();
   $("pending-input-requests").dataset.requests = requestKey;
   $("input-requests-panel").hidden = pendingInputs.length + inputAttention.length === 0;
-  if (requestsChanged) for (const {id, attention} of [...pendingInputs.map(id => ({id})), ...inputAttention.map(item => ({id: item.id, attention: true}))]) {
-    if (!/^[a-f0-9]{32}$/.test(id)) continue;
-    const button = element("button", attention ? "Перевірити передавання" : "Відкрити запит", "quiet"); button.type = "button";
-    button.addEventListener("click", () => { void inputRequestPanel().then(panel => panel.open(id)); });
-    $("pending-input-requests").append(button);
+  if (requestsChanged) {
+    const list = $("pending-input-requests"), previous = new Map(Array.from(list.children, button => [button.dataset.key, button])), next = [];
+    for (const {id, attention} of [...pendingInputs.map(id => ({id})), ...inputAttention.map(item => ({id: item.id, attention: true}))]) {
+      if (!/^[a-f0-9]{32}$/.test(id)) continue;
+      const signature = String(attention === true), cached = previous.get(id);
+      if (cached?.dataset.signature === signature) { next.push(cached); continue; }
+      const button = element("button", attention ? "Перевірити передавання" : "Відкрити запит", "quiet"); button.type = "button";
+      button.dataset.key = id; button.dataset.signature = signature;
+      button.addEventListener("click", () => { void inputRequestPanel().then(panel => panel.open(id)); });
+      next.push(button);
+    }
+    reconcileChildren(list, next);
   }
   if (!session.active) stopRequestState = "";
   let title, description, indicator = "";

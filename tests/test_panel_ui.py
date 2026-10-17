@@ -50,6 +50,35 @@ assert.equal($('model-select').value,'typed draft');
         process = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr)
 
+    def test_unrelated_request_metadata_preserves_focused_ordinary_request_launcher(self):
+        app = (ROOT / 'oak/web/app.js').read_text()
+        source = app[app.index('function reconcileChildren('):app.index('function message(')]
+        source += app[app.index('function renderPanel('):app.index('function clearArtifacts(')]
+        script = r"""
+const assert=require('node:assert/strict'),document={activeElement:null};
+class Node {
+ constructor(){this.children=[];this.dataset={};}
+ remove(){if(this.parent){if(this.contains(document.activeElement))document.activeElement=null;this.parent.children.splice(this.parent.children.indexOf(this),1);this.parent=null;}}
+ insertBefore(node,anchor){node.remove();node.parent=this;this.children.splice(anchor?this.children.indexOf(anchor):this.children.length,0,node);}
+ contains(node){return this===node||this.children.some(child=>child.contains(node));}
+ get isConnected(){return this.root||!!this.parent?.isConnected;}
+ focus(){document.activeElement=this;} addEventListener(){} removeAttribute(){}
+}
+const nodes=new Map(),$=id=>{if(!nodes.has(id)){const node=new Node();node.root=true;nodes.set(id,node);}return nodes.get(id);};
+const element=(tag,text)=>Object.assign(new Node(),{textContent:text}),renderSelectedSession=()=>{},renderApprovals=()=>{},renderComputer=()=>{},message=()=>{},updateActions=()=>{},setAttention=()=>{},safeHTTPS=()=>null,count=String;
+let panelData=null,authenticated=false,timezone='',stopRequestState='',telegramLaunch=false;const window={};
+""" + source + r"""
+const first='a'.repeat(32),other='b'.repeat(32),snapshot={session:{input_requests:[first],input_request_attention:[]},settings:{timezone:'Europe/Kyiv'},memory:{count:0}};
+renderPanel(snapshot,true);const list=$('pending-input-requests'),button=list.children[0];button.focus();
+renderPanel({...snapshot,session:{...snapshot.session,input_requests:[other,first]}},true);
+assert.equal(list.children[1],button);assert.equal(document.activeElement,button);
+renderPanel(snapshot,true);assert.equal(list.children[0],button);assert.equal(document.activeElement,button);
+renderPanel({...snapshot,session:{input_requests:[],input_request_attention:[{id:first}]}},true);
+assert.equal(button.isConnected,false);assert.equal(list.children[0].textContent,'Перевірити передавання');assert.equal(document.activeElement,list.children[0]);
+"""
+        result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_keyed_task_drafts_and_unrelated_approval_session_focus_survive_refresh(self):
         app = (ROOT / 'oak/web/app.js').read_text()
         source = '\n'.join(app[app.index(start):app.index(end)] for start, end in (
