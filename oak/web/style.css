@@ -170,8 +170,11 @@ button:disabled { opacity: .42; cursor: default; box-shadow: none; }
 .status-actions > * { flex: 1 1 160px; max-width: 260px; min-height: 50px; }
 
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; }
-.tile { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 118px; padding: 18px; transition: border-color .3s, background .3s, transform .2s var(--ease); }
-.tile dd { order: -1; margin: 0; font-size: clamp(30px, 7vw, 38px); line-height: 1; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.tile { display: flex; min-width: 0; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 118px; padding: 18px; transition: border-color .3s, background .3s, transform .2s var(--ease); }
+.tile dd { margin: 0; }
+.tile dd:not(.tile-actions) { order: -1; font-size: clamp(30px, 7vw, 38px); line-height: 1; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.tile-actions { min-width: 0; font-size: 14px; line-height: 1.35; }
+.tile-actions button { max-width: 100%; min-height: 44px; padding: 8px 12px; font-size: 14px; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; }
 .tile dt { color: var(--muted); font-size: 13px; line-height: 1.35; }
 .tile.attention { border-color: rgba(245, 177, 76, .45); background: linear-gradient(180deg, rgba(245, 177, 76, .16), rgba(245, 177, 76, .05)); box-shadow: var(--shadow), 0 0 40px -18px rgba(245, 177, 76, .7); }
 .tile.attention dd { color: #ffd894; }
