@@ -96,20 +96,21 @@ class JobControlTests(unittest.TestCase):
         for status in ('running', 'uncertain', 'done', 'cancelled'):
             with self.db:
                 self.db.execute('UPDATE jobs SET status=? WHERE id=?', (status, identifier))
+            revision = self.db.execute('SELECT revision FROM jobs WHERE id=?', (identifier,)).fetchone()[0]
             with self.subTest(status=status), self.assertRaises(RuntimeError):
-                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-20')
-            self.assertEqual(self.db.execute('SELECT status,revision FROM jobs WHERE id=?', (identifier,)).fetchone()[:], (status, 1))
+                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', revision, '2026-10-20')
+            self.assertEqual(self.db.execute('SELECT status,revision FROM jobs WHERE id=?', (identifier,)).fetchone()[:], (status, revision))
         self.assertEqual(self.db.execute('SELECT count(*) FROM owner_job_operations').fetchone()[0], 1)
 
     def test_rescheduling_paused_job_does_not_resume_it_and_failed_receipt_rolls_back(self):
         identifier = self.create()['id']
         with self.db:
             self.db.execute("UPDATE jobs SET status='paused' WHERE id=?", (identifier,))
-        first = self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-19T09:00:00+03:00')
+        first = self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 2, '2026-10-19T09:00:00+03:00')
         self.assertEqual(first['status'], 'paused')
         with patch.object(self.controls, '_record', side_effect=RuntimeError('synthetic failure')):
             with self.assertRaises(RuntimeError):
-                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-2', 2, '2026-10-20')
+                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-2', 3, '2026-10-20')
         self.assertEqual(dict(self.db.execute('SELECT id,revision,status,due FROM jobs WHERE id=?', (identifier,)).fetchone()), first)
 
     def test_original_receipt_wins_after_timezone_configuration_changes(self):
@@ -144,8 +145,9 @@ class JobControlTests(unittest.TestCase):
         for status in ('running', 'uncertain', 'done', 'cancelled'):
             with self.db:
                 self.db.execute('UPDATE jobs SET status=? WHERE id=?', (status, identifier))
+            revision = self.db.execute('SELECT revision FROM jobs WHERE id=?', (identifier,)).fetchone()[0]
             with self.subTest(status=status), self.assertRaises(RuntimeError):
-                self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True)
+                self.controls.pause_owned(7, identifier, 'pause-operation-1', revision, True)
         self.assertEqual(self.db.execute('SELECT count(*) FROM owner_job_operations').fetchone()[0], 1)
 
     def test_pause_operation_binding_and_receipt_failure_cannot_mutate_a_job(self):
@@ -160,6 +162,22 @@ class JobControlTests(unittest.TestCase):
 
 
 class PausedSchedulerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_recurring_lifecycle_invalidates_the_pre_run_ui_revision(self):
+        controller = Controller(AsyncMock(), ':memory:', '.', AsyncMock())
+        self.addCleanup(controller.close)
+        controller.notice = AsyncMock()
+        controls = JobControls(controller)
+        created = controls.create_owned(7, 'create-operation-1', 'Повторити нагадування',
+                                        '2000-01-01T00:00:00+00:00', interval_seconds=60)
+        await controller.scheduler.tick()
+        job = controller.db.execute('SELECT status,revision FROM jobs WHERE id=?', (created['id'],)).fetchone()
+        self.assertEqual(job['status'], 'pending')
+        self.assertGreater(job['revision'], created['revision'])
+        with self.assertRaises(RuntimeError):
+            controls.pause_owned(7, created['id'], 'pause-operation-1', created['revision'], True)
+        result = controls.pause_owned(7, created['id'], 'pause-operation-1', job['revision'], True)
+        self.assertEqual(result['revision'], job['revision'] + 1)
+
     async def test_paused_due_job_waits_until_explicit_resume_and_next_tick(self):
         controller = Controller(AsyncMock(), ':memory:', '.', AsyncMock())
         self.addCleanup(controller.close)
@@ -168,11 +186,12 @@ class PausedSchedulerTests(unittest.IsolatedAsyncioTestCase):
         created = controls.create_owned(7, 'create-operation-1', 'Нагадати', '2000-01-01T00:00:00+00:00')
         controls.pause_owned(7, created['id'], 'pause-operation-1', 1, True)
         await controller.scheduler.tick()
-        controller.notice.assert_not_called()
+        controller.emit.assert_not_awaited()
         controls.pause_owned(7, created['id'], 'resume-operation-1', 2, False)
-        controller.notice.assert_not_called()
+        controller.emit.assert_not_awaited()
         await controller.scheduler.tick()
-        controller.notice.assert_awaited_once()
+        controller.emit.assert_awaited_once()
+        self.assertEqual(controller.emit.await_args.args[1]['name'], 'reminder')
         self.assertEqual(controller.db.execute('SELECT status FROM jobs WHERE id=?', (created['id'],)).fetchone()[0], 'done')
 
 

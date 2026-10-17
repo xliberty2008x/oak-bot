@@ -21,6 +21,10 @@ class JobControls:
         self.db.execute('''CREATE TABLE IF NOT EXISTS owner_job_operations (
             chat_id INTEGER NOT NULL, operation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
             result TEXT NOT NULL, created REAL NOT NULL, PRIMARY KEY(chat_id,operation_id))''')
+        self.db.execute('''CREATE TRIGGER IF NOT EXISTS jobs_lifecycle_revision
+            AFTER UPDATE OF due,status ON jobs
+            WHEN NEW.revision=OLD.revision AND (NEW.due IS NOT OLD.due OR NEW.status IS NOT OLD.status)
+            BEGIN UPDATE jobs SET revision=revision+1 WHERE id=NEW.id; END''')
         self.db.commit()
 
     def _scope(self, scope):
