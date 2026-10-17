@@ -8,7 +8,7 @@ let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
-let panelPoll = null;
+let panelPoll = null, telegramTheme = null;
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
@@ -1277,7 +1277,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelPoll?.reset();
   else { void syncSessions(); panelPoll?.resume(); }
 });
-window.addEventListener("pagehide", () => panelPoll?.reset());
+window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); });
+window.addEventListener("pageshow", () => { telegramTheme?.connect(); panelPoll?.resume(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });
@@ -1333,7 +1334,7 @@ $("login").addEventListener("submit", async event => {
 
 function telegramReady() {
   try { window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); } catch {}
-  try { window.Telegram?.WebApp?.setHeaderColor?.("#050a08"); window.Telegram?.WebApp?.setBackgroundColor?.("#050a08"); } catch {}
+  telegramTheme?.connect();
 }
 async function inputRequestPanel() {
   if (inputRequestsPanel) return inputRequestsPanel;
@@ -1348,6 +1349,8 @@ async function inputRequestPanel() {
 $("telegram-sdk").addEventListener("load", telegramReady);
 (async () => {
   try {
+    const {createTelegramTheme} = await import("/telegram-theme.js");
+    telegramTheme = createTelegramTheme({app: () => window.Telegram?.WebApp, root: document.documentElement});
     const {createPanelPoll} = await import("/panel-poll.js");
     panelPoll = createPanelPoll({
       read: signal => api("/api/panel", undefined, {signal}),
