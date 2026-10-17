@@ -50,6 +50,22 @@ assert.equal($('model-select').value,'typed draft');
         process = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr)
 
+    def test_telegram_theme_rejects_unsafe_or_unreadable_hints_and_cleans_up(self):
+        source = (ROOT / 'oak/web/telegram-theme.js').read_text()
+        scenario = r"""
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const mod=new vm.SourceTextModule(SOURCE);await mod.link(()=>{});await mod.evaluate();
+const values=new Map(),listeners=new Map(),root={dataset:{},style:{setProperty:(k,v)=>values.set(k,v)}};
+let app={colorScheme:'dark',themeParams:{bg_color:'url(secret)',text_color:'#050a08',hint_color:'#050a08'},onEvent:(k,v)=>listeners.set(k,v),offEvent:k=>listeners.delete(k)};
+const theme=mod.namespace.createTelegramTheme({app:()=>app,root});theme.connect();theme.connect();
+assert.equal(root.dataset.theme,'dark');assert.equal(values.get('--bg'),'#050a08');assert.equal(values.get('--ink'),'#ecf5f0');assert.equal(listeners.size,1);
+app.colorScheme='light';app.themeParams={bg_color:'#ffffff',secondary_bg_color:'#f8f8f8',text_color:'#112211',hint_color:'#ffffff'};listeners.get('themeChanged')();
+assert.equal(root.dataset.theme,'light');assert.equal(values.get('--bg'),'#ffffff');assert.equal(values.get('--ink'),'#112211');assert.equal(values.get('--muted'),'#425c4c');
+theme.destroy();assert.equal(listeners.size,0);app=null;theme.connect();assert.equal(root.dataset.theme,'dark');
+"""
+        result = subprocess.run([NODE, '--experimental-vm-modules', '-e', 'const SOURCE=' + json.dumps(source) + ';(async()=>{' + scenario + '})().catch(e=>{console.error(e);process.exit(1)});'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_single_request_and_five_second_poll(self):
         self.run_js('''panel.start();assert.equal([...timers.values()][0].ms,5000);await tick();
 assert.equal(reads.length,1);assert.equal(timers.size,0);reads[0].resolve({active:true});await flush();
