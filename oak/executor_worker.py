@@ -27,6 +27,7 @@ MAX_FILE = 2 * 1024 * 1024 * 1024
 CHUNK = 64 * 1024
 MAX_HANDLES = 8
 OP_TIMEOUT = 180
+WRITE_TIMEOUT = 15
 ID_PATTERN = re.compile(r'[A-Za-z0-9_-]{1,96}\Z')
 
 
@@ -586,6 +587,50 @@ def _request(raw):
     return value
 
 
+async def _write_all(output, data):
+    """Drain one framed response completely on the shared nonblocking wire FD.
+
+    The stdin read transport sets O_NONBLOCK on the socket's open-file
+    description, including stdout duplicates. Raw FileIO.write may therefore
+    write only a prefix (or return None); a flush cannot send the remainder.
+    """
+    try:
+        descriptor = output.fileno()
+    except (AttributeError, OSError, ValueError):
+        # In-memory streams in protocol tests have no readiness descriptor.
+        view = memoryview(data)
+        while view:
+            written = output.write(view)
+            if not isinstance(written, int) or written <= 0:
+                raise BrokenPipeError('Output stream made no progress')
+            view = view[written:]
+        output.flush()
+        return
+    os.set_blocking(descriptor, False)
+    loop = asyncio.get_running_loop()
+    async with asyncio.timeout(WRITE_TIMEOUT):
+        view = memoryview(data)
+        while view:
+            try:
+                written = os.write(descriptor, view)
+            except InterruptedError:
+                continue
+            except BlockingIOError:
+                ready = loop.create_future()
+                def writable():
+                    if not ready.done():
+                        ready.set_result(None)
+                loop.add_writer(descriptor, writable)
+                try:
+                    await ready
+                finally:
+                    loop.remove_writer(descriptor)
+                continue
+            if written <= 0:
+                raise BrokenPipeError('Output stream made no progress')
+            view = view[written:]
+
+
 async def serve(profile, reader, output):
     worker = Worker(profile)
     try:
@@ -605,13 +650,13 @@ async def serve(profile, reader, output):
                 return
             except Exception as exc:
                 response = _encode({'id': identifier, 'ok': False, 'error': type(exc).__name__})
-                output.write(response); output.flush()
+                await _write_all(output, response)
                 # Timed-out threads cannot be safely reused. The launcher tears
                 # down the complete private PID namespace on this process exit.
                 if isinstance(exc, (asyncio.TimeoutError, PipelineError)) or identifier is None:
                     return
                 continue
-            output.write(response); output.flush()
+            await _write_all(output, response)
     finally:
         await asyncio.shield(worker.close())
 
@@ -701,11 +746,12 @@ async def _native(profile, output):
     worker = Worker(profile)
     if isinstance(value, dict) and set(value) == {'probe'}:
         result = await asyncio.wait_for(worker.dispatch('probe', value['probe']), OP_TIMEOUT)
-        output.write(_encode({'ready': True, **worker.hello(), 'probe': result})); output.flush()
+        await _write_all(output, _encode({'ready': True, **worker.hello(), 'probe': result}))
         return
     args = native_argv(profile, value)
-    output.write(_encode({'ready': True, **worker.hello()})); output.flush()
+    await _write_all(output, _encode({'ready': True, **worker.hello()}))
     os.set_blocking(sys.stdin.fileno(), True)
+    os.set_blocking(output.fileno(), True)
     os.execve(profile['codex'], args, environment(profile))
 
 

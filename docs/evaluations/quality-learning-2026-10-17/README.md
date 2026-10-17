@@ -35,6 +35,11 @@ actionable findings to the producer before file delivery.
   the reviewer requested repair and identified mismatched texture/shading in
   the moving eyelids with specific frame/time evidence. The task brief did not
   tell it which defect to find. Private media and prompts remain outside Git.
+- The first deployed-worker probe exposed partial writes on its nonblocking
+  socket: a multi-megabyte evidence response was truncated and the caller waited
+  for its missing newline. The transport now drains complete responses with
+  bounded backpressure handling. A real small-buffer socket regression verifies
+  a 1.98 MiB response, the next request, timeout and cancellation.
 
 ## Limits
 
