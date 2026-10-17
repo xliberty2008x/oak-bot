@@ -99,6 +99,7 @@ class WebGateway:
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel),
             web.get('/api/recovery', self.recovery_items), web.post('/api/recovery/{id}/review', self.review_recovery),
+            web.post('/api/recovery/{id}/retry', self.retry_recovery),
             web.get('/api/memory', self.memory), web.post('/api/memory', self.change_memory),
             web.post('/api/memory/{id}/delete', self.change_memory), web.get('/api/tasks', self.tasks), web.post('/api/tasks', self.create_task),
             web.get('/api/models', self.models), web.post('/api/models', self.set_model),
@@ -285,6 +286,18 @@ class WebGateway:
             result = self.recovery.review(owner, scope, request.match_info['id'])
         except LookupError:
             raise web.HTTPNotFound(text='Запис недоступний.') from None
+        return web.json_response(result)
+
+    async def retry_recovery(self, request):
+        owner = await self.confirmed_owner(request)
+        scope = self.conversation(request, owner)
+        data = await request.json()
+        try:
+            result = await self.recovery.retry(owner, scope, request.match_info['id'], data.get('operation_id'), confirmed=True)
+        except LookupError:
+            raise web.HTTPNotFound(text='Запис недоступний.') from None
+        except RuntimeError:
+            raise web.HTTPConflict(text='Повторний запуск зараз недоступний.') from None
         return web.json_response(result)
 
     async def memory(self, request):
