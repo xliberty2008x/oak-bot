@@ -102,3 +102,46 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.interactions.snapshot(7, identifier)['state'], 'expired')
         await self.g._settle_approvals()
         self.g._deliver.assert_not_awaited()
+
+    async def test_configured_deadline_reminder_and_expiry_notice(self):
+        self.c.config['approval_timeout_seconds'] = 120
+        self.c.interactions = Interactions(self.c.db, self.c)
+        self.c.notice = AsyncMock()
+        self.c.interactions.clock = lambda: 1000
+        reminder_released = asyncio.Event()
+        async def sleep(seconds):
+            self.assertEqual(seconds, 60)
+            await reminder_released.wait()
+        self.c.interactions.sleep = sleep
+        timeout_released = asyncio.Event()
+        async def wait_for(future, seconds):
+            self.assertEqual(seconds, 120)
+            await timeout_released.wait()
+            raise asyncio.TimeoutError
+        self.c.interactions.wait_for = wait_for
+        task, identifier = await self.approval()
+        self.assertEqual(self.c.interactions.snapshot(7, identifier)['expires'], 1120)
+        self.assertIn('Відповісти до', json.loads(self.row(identifier)['payload'])['text'])
+        reminder_released.set()
+        await asyncio.sleep(0)
+        self.assertEqual(self.c.notice.await_count, 1)
+        timeout_released.set()
+        self.assertFalse(await task)
+        self.assertEqual(self.c.notice.await_count, 2)
+        self.assertIn('Час підтвердження минув', self.c.notice.call_args.args[1])
+        self.assertEqual(self.c.interactions.snapshot(7, identifier)['state'], 'expired')
+        self.assertFalse(self.c.interactions.pending)
+
+    async def test_cancel_and_answer_cancel_reminders_and_timeout_validation(self):
+        for invalid in (59, 3601, True, 90.0, '120'):
+            self.c.config['approval_timeout_seconds'] = invalid
+            with self.assertRaises(ValueError):
+                Interactions(self.c.db, self.c)
+        self.c.config['approval_timeout_seconds'] = 300
+        self.c.interactions = Interactions(self.c.db, self.c)
+        self.c.notice = AsyncMock()
+        task, identifier = await self.approval()
+        self.c.interactions.cancel_turn('thread', 'turn')
+        self.assertFalse(await task)
+        self.assertEqual(self.c.interactions.snapshot(7, identifier)['state'], 'cancelled')
+        self.c.notice.assert_not_awaited()
