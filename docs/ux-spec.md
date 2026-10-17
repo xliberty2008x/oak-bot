@@ -120,6 +120,8 @@ acceptance alone is not completion. Cosmetic reaction failures cannot fail or
 replay the input. Preserve topic/message identity and deduplication.
 Completion feedback describes processing state; it cannot establish that the
 user's task succeeded (`metadata.taskOutcome` remains independently unverified).
+Use `✅` only after the bound run completes without a failure/interruption or
+uncertain processing result; those outcomes must not receive it.
 
 Default edit policy: consume an authorized `edited_message` durably without
 dispatching another model input, command or attachment download. Send one short
@@ -129,7 +131,8 @@ unexpected command execution from a corrected historical message. A later
 explicit steer-on-edit feature would require original-message/run linkage.
 
 Acceptance: denied owner, duplicate update, restart, download/submit failure,
-command edit, media-caption edit, topic isolation and edit during an active run.
+failed/interrupted/uncertain completion, command edit, media-caption edit, topic
+isolation and edit during an active run.
 
 ## UX-07 and UX-08: reminder input and actions
 
