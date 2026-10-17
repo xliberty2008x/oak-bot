@@ -773,9 +773,11 @@ class Controller:
             return None
         await self.submit(chat_id, text, update_id)
 
-    async def stop(self, chat_id):
+    async def stop(self, chat_id, *, expected_turn=None):
         async with self._lock(chat_id):
             turn_id = self.active.get(chat_id)
+            if expected_turn is not None and turn_id != expected_turn:
+                return 'not_active'
             if not turn_id:
                 return 'idle'
             self.requests.invalidate_turn(self.threads.get(chat_id), turn_id)
