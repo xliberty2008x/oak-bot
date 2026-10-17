@@ -148,6 +148,12 @@ class TelegramGateway:
         os.close(fd)
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
+        self.db.execute('''CREATE TABLE IF NOT EXISTS input_reactions (
+            update_id INTEGER PRIMARY KEY, chat_id INTEGER, message_id INTEGER,
+            run_id TEXT, received TEXT NOT NULL, completed TEXT NOT NULL)''')
+        with self.db:
+            self.db.execute("UPDATE input_reactions SET received='failed' WHERE received='sending'")
+            self.db.execute("UPDATE input_reactions SET completed='failed' WHERE completed='sending'")
         self.db.execute('CREATE TABLE IF NOT EXISTS activity_stops (token TEXT PRIMARY KEY, outcome TEXT NOT NULL)')
         self.db.execute('''CREATE TABLE IF NOT EXISTS activity_cards (
             chat_id INTEGER, run_id TEXT, token TEXT UNIQUE, started REAL,
@@ -468,6 +474,7 @@ class TelegramGateway:
             # Persist before returning so a completed model reply survives a
             # crash even when the rendering worker has not reached it yet.
             self._apply(chat_id, dict(event))
+            self._reaction_terminal(chat_id, event)
             self.events.put_nowait(None)
             if event.get('type') in ('RUN_FINISHED', 'RUN_ERROR'):
                 await self._activity_remove(chat_id, 'run:' + run_id if run_id else None)
@@ -730,6 +737,7 @@ class TelegramGateway:
                         await self.controller.submit(chat_id, text, update_id)
                     else:
                         await self._notice(chat_id, 'Надішли текст, фото, голосове повідомлення або документ.')
+                    self._bind_reaction(chat_id, update_id)
                 except (ValueError, ToolUnavailable):
                     await self._notice(chat_id, 'Не вдалося опрацювати вкладення. Перевір формат файлу та доступність обробки медіа.')
                     if queued:
@@ -770,6 +778,11 @@ class TelegramGateway:
         with self.db:
             self.db.execute("INSERT OR IGNORE INTO intake VALUES (?,?,?,'pending')",
                             (update_id, chat_id, json.dumps(update)))
+            config = getattr(self.controller, 'config', {})
+            enabled = config.get('telegram_reactions', True) if isinstance(config, dict) else True
+            if enabled and type(message.get('message_id')) is int:
+                self.db.execute("INSERT OR IGNORE INTO input_reactions VALUES (?,?,?,NULL,'pending','waiting')",
+                                (update_id, chat_id, message['message_id']))
         self._checkpoint(update_id + 1)
         self._ensure_intake_worker(chat_id)
         self._activity_add(chat_id, 'input:' + str(update_id))
@@ -831,6 +844,47 @@ class TelegramGateway:
                 raise TelegramError('getUpdates')
             for update in updates:
                 await self._ingest(update)
+
+    def _bind_reaction(self, chat_id, update_id):
+        db = getattr(self.controller, 'db', None)
+        if not isinstance(db, sqlite3.Connection) or not db.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='input_runs'").fetchone():
+            return
+        row = db.execute('SELECT r.turn_id,t.status FROM input_runs r LEFT JOIN turns t ON t.turn_id=r.turn_id '
+                         'WHERE r.update_id=? AND r.chat_id=?', (update_id, chat_id)).fetchone()
+        if row:
+            with self.db:
+                self.db.execute("UPDATE input_reactions SET run_id=?,completed=? WHERE update_id=? AND completed='waiting'",
+                                (row[0], 'pending' if row[1] == 'completed' else 'waiting', update_id))
+
+    def _reaction_terminal(self, chat_id, event):
+        if event.get('type') not in {'RUN_FINISHED', 'RUN_ERROR'}:
+            return
+        success = (event['type'] == 'RUN_FINISHED' and event.get('status', 'completed') == 'completed'
+                   and event.get('outcome') != 'interrupted')
+        with self.db:
+            self.db.execute("UPDATE input_reactions SET completed=? WHERE chat_id=? AND run_id=? AND completed='waiting'",
+                            ('pending' if success else 'failed', chat_id, event.get('runId')))
+
+    async def _render_reactions(self):
+        rows = self.db.execute("SELECT * FROM input_reactions WHERE received='pending' OR completed='pending' LIMIT 10").fetchall()
+        for row in rows:
+            if self.sessions.deleted(row['chat_id']):
+                continue
+            column = 'completed' if row['completed'] == 'pending' else 'received'
+            with self.db:
+                self.db.execute('UPDATE input_reactions SET ' + column + "='sending' WHERE update_id=?", (row['update_id'],))
+                if column == 'completed':
+                    self.db.execute("UPDATE input_reactions SET received='done' WHERE update_id=?", (row['update_id'],))
+            try:
+                payload = self._native_payload('setMessageReaction', {'chat_id': row['chat_id'],
+                    'message_id': row['message_id'], 'reaction': [{'type': 'emoji', 'emoji': '👍' if column == 'completed' else '👀'}]})
+                await asyncio.wait_for(self._api('setMessageReaction', payload, timeout=2, rate_limit_attempts=1), 2)
+                outcome = 'done'
+            except Exception:
+                outcome = 'failed'
+            with self.db:
+                self.db.execute('UPDATE input_reactions SET ' + column + '=? WHERE update_id=?', (outcome, row['update_id']))
 
     def _activity_event(self, chat_id, event):
         from .activity import tool_label
@@ -1348,6 +1402,7 @@ class TelegramGateway:
                 if time.monotonic() - self._last_send.get(chat_id, 0) >= 1:
                     await self._render_one(chat_id, reply, chunks)
             await self._render_activity()
+            await self._render_reactions()
             pending = self._pending()
             pending_chats = [chat_id for chat_id, _, _ in pending] + [row['chat_id'] for row in self._deliveries()]
             delay = min((max(0, 1 - (time.monotonic() - self._last_send.get(chat_id, 0)))
