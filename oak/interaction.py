@@ -13,8 +13,21 @@ class Interactions:
         db.execute('''CREATE TABLE IF NOT EXISTS interactions (
             id TEXT PRIMARY KEY, chat_id INTEGER, thread_id TEXT, turn_id TEXT,
             kind TEXT, request TEXT, expires REAL, status TEXT)''')
+        db.execute('CREATE TABLE IF NOT EXISTS interaction_results (id TEXT PRIMARY KEY, outcome TEXT NOT NULL)')
         with db:
             db.execute("UPDATE interactions SET status='expired' WHERE status='pending'")
+
+    def snapshot(self, chat_id, request_id):
+        """Bounded owner-channel projection; never expose stored request metadata."""
+        row = self.db.execute('SELECT id,kind,expires,status FROM interactions WHERE id=? AND chat_id=?',
+                              (request_id, chat_id)).fetchone()
+        if row is None or row[1] != 'approval':
+            raise ValueError('Запит недоступний.')
+        outcome = self.db.execute('SELECT outcome FROM interaction_results WHERE id=?', (request_id,)).fetchone()
+        state = outcome[0] if row[3] == 'answered' and outcome else row[3]
+        if state == 'pending' and row[2] <= time.time():
+            state = 'expired'
+        return {'id': row[0], 'state': state, 'expires': row[2], 'summary': 'Дозволити дію?'}
 
     async def ask(self, metadata, kind, message):
         chat_id = self.controller.chat_for_thread(metadata.get('threadId'))
@@ -56,6 +69,9 @@ class Interactions:
             raise ValueError('Неправильний формат відповіді.')
         with self.db:
             self.db.execute("UPDATE interactions SET status='answered' WHERE id=?", (request_id,))
+            if kind == 'approval':
+                self.db.execute('INSERT OR REPLACE INTO interaction_results VALUES (?,?)',
+                                (request_id, 'accepted' if value else 'declined'))
         if not future.done():
             future.set_result(value)
 
