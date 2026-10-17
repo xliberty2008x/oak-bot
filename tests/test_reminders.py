@@ -133,6 +133,24 @@ class ReminderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(tuple(row), ('uncertain', 1))
         self.assertEqual(self.c.db.execute('SELECT count(*) FROM reminder_occurrences').fetchone()[0], 1)
 
+    async def test_tick_rechecks_due_after_an_earlier_delivery_yields(self):
+        controls = JobControls(self.c)
+        first = controls.create_owned(7, 'create-first-reminder', 'First', '1999-01-01T00:00:00+00:00')
+        later = controls.create_owned(7, 'create-later-reminder', 'Later', '2000-01-01T00:00:00+00:00')
+        original_emit = self.c.emit
+
+        async def reschedule_during_emit(scope, event):
+            await original_emit(scope, event)
+            controls.reschedule_owned(7, later['id'], 'reschedule-during-tick', later['revision'],
+                                      '2099-01-01T00:00:00+00:00')
+
+        self.c.emit = reschedule_during_emit
+        await self.c.scheduler.tick()
+        row = self.c.db.execute('SELECT status,occurrence,due FROM jobs WHERE id=?', (later['id'],)).fetchone()
+        self.assertEqual(tuple(row), ('pending', 0, datetime(2099, 1, 1, tzinfo=timezone.utc).timestamp()))
+        self.assertEqual([row[0] for row in self.c.db.execute('SELECT job_id FROM reminder_occurrences')], [first['id']])
+        self.assertEqual(self.g.db.execute("SELECT count(*) FROM deliveries WHERE id LIKE '7:reminder:%'").fetchone()[0], 1)
+
     async def test_cancel_controls_reject_foreign_jobs_and_settle_without_replay(self):
         job = self.c.scheduler.add(7, 'Own reminder', delay_seconds=60)
         self.g._task_controls(7)
