@@ -385,3 +385,12 @@ Telegram token. Store any credentials in private deployment configuration.
 `read-only` restricts the runtime's filesystem writes. Oak's memory, scheduling,
 media and browser adapters are separate services and still perform their defined
 operations. It is not an operating-system isolation boundary for the whole app.
+
+### Approval deadline
+
+`approval_timeout_seconds` controls ordinary action approvals handled by
+`Interactions`: an integer from 60 to 3600, default 300. The Telegram card shows
+the deadline in the configured timezone. One reminder is sent a minute before
+expiry; expiry declines the action and reports that result. Answering, cancelling
+or finishing the turn cancels the reminder. This setting does not extend ordinary
+contextual forms or private website leases. Restarted approvals stay expired.
