@@ -96,8 +96,11 @@ the existing contextual Mini App input and its native request binding.
 | Item | State at this documentation change | PR / evidence |
 | --- | --- | --- |
 | UX-00 | In review | [PR #25](https://github.com/xliberty2008x/oak-bot/pull/25); source reconciliation against `6517c71`, 36 local links and diff/portable-path checks passed. |
-| UX-01 | Next implementation | Start from current `main`; use the `/tasks` contract in the specification. |
+| UX-01 | In review | [PR #26](https://github.com/xliberty2008x/oak-bot/pull/26), head `d772c95`; 9 command, 14 state and 11 renderer tests passed; no live Telegram/deployment check. |
 | UX-02 through UX-19 | Planned | No completion, deployment or live verification claimed. |
+
+Next implementation: UX-02 command discovery, or independently UX-03 approval
+feedback. Review UX-00 before merging UX-01; both PRs target `main` independently.
 
 For every implementation PR, update this ledger with its URL and actual check
 results. Use `prepared`, `in review`, `merged`, and `deployed/verified` separately;
