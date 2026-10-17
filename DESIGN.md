@@ -460,6 +460,12 @@ establish production rollout or actual Telegram WebView/provider acceptance.
 | Private human broker | Separate-origin human page and private browser lifecycle. Values go directly to the broker; the gateway receives status and scoped identity. [login page](oak/login_web/index.html), [login_broker.py](oak/login_broker.py), [login.py](oak/login.py). |
 | Website adapters | Visible controls, stable references, origin checks, challenges and provider evidence. A renderer does not supply browser extraction. [website_forms.py](oak/website_forms.py), [signin_providers.py](oak/signin_providers.py), [connected_browser.py](oak/connected_browser.py). |
 
+The control panel polls its redacted `/api/panel` snapshot every five seconds while
+visible, with one request in flight and bounded failure backoff. Session changes,
+logout and page hiding abort old reads; late responses cannot update another
+conversation. Live updates preserve settings drafts, contextual form fields and
+unchanged request controls. Raw AG-UI content is not used for panel status.
+
 Native MCP tool confirmations use the existing owner approval buttons, including
 when no Mini App is open. Codex's standard empty object form with
 `_meta.codex_approval_kind = "mcp_tool_call"` is a confirmation, not an input

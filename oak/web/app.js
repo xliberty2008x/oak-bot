@@ -8,6 +8,7 @@ let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
+let panelPoll = null;
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -375,6 +376,7 @@ async function syncSessions() {
 }
 async function selectSession(id) {
   if (id === selectedSession || mutationBusy || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
+  panelPoll?.reset();
   sessionEpoch++;
   initialConversation = null;
   surfaceLaunch = null;
@@ -473,6 +475,7 @@ async function deleteTopic(session) {
 }
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
+  panelPoll?.reset();
   if (surfaceLaunch) { initialConversation = surfaceLaunch.conversation; surfaceLaunch.opened = false; }
   remotePanel?.reset();
   a2uiPanel?.reset();
@@ -506,8 +509,11 @@ function requireLogin(text = "Сеанс завершився. Відкрий Oa
   message("notice", "");
 }
 
-async function api(path, data) {
+async function api(path, data, {signal} = {}) {
   const epoch = sessionEpoch, controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
   if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
@@ -538,7 +544,7 @@ async function api(path, data) {
       authenticated = true;
     }
     return result;
-  } finally { clearTimeout(timeout); }
+  } finally { clearTimeout(timeout); signal?.removeEventListener("abort", abort); }
 }
 
 function updateActions() {
@@ -617,7 +623,7 @@ async function toggleComputer() {
   }
 }
 
-function renderPanel(value) {
+function renderPanel(value, live = false) {
   if (!value || !value.session || !value.settings) throw new Error("Не вдалося прочитати стан Oak. Натисни «Оновити».");
   panelData = value;
   authenticated = true;
@@ -626,9 +632,12 @@ function renderPanel(value) {
   const session = value.session;
   const pendingInputs = Array.isArray(session.input_requests) ? session.input_requests : [];
   const inputAttention = Array.isArray(session.input_request_attention) ? session.input_request_attention : [];
-  $("pending-input-requests").replaceChildren();
+  const requestKey = JSON.stringify([pendingInputs, inputAttention]);
+  const requestsChanged = $("pending-input-requests").dataset.requests !== requestKey;
+  if (requestsChanged) $("pending-input-requests").replaceChildren();
+  $("pending-input-requests").dataset.requests = requestKey;
   $("input-requests-panel").hidden = pendingInputs.length + inputAttention.length === 0;
-  for (const {id, attention} of [...pendingInputs.map(id => ({id})), ...inputAttention.map(item => ({id: item.id, attention: true}))]) {
+  if (requestsChanged) for (const {id, attention} of [...pendingInputs.map(id => ({id})), ...inputAttention.map(item => ({id: item.id, attention: true}))]) {
     if (!/^[a-f0-9]{32}$/.test(id)) continue;
     const button = element("button", attention ? "Перевірити передавання" : "Відкрити запит", "quiet"); button.type = "button";
     button.addEventListener("click", () => { void inputRequestPanel().then(panel => panel.open(id)); });
@@ -679,6 +688,7 @@ function renderPanel(value) {
   $("telegram-link").hidden = canClose || !telegramURL;
   if (telegramURL) $("telegram-link").href = telegramURL;
   else $("telegram-link").removeAttribute("href");
+  if (!live) {
   const settings = value.settings, list = $("settings-list");
   if (typeof settings.model === "string" && settings.model) lastModel = settings.model;
   if (settings.effort === null || typeof settings.effort === "string") lastEffort = settings.effort;
@@ -692,6 +702,7 @@ function renderPanel(value) {
   fact(list, "Доступ до файлів", ({"workspace-write": "Файли робочої папки", "read-only": "Лише читання", "danger-full-access": "Повний доступ"})[settings.sandbox] || settings.sandbox || "Не повідомлено");
   fact(list, "Підтвердження дій", ({never: "Без інтерактивних підтверджень", "on-request": "За запитом Oak", "on-failure": "У разі обмеження", untrusted: "Для неперевірених дій"})[settings.approval_policy] || settings.approval_policy || "Не повідомлено");
   fact(list, "Транспорт", ({poll: "Опитування", sse: "Потік подій"})[settings.transport] || settings.transport || "Не повідомлено");
+  }
   renderComputer(value.computer);
   message("panel-error", "");
   updateActions();
@@ -1003,6 +1014,7 @@ async function loadIntegrations(epoch) {
 }
 async function refresh() {
   if (refreshing || mutationBusy) return;
+  panelPoll?.reset();
   refreshing = true;
   const epoch = sessionEpoch;
   setConnection("Оновлюємо…", "busy");
@@ -1046,6 +1058,7 @@ async function refresh() {
     if (epoch === sessionEpoch) {
       refreshing = false;
       $("workspace").removeAttribute("aria-busy");
+      if (authenticated) panelPoll?.start();
     }
     updateActions();
   }
@@ -1142,7 +1155,11 @@ $("create-session").addEventListener("submit", event => { event.preventDefault()
 $("topic-name").addEventListener("input", renderTopicCapability);
 $("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) void syncSessions(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) panelPoll?.reset();
+  else { void syncSessions(); panelPoll?.resume(); }
+});
+window.addEventListener("pagehide", () => panelPoll?.reset());
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });
@@ -1213,6 +1230,13 @@ async function inputRequestPanel() {
 $("telegram-sdk").addEventListener("load", telegramReady);
 (async () => {
   try {
+    const {createPanelPoll} = await import("/panel-poll.js");
+    panelPoll = createPanelPoll({
+      read: signal => api("/api/panel", undefined, {signal}),
+      apply: value => { renderPanel(value, true); },
+      failed: () => { message("panel-error", "Стан міг застаріти. Повторно перевіряємо з’єднання…", true); },
+      available: () => authenticated && !document.hidden && !$("workspace").hidden && !refreshing && !mutationBusy,
+      epoch: () => sessionEpoch});
     for (let i = 0; i < 30 && !window.Telegram?.WebApp; i++) await new Promise(resolve => setTimeout(resolve, 100));
     telegramReady();
     if (!initialRequest) {
