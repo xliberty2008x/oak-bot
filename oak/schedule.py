@@ -106,8 +106,8 @@ class Scheduler:
             if mode == 'run' and chat_id in self.controller.active:
                 continue
             with self.db:
-                claimed = self.db.execute("UPDATE jobs SET status='running',occurrence=occurrence+1 WHERE id=? AND status='pending'",
-                                          (job_id,)).rowcount
+                claimed = self.db.execute("UPDATE jobs SET status='running',occurrence=occurrence+1 "
+                                          "WHERE id=? AND status='pending' AND due=?", (job_id, due)).rowcount
                 if not claimed:
                     continue
                 generation = self.db.execute('SELECT occurrence FROM jobs WHERE id=?', (job_id,)).fetchone()[0]
