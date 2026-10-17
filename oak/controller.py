@@ -748,7 +748,7 @@ class Controller:
             lines = ['Розклад (' + str(self.scheduler.timezone) + '):']
             escapes = str.maketrans({char: '\\' + char for char in string.punctuation})
             modes = {'remind': 'Нагадування', 'run': 'Задача'}
-            statuses = {'pending': 'Очікує', 'running': 'Виконується', 'uncertain': 'Потребує перевірки'}
+            statuses = {'pending': 'Очікує', 'running': 'Виконується', 'uncertain': 'Потребує перевірки', 'paused': 'Призупинено'}
             for index, task in enumerate(tasks, 1):
                 preview = ' '.join(task['prompt'].split())
                 if len(preview) > 80:
@@ -817,7 +817,7 @@ class Controller:
         if not self.sessions.deleted(chat_id):
             raise ValueError('Only topic sessions can be deleted.')
         with self.db:
-            self.db.execute("UPDATE jobs SET status='cancelled' WHERE chat_id=? AND status IN ('pending','running','uncertain')", (chat_id,))
+            self.db.execute("UPDATE jobs SET status='cancelled' WHERE chat_id=? AND status IN ('pending','running','uncertain','paused')", (chat_id,))
             self.db.execute("UPDATE inputs SET status='cancelled' WHERE chat_id=? AND status='pending'", (chat_id,))
         for row in self.db.execute("SELECT DISTINCT thread_id,turn_id FROM interactions WHERE chat_id=? AND status='pending'", (chat_id,)).fetchall():
             self.interactions.cancel_turn(*row)
