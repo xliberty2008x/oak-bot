@@ -64,7 +64,7 @@
             </article>
             <dl class="facts tiles" id="session-facts">
               <div class="tile"><dt>Очікують підтвердження</dt><dd id="confirmations">—</dd></div>
-              <div class="tile"><dt>Запити з невідомим результатом</dt><dd id="uncertain-inputs">—</dd></div>
+              <div class="tile"><dt>Запити з невідомим результатом</dt><dd id="uncertain-inputs">—</dd><dd><button type="button" class="quiet" data-view="recovery" aria-controls="view-recovery">Перевірити запити</button></dd></div>
               <div class="tile"><dt>Збережені записи пам’яті</dt><dd id="memory-count">—</dd><dd><button type="button" class="quiet" data-view="memory" aria-controls="view-memory">Керувати пам’яттю</button></dd></div>
               <div class="tile"><dt>Активні задачі</dt><dd id="task-count">—</dd></div>
             </dl>
@@ -118,6 +118,10 @@
           <p id="tasks-status" class="section-message" role="status">Завантажуємо задачі…</p>
           <ul id="tasks-list" class="item-list task-list" aria-label="Заплановані задачі"></ul>
           <p class="hint section-footnote">Задачі можна також створити в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
+        </section>
+        <section id="view-recovery" class="view" aria-labelledby="recovery-heading" hidden>
+          <div class="view-heading"><h1 id="recovery-heading" tabindex="-1">Перевірка запитів</h1><p>Невідомий результат потребує перевірки в сервісі, де виконувалась дія. Позначка перевірки не означає, що дія завершилася успішно.</p></div>
+          <p id="recovery-status" class="section-message" role="status"></p><ul id="recovery-list" class="item-list" aria-label="Запити для перевірки"></ul><button id="recovery-more" type="button" class="quiet" hidden>Показати ще</button>
         </section>
         <section id="view-memory" class="view" aria-labelledby="memory-heading" hidden>
           <div class="view-heading"><h1 id="memory-heading" tabindex="-1">Пам’ять</h1><p id="memory-context">Записи вибраної розмови</p></div>
