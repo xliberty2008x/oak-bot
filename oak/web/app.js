@@ -9,6 +9,7 @@ let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
 let panelPoll = null, telegramTheme = null, telegramBridge = null, bridgeObserver = null, confirmationPending = false;
+let productLocale = null, localeEpoch = -1;
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
@@ -44,6 +45,21 @@ const integrationIcons = [
   ["pen", /figma|canva|design/], ["search", /search|research/], ["globe", /browser|playwright|chrome|\bweb\b/],
   ["chart", /data|\bsheets?\b|excel|analytic|chart/], ["monitor", /desktop|computer|screen/]
 ];
+
+function text(key, fallback, values = {}) {
+  return productLocale && localeEpoch === sessionEpoch ? productLocale.t(key, values) : fallback;
+}
+async function loadLocale(epoch) {
+  if (localeEpoch === epoch) return;
+  try {
+    const [module, value] = await Promise.all([import("/locale.js"), api("/api/locale")]);
+    if (epoch !== sessionEpoch) return;
+    productLocale = module.createLocale(value); localeEpoch = epoch;
+    document.documentElement.lang = productLocale.locale;
+    for (const key of Object.keys(taskLabels)) taskLabels[key] = productLocale.t("tasks.status." + key);
+    for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = productLocale.t(node.dataset.i18n);
+  } catch { if (epoch === sessionEpoch) { productLocale = null; localeEpoch = -1; } }
+}
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -795,12 +811,12 @@ async function loadArtifacts(before = null) {
     const value = await api("/api/artifacts" + (before === null ? "" : "?before=" + before));
     if (epoch !== sessionEpoch || generation !== artifactsGeneration) return;
     for (const file of value.items) {
-      const row = element("li", undefined, "item"), status = element("p", file.available ? ({image: "Зображення", video: "Відео", audio: "Аудіо", document: "Документ"}[file.kind] || "Файл") + (file.size_bytes !== null ? " · " + Math.ceil(file.size_bytes / 1024) + " КБ" : "") : "Файл більше недоступний", "hint");
+      const row = element("li", undefined, "item"), status = element("p", file.available ? ({image: "Зображення", video: "Відео", audio: "Аудіо", document: "Документ"}[file.kind] || "Файл") + (file.size_bytes !== null ? " · " + Math.ceil(file.size_bytes / 1024) + " КБ" : "") : text("artifacts.unavailable", "Файл більше недоступний"), "hint");
       row.append(element("h3", file.name), status);
       if (file.available) {
         const actions = element("div", undefined, "item-actions");
         for (const preview of file.kind === "image" ? [true, false] : [false]) {
-          const button = element("button", preview ? "Переглянути" : "Завантажити", "quiet"); button.type = "button";
+          const button = element("button", preview ? "Переглянути" : text("artifacts.download", "Завантажити"), "quiet"); button.type = "button";
           button.disabled = file.size_bytes > (preview ? 10 : 100) * 1024 * 1024;
           if (button.disabled) status.textContent = preview ? "Перегляд доступний для зображень до 10 МБ." : "Файл більший за 100 МБ. Відкрий його в Telegram.";
           button.addEventListener("click", async () => {
@@ -827,7 +843,7 @@ async function loadArtifacts(before = null) {
       $("artifacts-list").append(row);
     }
     artifactsNext = value.next_cursor; $("artifacts-more").hidden = artifactsNext === null;
-    message("artifacts-status", value.items.length || before !== null ? "" : "Файлів у цій розмові ще немає.");
+    message("artifacts-status", value.items.length || before !== null ? "" : text("artifacts.empty", "Файлів у цій розмові ще немає."));
   } catch { if (epoch === sessionEpoch && generation === artifactsGeneration) message("artifacts-status", "Список файлів недоступний. Онови панель.", true); }
   finally { if (epoch === sessionEpoch && generation === artifactsGeneration) $("artifacts-more").disabled = false; }
 }
@@ -843,7 +859,7 @@ async function loadActivity(before = null) {
     for (const run of value.items) {
       const row = element("li", undefined, "item"), heading = element("div", undefined, "item-heading");
       const states = {inProgress: "Виконання триває", completed: "Виконання завершено", failed: "Помилка виконання", interrupted: "Виконання перервано", uncertain: "Стан виконання невідомий", unknown: "Стан не визначено"};
-      heading.append(element("h3", states[run.status] || states.unknown));
+      heading.append(element("h3", text("activity.status." + (Object.hasOwn(states, run.status) ? run.status : "unknown"), states[run.status] || states.unknown)));
       row.append(heading, dateNode(run.started_at));
       if (run.duration_seconds !== null) row.append(element("p", "Тривалість: " + Math.round(run.duration_seconds).toLocaleString("uk-UA") + " с", "item-meta"));
       else row.append(element("p", run.status === "inProgress" ? "Тривалість буде відома після завершення." : "Тривалість не відома.", "item-meta"));
@@ -851,7 +867,7 @@ async function loadActivity(before = null) {
       $("activity-list").append(row);
     }
     activityNext = value.next_cursor; $("activity-more").hidden = activityNext === null;
-    message("activity-status", value.items.length || before !== null ? "" : "Історії активності поки немає.");
+    message("activity-status", value.items.length || before !== null ? "" : text("activity.empty", "Історії активності поки немає."));
   } catch { if (epoch === sessionEpoch && generation === activityGeneration) message("activity-status", "Історія недоступна. Онови панель.", true); }
   finally { if (epoch === sessionEpoch && generation === activityGeneration) $("activity-more").disabled = false; }
 }
@@ -867,10 +883,10 @@ async function loadRecovery(before = null) {
     for (const item of value.items) {
       const row = element("li", undefined, "item"); row.append(element("h3", item.label));
       if (item.preview) row.append(element("p", item.preview, "item-description"));
-      row.append(element("p", item.reviewed ? "Позначено перевіреним; результат залишається невідомим." : "Результат не підтверджено.", "hint"));
+      row.append(element("p", item.reviewed ? text("recovery.reviewed", "Позначено перевіреним; результат залишається невідомим.") : "Результат не підтверджено.", "hint"));
       const actions = element("div", undefined, "item-actions");
       if (!item.reviewed) {
-        const button = element("button", "Я перевірив", "quiet"); button.type = "button"; button.dataset.mutation = "review";
+        const button = element("button", text("recovery.review", "Я перевірив"), "quiet"); button.type = "button"; button.dataset.mutation = "review";
         button.addEventListener("click", async () => {
           if (mutationBusy || refreshing) return;
           const current = sessionEpoch; mutationBusy = true; updateActions();
@@ -900,7 +916,7 @@ async function loadRecovery(before = null) {
       row.append(actions); $("recovery-list").append(row);
     }
     recoveryNext = value.next_cursor; $("recovery-more").hidden = recoveryNext === null;
-    message("recovery-status", value.items.length || before !== null ? "" : "Запитів із невідомим результатом немає."); updateActions();
+    message("recovery-status", value.items.length || before !== null ? "" : text("recovery.empty", "Запитів із невідомим результатом немає.")); updateActions();
   } catch { if (epoch === sessionEpoch && generation === recoveryGeneration) message("recovery-status", "Не вдалося прочитати запити. Онови панель.", true); }
   finally { if (epoch === sessionEpoch && generation === recoveryGeneration) $("recovery-more").disabled = false; }
 }
@@ -932,7 +948,7 @@ async function loadMemory(offset = 0) {
         if (!memoryDeletes.has(note.id)) memoryDeletes.set(note.id, crypto.randomUUID().replace(/-/g, ""));
         await api("/api/memory/" + encodeURIComponent(note.id) + "/delete", {confirmed: true, operation_id: memoryDeletes.get(note.id)});
         if (current !== sessionEpoch) return;
-        message("notice", "Запис видалено."); await loadMemory();
+        message("notice", text("memory.deleted", "Запис видалено.")); await loadMemory();
       }, true));
       item.append(button); $("memory-list").append(item);
     }
@@ -1394,6 +1410,8 @@ async function refresh() {
     }
     void dynamicPanel();
     message("error", "");
+    await loadLocale(epoch);
+    if (epoch !== sessionEpoch) return;
     const results = await Promise.allSettled([loadTasks(epoch), loadIntegrations(epoch), loadModels(epoch)]);
     if (epoch !== sessionEpoch) return;
     const complete = sessionsOK && panelOK && results.every(result => result.status === "fulfilled" && result.value);
