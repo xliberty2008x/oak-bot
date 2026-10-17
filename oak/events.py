@@ -328,7 +328,9 @@ class EventMapper:
                 error = turn.get('error') or {}
                 emit('RUN_ERROR', message=error.get('message', 'Agent turn failed.'), code='TURN_FAILED')
             else:
-                fields = {'outcome': {'type': 'success'}} if status == 'completed' else {}
-                emit('RUN_FINISHED', status=status, metadata={'status': status}, **fields)
+                # A normally completed runtime turn may report a refusal,
+                # blocker or partial result. It does not attest task success.
+                emit('RUN_FINISHED', status=status,
+                     metadata={'status': status, 'taskOutcome': 'unverified'})
             del self._runs[key]
         return output

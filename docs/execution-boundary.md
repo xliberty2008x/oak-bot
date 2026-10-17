@@ -152,12 +152,17 @@ Control messages are at most 1 MiB; entire JSON lines are at most 16 MiB.
 Move all `media.*`, `research.*`, `browser.run/close`, and
 `computer.run/type/key/status` operations into the worker, including direct voice
 transcription outside tool dispatch. The worker lazily owns `ManagedDesktop` and
-its `ComputerTools`; do not also start a gateway desktop. Private login browsers
+its `ComputerTools`; do not also start a gateway desktop. In a managed deployment,
+`browser.run` borrows that same headed Chromium context, launched through a private
+Playwright pipe with Chromium's sandbox enabled. It reuses only this deployment's
+existing desktop profile. No CDP listener or new network authority is needed.
+`browser.close` resets the borrowed adapter; the desktop owns browser shutdown.
+Private login browsers
 stay in the broker and never transfer cookies, profiles or display access here.
 `computer.status` only reads X11 geometry using this deployment's mounted cookie;
 it never starts a desktop or takes its lock. A separate doctor worker can inspect
 the running executor desktop through the existing X11 abstract socket. Before
-the first desktop action starts that lazy desktop, status reports it unavailable.
+the first desktop or browser action starts that lazy desktop, status reports it unavailable.
 
 The gateway retains remote-control authorization, owner/session binding and task
 pausing. `remote.start` returns `{id}`; `remote.read({id})` returns
@@ -165,7 +170,8 @@ pausing. `remote.start` returns `{id}`; `remote.read({id})` returns
 `remote.write({id,data})` accepts 64 KiB; `remote.close({id})` ends that lease.
 `remote.type({id,text})` and `remote.key({id,key})` bind text/keyboard input to
 that active lease and return no screenshot.
-Only one lease exists per worker, and computer input is refused while it is active.
+Only one lease exists per worker. Computer input and all `browser.run` actions,
+including observations, are refused while it is active.
 The worker starts fixed x11vnc over a socket pair, so no public VNC listener exists.
 
 Never reopen a returned worker/model pathname in the privileged gateway. Snapshot

@@ -456,6 +456,9 @@ establish production rollout or actual Telegram WebView/provider acceptance.
 | Ordinary contextual forms | Server-owned non-secret forms completing the same native request; shared widgets with a distinct transport from A2UI cards. [requests.py](oak/requests.py), [requests.js](oak/web/requests.js), [interaction.py](oak/interaction.py). |
 | Shared native widgets | Label/input/select/checkbox construction, without value storage, event handlers, network or persistence. Callers own schemas and permissions. [form-controls.js](oak/web/form-controls.js). |
 | Private composition library | `urn:oak:private-website-ui` 2.0.0 compiles atomic control refs and six compatible components into existing private widgets. The native agent supplies grounded plans through [website_agent.py](oak/website_agent.py); the legacy tool retains Jev composition. [Component contract and source card](docs/website-component-library.md). |
+| Managed browser and desktop | One headed Chromium context for semantic browser tools and visual actions. Tab/frame references, native file upload and download receipts come from the real page; the desktop owns the existing profile and private Playwright pipe. Manual takeover pauses both tools. [browser.py](oak/browser.py), [desktop.py](oak/desktop.py), [executor_worker.py](oak/executor_worker.py). |
+| Private human broker | Separate-origin human page and private browser lifecycle. Values go directly to the broker; the gateway receives status and scoped identity. [login page](oak/login_web/index.html), [login_broker.py](oak/login_broker.py), [login.py](oak/login.py). |
+| Website adapters | Visible controls, stable references, origin checks, challenges and provider evidence. A renderer does not supply browser extraction. [website_forms.py](oak/website_forms.py), [signin_providers.py](oak/signin_providers.py), [connected_browser.py](oak/connected_browser.py). |
 
 Native MCP tool confirmations use the existing owner approval buttons, including
 when no Mini App is open. Codex's standard empty object form with
@@ -466,8 +469,11 @@ copied into approval storage or chat. Standard non-secret enum forms need no
 remain separate and produce a fixed adapter explanation instead of silently
 attributing the refusal to the owner. An owner can configure native connected-app
 approval defaults as described in [configuration](docs/configuration.md#owner-authorized-runtime-access).
-| Private human broker | Separate-origin human page and private browser lifecycle. Values go directly to the broker; the gateway receives status and scoped identity. [login page](oak/login_web/index.html), [login_broker.py](oak/login_broker.py), [login.py](oak/login.py). |
-| Website adapters | Visible controls, stable references, origin checks, challenges and provider evidence. A renderer does not supply browser extraction. [website_forms.py](oak/website_forms.py), [signin_providers.py](oak/signin_providers.py), [connected_browser.py](oak/connected_browser.py). |
+
+A completed native turn ends the UI run but does not prove the user task succeeded.
+`RUN_FINISHED` carries `metadata.taskOutcome = "unverified"`; no automatic success
+outcome is inferred from a completed turn. Actual task results require separate
+evidence.
 
 Ordinary A2UI actions become persisted input for the same conversation. Required
 contextual forms resolve the original waiting RPC in its original turn. Private

@@ -25,6 +25,25 @@ def _valid_effort(value):
             and not any(c.isspace() or ord(c) < 32 or 127 <= ord(c) <= 159 or c in '/\\' for c in value))
 
 
+def _history_file(value, workspace):
+    """Keep a lexical workspace reference, never open a runtime-supplied path."""
+    if (not isinstance(value, str) or not 0 < len(value) <= 4096
+            or any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in value)):
+        return None
+    path = Path(value)
+    if '..' in path.parts:
+        return None
+    if not path.is_absolute():
+        path = Path(workspace) / path
+    try:
+        parts = path.relative_to(workspace).parts
+    except ValueError:
+        return None
+    if not parts or any(part.startswith('.') or part.lower() in {'secrets', 'credentials', 'browser-profile'} for part in parts):
+        return None
+    return str(path)
+
+
 class Controller:
     def __init__(self, client, db_path, cwd, emit, instructions='', config=None):
         self.client = client
@@ -233,7 +252,7 @@ class Controller:
             if record['tools_version'] != tools_version:
                 previous_id = thread_id
                 snapshot = await self.client.request('thread/read', {'threadId': thread_id, 'includeTurns': True})
-                history = []
+                history, references = [], []
                 for turn in snapshot.get('thread', {}).get('turns', [])[-12:]:
                     for item in turn.get('items', []):
                         if item.get('type') == 'agentMessage':
@@ -241,7 +260,32 @@ class Controller:
                         elif item.get('type') == 'userMessage':
                             texts = [x.get('text', '') for x in item.get('content', []) if x.get('type') == 'text']
                             history.append('Owner: ' + '\n'.join(texts))
+                            for part in item.get('content', []):
+                                path = _history_file(part.get('path'), self.cwd) if part.get('type') == 'localImage' else None
+                                if path:
+                                    references.append({'kind': 'owner_image', 'path': path})
+                        elif (item.get('type') == 'dynamicToolCall' and item.get('tool') == 'oak_send_file'
+                              and item.get('status') == 'completed' and item.get('success') is True):
+                            arguments = item.get('arguments')
+                            if isinstance(arguments, str) and len(arguments) <= 65536:
+                                try:
+                                    arguments = json.loads(arguments)
+                                except ValueError:
+                                    arguments = None
+                            path = _history_file(arguments.get('path'), self.cwd) if isinstance(arguments, dict) else None
+                            if path:
+                                references.append({'kind': 'file_queued_for_delivery', 'path': path})
                 context += '\n\nPrevious conversation context, for reference:\n' + '\n'.join(history)[-24000:]
+                # Keep file identities separately so a long final message cannot
+                # truncate the selected attachment. Retain only these typed
+                # references, never arbitrary tool results or remote image URLs.
+                references = references[-32:]
+                while references and len(json.dumps(references, ensure_ascii=False)) > 16000:
+                    references.pop(0)
+                if references:
+                    context += ('\n\nFiles referenced in those previous turns (workspace references only; '
+                                'reopen to inspect their contents, and do not assume queued delivery completed):\n'
+                                + json.dumps(references, ensure_ascii=False))
                 thread_id = None
         if self.tools:
             context += ('\n\nUse the configured assistant persona and the Oak name for this harness. '
@@ -250,14 +294,38 @@ class Controller:
                         'Use Oak tools for memory, scheduling, media and browser tasks. '
                         'Call oak_send_file for files you create with shell or other tools. Native image outputs '
                         'are delivered automatically. Use connected Figma/Canva apps for their tasks; ask before '
-                        'publishing, purchases or destructive external actions. Be honest about unavailable services. '
+                        'publishing, purchases or destructive external actions unless the owner already authorized them. '
+                        'Be honest about unavailable services. '
                         'Remember explicit owner preferences with oak_memory_remember; search memory when needed.'
+                        '\n\nCarry an authorized task through execution, verification and delivery. A final response or a '
+                        'successful tool call alone does not prove the requested result. Choose the effective route from '
+                        'the connected tools, browser, shell, installed SDKs and documented APIs; you are not limited to '
+                        'the Oak wrappers. If a tool is missing, discover the available tools and inspect the local '
+                        'environment before declaring the capability unavailable. Inspect a service\'s actual API/schema, '
+                        'supported inputs, access and quota before promising it can perform the task. Do not invent '
+                        'endpoints or silently incur a new paid charge or subscription. '
+                        'After an error, read its cause and current state, then adjust the method while preserving the '
+                        'owner\'s objective. Do not loop identical clicks or repeat an uncertain external action: check '
+                        'whether it happened first. A broken connector can justify using the service\'s documented API '
+                        'or browser with existing authorized access. Respect provider denials and account limits. '
+                        'For browser work, inspect controls, tabs and frames; use upload/download directly when available '
+                        'and switch to visual interaction when useful. On a managed desktop both tools share the browser. '
+                        'For a requested artifact, obtain the real output file and inspect its contents against the '
+                        'request before delivery. For video, check actual frames and the requested motion; a playable '
+                        'MP4 or static slideshow alone does not prove animation. Label previews as previews. '
+                        'Deliver files from shell, SDKs or downloads with oak_send_file. If the task remains blocked, '
+                        'state the concrete attempted operation, observed blocker and what is still incomplete; never '
+                        'claim success merely because the turn ended.'
                         '\n\nPresent structured results as an oak_a2ui card when layout helps more than prose: '
                         'daily targets, plans, menus, comparisons, budgets, progress or numeric series. Compose Metric rows, '
                         'Progress, Table, Chart, Image, Badge and Text inside a Card; read the catalogue first. '
                         'The same card appears in Telegram as a rich message and in the Mini App with full layout; '
                         'later updates of that surface edit the Telegram card in place. Keep a short normal reply '
                         'and do not repeat the card content in prose. Simple answers stay plain text.')
+            if getattr(self.tools, 'browser_action_approval', 'always') == 'never':
+                context += (' The owner configured routine browser actions to execute without per-action approval. '
+                            'Perform those actions within the authorized task without repeatedly asking permission; '
+                            'this setting does not authorize unrelated actions, purchases or account changes.')
             if self.web_app_url(chat_id):
                 context += ('\n\nWhen required ordinary data must resume the current native request, use '
                             'oak_request_input with a server-owned template; it keeps that request waiting. '

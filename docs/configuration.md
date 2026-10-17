@@ -21,6 +21,7 @@ paths resolve against the configuration file's directory.
 | `timezone` | IANA timezone for dates without an explicit offset |
 | `sandbox` | `workspace-write`, `read-only`, or owner-selected `danger-full-access` inside an isolated `execution` profile |
 | `runtime_config` | Runtime options such as approval policy and web search |
+| `browser_action_approval` | `always` (default) or owner-selected `never` for routine browser actions |
 | `piper_model` | Optional local `.onnx` narration model with adjacent `.onnx.json` |
 | `vosk_model` | Optional extracted local speech-recognition model directory |
 | `whisper_model` | Optional local faster-whisper model, used instead of Vosk |
@@ -36,6 +37,7 @@ remove the second, inner command sandbox and repetitive connected-app prompts:
 ```json
 {
   "sandbox": "danger-full-access",
+  "browser_action_approval": "never",
   "execution": {"profile": "/etc/oak-executor/profile.json"},
   "runtime_config": {
     "approval_policy": "on-request",
@@ -52,6 +54,12 @@ requests available; `never` can reject those requests before Oak receives them.
 App-specific or managed policies can override the default. The
 [native configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 defines these approval settings.
+
+`browser_action_approval: "never"` also removes Oak's repeated confirmation for
+ordinary browser clicks, typing and file upload/download within the owner's
+task. It applies to both the managed browser and connected account browser.
+It does not authorize purchases, subscriptions or unrelated external actions.
+Private sign-in and manual takeover retain their separate user controls.
 
 For deployments that retain `workspace-write`, set
 `runtime_config.sandbox_workspace_write.network_access` to `true` to allow
@@ -216,10 +224,24 @@ For optional faster-whisper recognition, install `faster-whisper` in `.venv` and
 supply an existing local model; transcription does not download a model implicitly.
 Small recognition models can mishear speech, so inspect important transcriptions.
 
-The browser uses `workspace/browser-profile`. It starts with its own account
-state; credentials are not copied from an existing browser. Install its binary
+With a managed desktop, `oak_browser` uses the same visible Chromium context and
+the existing `state_dir/desktop/browser` profile as `oak_computer` (the executor's
+desktop state in an isolated deployment). Tabs, uploads and account state therefore
+remain available when switching between semantic controls and visual actions.
+Playwright uses a private pipe; no debugging TCP port is opened. Without a managed
+desktop, the independent headless browser uses `workspace/browser-profile`.
+Credentials are not copied from another browser. Install its binary
 with `.venv/bin/python -m playwright install chromium` if bootstrap was run
 without `--browser`. System libraries may be required by [Playwright](https://playwright.dev/python/docs/browsers).
+
+Browser observations expose visible controls, hidden file inputs, frame IDs and
+tab IDs. `upload` accepts workspace files and either a file-input selector or a
+button that opens a chooser. `download` registers a browser download before
+clicking, saves the artifact and returns its size and SHA-256. The assistant must
+inspect the actual output and call `oak_send_file` to deliver it; browser artifacts
+are not automatically sent to Telegram. A timed-out action reports whether it may
+already have happened and asks the model to inspect the state before retrying.
+These tools cannot supply a provider's paid plan, GPU quota or unavailable model.
 
 ## Computer use
 
@@ -265,7 +287,9 @@ saved browser profile. For a running deployment, use `oak doctor` instead.
 
 The Settings switch in the Mini App controls the owner's access to computer use.
 Turning it off persists across restarts and cancels that owner's active desktop
-work. It does not sign out applications running on the desktop.
+and managed-browser work. It does not sign out applications running on the desktop.
+Both tools use the same conversation ownership and action lock. During manual
+takeover, browser actions and observations pause as well as computer input.
 
 ### Existing desktop
 

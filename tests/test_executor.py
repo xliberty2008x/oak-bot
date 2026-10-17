@@ -607,6 +607,48 @@ class DispatchTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('DISPLAY', os.environ)
             self.assertNotIn('XAUTHORITY', os.environ)
 
+    async def test_managed_browser_borrows_lazy_desktop_context_and_forwards_capabilities(self):
+        self.profile.update(display=':92', desktop_state=self.temp.name)
+        context = object()
+        desktop = SimpleNamespace(display=':92', browser_context=AsyncMock(return_value=context),
+                                  __aenter__=AsyncMock(), close=AsyncMock())
+        browser = SimpleNamespace(run=AsyncMock(return_value={'ok': True}), close=AsyncMock())
+        with patch('oak.desktop.ManagedDesktop', return_value=desktop), \
+                patch('oak.browser.BrowserTools', return_value=browser) as construct:
+            args = {'action': 'upload', 'selector': '#file', 'frame': 'frame-2',
+                    'files': ['photo.png'], 'timeout_ms': 5000, 'tab': 'tab-1'}
+            self.assertEqual(await self.worker.dispatch('browser.run', args), {'ok': True})
+            provider = construct.call_args.kwargs['context_provider']
+            self.assertIs(await provider(), context)
+            self.assertIs(await provider(), context)
+            desktop.__aenter__.assert_awaited_once()
+            browser.run.assert_awaited_once_with(**args)
+            self.assertIs(self.worker.desktop, desktop)
+
+    async def test_unmanaged_browser_keeps_standalone_context(self):
+        browser = SimpleNamespace(run=AsyncMock(return_value={'ok': True}), close=AsyncMock())
+        with patch('oak.browser.BrowserTools', return_value=browser) as construct:
+            await self.worker.dispatch('browser.run', {'action': 'read'})
+        construct.assert_called_once_with(self.temp.name, context_provider=None)
+        self.assertIsNone(self.worker.desktop)
+
+    async def test_remote_lease_blocks_browser_observation_and_actions_before_start(self):
+        self.worker.remote = {'id': 'a' * 32}
+        try:
+            with patch('oak.browser.BrowserTools') as construct:
+                for action in ('read', 'screenshot', 'tabs', 'open', 'upload', 'download', 'click', 'type'):
+                    with self.subTest(action=action), self.assertRaisesRegex(ValueError, 'Remote owns desktop'):
+                        await self.worker.dispatch('browser.run', {'action': action})
+                construct.assert_not_called()
+            self.worker.browser = SimpleNamespace(run=AsyncMock(), close=AsyncMock())
+            with self.assertRaisesRegex(ValueError, 'Remote owns desktop'):
+                await self.worker.dispatch('browser.run', {'action': 'read'})
+            self.worker.browser.run.assert_not_awaited()
+            await self.worker.dispatch('browser.close', {})
+            self.worker.browser.close.assert_awaited_once()
+        finally:
+            self.worker.remote = None
+
     async def test_remote_id_binding_read_write_without_any_desktop(self):
         first, second = socket.socketpair()
         first.setblocking(False); second.setblocking(False)

@@ -66,6 +66,74 @@ class ManagedDesktop:
         self.lock = None
         self.environment = None
         self.log = None
+        self._playwright_manager = None
+        self._playwright = None
+        self._context = None
+        self._browser_closed = asyncio.Event()
+        self._browser_lock = asyncio.Lock()
+        self._closing = False
+
+    @property
+    def context(self):
+        """The deployment's own visible browser; callers only borrow this context."""
+        if self._context is None or self._browser_closed.is_set():
+            raise RuntimeError('Managed desktop browser is not running.')
+        return self._context
+
+    async def browser_context(self):
+        """Borrow the browser, reopening its own profile after a closed window.
+
+        Reopening creates a blank tab. A failed website action is never replayed.
+        """
+        async with self._browser_lock:
+            if self._closing or self.environment is None or self.lock is None:
+                raise RuntimeError('Managed desktop is not running.')
+            if self._context is not None and not self._browser_closed.is_set():
+                return self._context
+            await self._close_browser()
+            profile = self.directory / 'browser'
+            profile.mkdir(mode=0o700, exist_ok=True)
+            profile.chmod(0o700)
+            # A private Playwright pipe controls this exact visible browser. Do
+            # not expose a debugging port or copy another browser's profile.
+            from playwright.async_api import async_playwright
+            self._playwright_manager = async_playwright()
+            try:
+                self._playwright = await self._playwright_manager.start()
+                if not Path(self._playwright.chromium.executable_path).is_file():
+                    raise RuntimeError('Chromium is not installed.')
+                self._browser_closed.clear()
+                self._context = await self._playwright.chromium.launch_persistent_context(
+                    str(profile), headless=False, chromium_sandbox=True,
+                    no_viewport=True, accept_downloads=True,
+                    args=['--ozone-platform=x11', '--no-first-run', '--no-default-browser-check',
+                          '--disable-dev-shm-usage', f'--window-size={self.width},{self.height}',
+                          '--start-maximized'])
+                self._context.on('close', lambda _context: self._browser_closed.set())
+                self._context.set_default_timeout(15000)
+                await self._until(lambda: self._command('xdotool', 'search', '--onlyvisible', '--class', 'chromium'))
+                return self._context
+            except BaseException as exc:
+                await asyncio.shield(self._close_browser())
+                if isinstance(exc, Exception):
+                    # Launch errors include private profile paths and arguments.
+                    raise RuntimeError('Managed desktop browser could not start with its sandbox.') from None
+                raise
+
+    async def _close_browser(self):
+        if self._context is not None:
+            with suppress(Exception):
+                await asyncio.wait_for(self._context.close(), 5)
+            self._context = None
+        try:
+            if self._playwright is not None:
+                with suppress(Exception):
+                    await asyncio.wait_for(self._playwright.stop(), 3)
+            elif self._playwright_manager is not None:
+                with suppress(Exception):
+                    await asyncio.wait_for(self._playwright_manager.__aexit__(None, None, None), 3)
+        finally:
+            self._playwright = self._playwright_manager = None
 
     async def _spawn(self, name, *args):
         process = await asyncio.create_subprocess_exec(
@@ -97,6 +165,8 @@ class ManagedDesktop:
                     for name, process in self.processes:
                         if process.returncode is not None:
                             raise RuntimeError(f'Managed {name} stopped; inspect {self.directory / "desktop.log"}.')
+                    if self._browser_closed.is_set():
+                        raise RuntimeError('Managed desktop browser stopped.')
                     try:
                         result = await probe()
                         if result:
@@ -115,6 +185,8 @@ class ManagedDesktop:
         missing = [name for name in ('Xvfb', 'xauth', 'openbox', 'xdotool', 'xmodmap') if not shutil.which(name)]
         if missing:
             raise RuntimeError('Install managed desktop dependencies: ' + ', '.join(missing))
+        self._closing = False
+        self._browser_closed.clear()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.directory.chmod(0o700)
         self.lock = (self.directory / 'desktop.lock').open('a')
@@ -126,11 +198,6 @@ class ManagedDesktop:
             number = self.display[1:]
             if Path(f'/tmp/.X{number}-lock').exists() or Path(f'/tmp/.X11-unix/X{number}').exists():
                 raise RuntimeError(f'Display {self.display} is occupied; choose an unused display. Nothing was stopped.')
-            from playwright.async_api import async_playwright
-            async with async_playwright() as playwright:
-                browser = playwright.chromium.executable_path
-            if not Path(browser).is_file():
-                raise RuntimeError('Install the desktop browser with python -m playwright install chromium.')
             self.environment = desktop_environment(self.config)
             self.environment.__enter__()
             authority = self.directory / 'Xauthority'
@@ -145,20 +212,17 @@ class ManagedDesktop:
             computer = ComputerTools(self.config['workspace'], self.display)
             await self._until(computer.status)
             await self._spawn('window manager', 'openbox')
-            profile = self.directory / 'browser'
-            profile.mkdir(mode=0o700, exist_ok=True)
-            profile.chmod(0o700)
-            await self._spawn('browser', browser, f'--user-data-dir={profile}', '--ozone-platform=x11',
-                              '--no-first-run', '--no-default-browser-check', '--disable-dev-shm-usage',
-                              f'--window-size={self.width},{self.height}', '--start-maximized', 'about:blank')
-            await self._until(lambda: self._command('xdotool', 'search', '--onlyvisible', '--class', 'chromium'))
+            await self.browser_context()
             return self
         except BaseException:
             await asyncio.shield(self.close())
             raise
 
     async def wait(self):
-        """Any desktop child exit restarts the gateway through its supervisor."""
+        """An X11 or window-manager exit restarts the gateway via its supervisor.
+
+        A closed browser is recovered on the next explicit browser operation.
+        """
         tasks = {asyncio.create_task(process.wait()): name for name, process in self.processes}
         if not tasks:
             return
@@ -172,6 +236,12 @@ class ManagedDesktop:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def close(self):
+        # Close the persistent browser before X11 so its own profile is flushed.
+        # Playwright owns the browser subprocess and its private driver pipe;
+        # the executor's enclosing PID namespace also reaps them on hard exit.
+        self._closing = True
+        async with self._browser_lock:
+            await self._close_browser()
         for _, process in reversed(self.processes):
             # Each process was launched as the leader of a new, private group.
             with suppress(ProcessLookupError):

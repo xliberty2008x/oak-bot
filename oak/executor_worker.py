@@ -347,7 +347,8 @@ OPERATIONS = {
     'media.montage': (('image_paths',), ('seconds_per_image',)),
     'media.speak': (('text',), ('language',)), 'media.transcribe': (('path',), ('language',)),
     'research.search': (('query',), ('limit',)), 'research.fetch': (('url',), ()), 'research.youtube': (('url',), ()),
-    'browser.run': ((), ('action', 'url', 'selector', 'text')), 'browser.close': ((), ()),
+    'browser.run': ((), ('action', 'url', 'selector', 'text', 'frame', 'files', 'timeout_ms', 'tab')),
+    'browser.close': ((), ()),
     'computer.run': ((), ('action', 'x', 'y', 'end_x', 'end_y', 'button', 'clicks', 'text', 'key', 'direction', 'steps', 'seconds')),
     'computer.type': (('text',), ()), 'computer.key': (('key',), ()), 'computer.status': ((), ()),
     'file.read': (('path',), ()), 'file.write': (('path', 'data'), ()),
@@ -399,6 +400,10 @@ class Worker:
             self.desktop = desktop
             self.computer = ComputerTools(self.profile['workspace'], desktop.display)
         return self.computer
+
+    async def browser_context(self):
+        await self.ensure_desktop()
+        return await self.desktop.browser_context()
 
     async def remote_start(self):
         if self.remote is not None:
@@ -514,11 +519,16 @@ class Worker:
                 raise ValueError('Remote owns desktop')
             return await computer.run(**({'action': method, **args} if method in {'type', 'key'} else args))
         if group == 'browser':
+            if method == 'run' and self.remote is not None:
+                # Observation would also reveal the owner's private manual input.
+                raise ValueError('Remote owns desktop')
             if self.browser is None:
                 if method == 'close':
                     return None
                 from oak.browser import BrowserTools
-                self.browser = BrowserTools(self.profile['workspace'])
+                managed = self.profile.get('display') and self.profile.get('desktop_state')
+                self.browser = BrowserTools(self.profile['workspace'],
+                                            context_provider=self.browser_context if managed else None)
             return await getattr(self.browser, method)(**args)
         if group == 'media':
             if self.media is None:

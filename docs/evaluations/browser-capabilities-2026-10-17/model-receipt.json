@@ -1,0 +1,111 @@
+{
+  "source_sha256": {
+    "browser.py": "8d06dfa069e46fcf03994cc93d1d4f2ce8e251e91d759a0c09fa55c2549c0d91",
+    "tools.py": "b3810fe4abccbe783d5cd3af91889d9f98e7d3187651f01159595305fe86e84e",
+    "runtime.py": "094b4b7fb6be36f971e5433b9f5ebcf32acbee4ee6b8dba32095705d5d579665",
+    "events.py": "b8b59e0a11e49b5d5dba93ab51708d97d0b33689edbb0ec1f142fc8d98ada430",
+    "controller.py": "c850ac4c5d536fd409a9a23b31bca0abfdfbf974494b79732e1799c2e130ddd3",
+    "desktop.py": "cecc1580aebc204b9c5232d9c693ef8b430ac0d1b4fcd4ed7b12b5ea4bb22e38"
+  },
+  "verification": "The model checks the rendered normalized preview; the independent sink compares actual downloaded file bytes to the expected output.",
+  "limitations": [
+    "Delivery ends at Oak artifact event; no Telegram request is sent.",
+    "No native shell/API fallback exercised in the synthetic browser task.",
+    "The model inspected the rendered preview, not downloaded file bytes; the independent sink performed byte verification.",
+    "A later browser open attempt failed after successful download; the model recovered and queued delivery without repeating upload or download.",
+    "A subsequent routing-metadata-only approval redaction and unexercised reactive-type fix are covered separately by targeted tests.",
+    "The later existing-conversation attachment migration is covered by focused migration tests, not this fresh-thread model probe."
+  ],
+  "model": "gpt-6.1-sol",
+  "model_provider": "openai",
+  "reasoning_effort": "high",
+  "thread_ephemeral": true,
+  "runtime_execution_profile": true,
+  "tools_handler": "candidate Tools.handle with fresh local Chromium",
+  "browser_context": "synthetic fresh profile; no production account/browser access",
+  "fixture": "held-out iframe hidden file input, delayed normalized preview, Blob download",
+  "approval_requests": [],
+  "actions": [
+    {
+      "tool": "oak_browser",
+      "action": "open",
+      "success": true,
+      "seconds": 3.547,
+      "outcome": "completed",
+      "error_code": null,
+      "frame_count": 2,
+      "operation_receipt_verified": false
+    },
+    {
+      "tool": "oak_browser",
+      "action": "upload",
+      "success": true,
+      "seconds": 0.541,
+      "outcome": "completed",
+      "error_code": null,
+      "frame_count": 2,
+      "operation_receipt_verified": true
+    },
+    {
+      "tool": "oak_browser",
+      "action": "read",
+      "success": true,
+      "seconds": 0.045,
+      "outcome": "completed",
+      "error_code": null,
+      "frame_count": 2,
+      "operation_receipt_verified": false
+    },
+    {
+      "tool": "oak_browser",
+      "action": "download",
+      "success": true,
+      "seconds": 0.334,
+      "outcome": "completed",
+      "error_code": null,
+      "frame_count": 2,
+      "download_bytes": 70,
+      "download_sha256": "e49e200809a38ba49b345fd07eebdf1e04568a860a2cbdbc4e80dfc6d586d032",
+      "expected_bytes_match": true,
+      "operation_receipt_verified": true
+    },
+    {
+      "tool": "oak_browser",
+      "action": "open",
+      "success": false,
+      "seconds": 0.0
+    },
+    {
+      "tool": "oak_send_file",
+      "action": null,
+      "success": true,
+      "seconds": 0.0,
+      "outcome": null,
+      "error_code": null,
+      "frame_count": 0,
+      "operation_receipt_verified": false
+    }
+  ],
+  "delivery_events": [
+    {
+      "queued_for_delivery": true,
+      "bytes": 70,
+      "sha256": "e49e200809a38ba49b345fd07eebdf1e04568a860a2cbdbc4e80dfc6d586d032",
+      "expected_bytes_match": true,
+      "caption_present": true
+    }
+  ],
+  "turn_status": "completed",
+  "run_finished": {
+    "outcome": null,
+    "metadata": {
+      "status": "completed",
+      "taskOutcome": "unverified"
+    }
+  },
+  "native_commands": [],
+  "final": "Delivered the normalized JSON file. The importer preview confirmed both records and scores: cedar: 7 and oak: 11.",
+  "seconds": 32.215,
+  "telegram_touched": false,
+  "paid_actions": false
+}

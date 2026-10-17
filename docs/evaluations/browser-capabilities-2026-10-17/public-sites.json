@@ -1,0 +1,129 @@
+[
+  {
+    "site": "https://the-internet.herokuapp.com/upload",
+    "steps": [
+      {
+        "action": "open",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 6,
+        "receipt": null
+      },
+      {
+        "action": "upload",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 6,
+        "receipt": {
+          "selected_files": 1,
+          "bytes": 58,
+          "verified": true,
+          "note": "Files selected in the page; inspect its response to verify server upload."
+        }
+      },
+      {
+        "action": "click",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 3,
+        "receipt": null
+      }
+    ],
+    "server_upload_confirmed": true,
+    "seconds": 8.11
+  },
+  {
+    "site": "https://demoqa.com/upload-download",
+    "steps": [
+      {
+        "action": "open",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 12,
+        "receipt": null
+      },
+      {
+        "action": "upload",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 12,
+        "receipt": {
+          "selected_files": 1,
+          "bytes": 58,
+          "verified": true,
+          "note": "Files selected in the page; inspect its response to verify server upload."
+        }
+      },
+      {
+        "action": "download",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 12,
+        "receipt": {
+          "size": 4096,
+          "sha256": "04ec95ca2b997689dcc4d66c05063d1d3f2ef2a10b8b1f153c9db4bcde823852",
+          "verified": true,
+          "delivery": "Use oak_send_file with path to deliver this artifact."
+        }
+      }
+    ],
+    "page_upload_confirmed": true,
+    "download_is_jpeg": true,
+    "seconds": 4.82
+  },
+  {
+    "site": "https://saravutw-wan2-2-i2v-lightning-4-8step-custom.hf.space",
+    "synthetic_image": true,
+    "generation_requested": false,
+    "steps": [
+      {
+        "action": "open",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 0,
+        "receipt": null
+      },
+      {
+        "action": "wait",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 24,
+        "receipt": null
+      },
+      {
+        "action": "upload",
+        "ok": true,
+        "outcome": "completed",
+        "error": null,
+        "control_count": 25,
+        "receipt": {
+          "selected_files": 1,
+          "bytes": 102,
+          "verified": true,
+          "verification": "browser_file_selection",
+          "server_upload_verified": false,
+          "note": "Browser file selection completed; inspect the page response to verify server upload."
+        }
+      }
+    ],
+    "file_input_hidden": true,
+    "page_preview": [
+      {
+        "alt": "",
+        "ready": true,
+        "width": 32,
+        "height": 32,
+        "serverFile": true
+      }
+    ],
+    "seconds": 10.82
+  }
+]

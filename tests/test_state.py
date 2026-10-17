@@ -5,7 +5,7 @@ import sqlite3
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from oak.controller import Controller
 from oak.interaction import Interactions
@@ -18,6 +18,84 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
         self.addCleanup(self.db.close)
+
+    async def test_tool_upgrade_preserves_selected_image_and_known_output_references_without_file_reads(self):
+        with tempfile.TemporaryDirectory() as folder:
+            workspace = str(Path(folder).resolve())
+            photo = workspace + '/inbox/selected-photo.png'
+            output = workspace + '/artifacts/selected-video.mp4'
+            items = [
+                {'type': 'userMessage', 'content': [
+                    {'type': 'text', 'text': 'Animate the selected photo.'},
+                    {'type': 'localImage', 'path': photo},
+                    {'type': 'localImage', 'path': '/private/outside-image.png'},
+                    {'type': 'localImage', 'path': workspace + '/.runtime/account.png'},
+                    {'type': 'localImage', 'path': workspace + '/secrets/account.png'},
+                    {'type': 'localImage', 'path': workspace + '/inbox/../../outside.png'},
+                    {'type': 'image', 'url': 'https://example.test/image?private-token'}]},
+                {'type': 'dynamicToolCall', 'tool': 'oak_send_file', 'status': 'completed', 'success': True,
+                 'arguments': json.dumps({'path': output, 'caption': 'Do not copy arbitrary arguments.'})},
+                {'type': 'dynamicToolCall', 'tool': 'oak_send_file', 'status': 'completed', 'success': False,
+                 'arguments': {'path': workspace + '/artifacts/failed.mp4'}},
+                {'type': 'dynamicToolCall', 'tool': 'unrelated_tool', 'status': 'completed', 'success': True,
+                 'arguments': {'path': workspace + '/artifacts/unrelated.mp4'},
+                 'contentItems': [{'type': 'inputText', 'text': 'Do not copy generic results.'}]},
+                {'type': 'agentMessage', 'text': 'Large previous reply: ' + 'x' * 25000},
+            ]
+            client = AsyncMock()
+
+            async def request(method, params):
+                if method == 'thread/read':
+                    self.assertEqual(params, {'threadId': 'previous-thread', 'includeTurns': True})
+                    return {'thread': {'turns': [{'items': items}]}}
+                if method == 'thread/start':
+                    return {'model': params['model'], 'modelProvider': 'openai', 'thread': {'id': 'upgraded-thread'}}
+                if method == 'turn/start':
+                    return {'turn': {'id': 'new-turn'}}
+                raise AssertionError(method)
+
+            client.request.side_effect = request
+            controller = Controller(client, ':memory:', folder, AsyncMock())
+            try:
+                controller.tools = SimpleNamespace(version='oak-v16-browser-capabilities', specs=[], computer=None,
+                                                   browser_action_approval='never')
+                controller.threads[7] = 'previous-thread'
+                controller.db.execute('INSERT INTO chats(chat_id,thread_id,tools_version) VALUES (?,?,?)',
+                                      (7, 'previous-thread', 'oak-v15-a2ui-display-cards'))
+                controller.db.execute('INSERT INTO conversation_models(chat_id,model,effort) VALUES (?,?,?)',
+                                      (7, 'synthetic-choice', 'ultra'))
+                with (patch.object(Path, 'resolve', side_effect=AssertionError('No runtime path resolution')),
+                        patch.object(Path, 'read_bytes', side_effect=AssertionError('No attachment reads')),
+                        patch.object(Path, 'stat', side_effect=AssertionError('No attachment stat'))):
+                    await controller._thread(7)
+                params = next(call.args[1] for call in client.request.await_args_list if call.args[0] == 'thread/start')
+                context = params['developerInstructions']
+                self.assertIn(photo, context)
+                self.assertIn(output, context)
+                self.assertIn('file_queued_for_delivery', context)
+                for omitted in ('outside-image.png', 'account.png', '../../', 'private-token', 'failed.mp4',
+                                'unrelated.mp4', 'Do not copy arbitrary arguments.', 'Do not copy generic results.'):
+                    self.assertNotIn(omitted, context)
+                self.assertEqual(params['model'], 'synthetic-choice')
+                self.assertEqual(params['dynamicTools'], [])
+                self.assertEqual(controller.model_settings(7), {'model': 'synthetic-choice', 'effort': 'ultra'})
+                record = controller.db.execute('SELECT tools_version,previous_thread_id FROM chats WHERE chat_id=7').fetchone()
+                self.assertEqual(tuple(record), ('oak-v16-browser-capabilities', 'previous-thread'))
+                await controller.submit(7, 'Continue using that selected photo.', 17)
+                turn = client.request.await_args.args[1]
+                self.assertEqual((turn['threadId'], turn['model'], turn['effort']),
+                                 ('upgraded-thread', 'synthetic-choice', 'ultra'))
+            finally:
+                controller.close()
+
+    def test_history_file_references_are_lexical_workspace_paths(self):
+        from oak.controller import _history_file
+        with patch.object(Path, 'resolve', side_effect=AssertionError('No filesystem resolution')):
+            self.assertEqual(_history_file('inbox/photo.png', '/workspace'), '/workspace/inbox/photo.png')
+            for value in ('/workspace-two/photo.png', '/private/photo.png', '../photo.png',
+                          '/workspace', '/workspace/browser-profile/Cookies', '.hidden/photo.png',
+                          'inbox/../photo.png', 'inbox/line\nphoto.png', '', None, 'x' * 4097):
+                self.assertIsNone(_history_file(value, '/workspace'), value)
 
     async def test_selected_model_persists_per_topic_and_keeps_existing_thread_history(self):
         client = AsyncMock()

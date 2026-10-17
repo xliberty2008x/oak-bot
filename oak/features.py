@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 SOURCE_FILES = (
-    'oak/features.py', 'oak/controller.py', 'oak/requests.py', 'oak/runtime.py', 'oak/tools.py',
+    'oak/features.py', 'oak/__main__.py', 'oak/controller.py', 'oak/requests.py', 'oak/runtime.py', 'oak/tools.py',
+    'oak/browser.py', 'oak/desktop.py',
     'oak/interaction.py', 'oak/sessions.py', 'oak/bus.py', 'oak/telegram.py',
     'oak/a2ui.py', 'oak/a2ui_telegram.py', 'oak/web.py', 'oak/panel.py', 'oak/signin.py',
     'oak/signin_broker.py', 'oak/signin_fixture.py', 'oak/web/requests.js', 'oak/web/a2ui.js',

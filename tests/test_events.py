@@ -51,6 +51,17 @@ class EventTests(unittest.TestCase):
         self.assertEqual(events[1]["metadata"]["status"], "interrupted")
         self.assertNotIn("outcome", events[1])
 
+    def test_final_blocker_is_not_classified_as_task_success(self):
+        events = EventMapper().feed({'method': 'turn/completed', 'params': {
+            'threadId': 't', 'turn': {'id': 'r', 'status': 'completed', 'items': [{
+                'type': 'agentMessage', 'id': 'final', 'phase': 'final_answer',
+                'text': 'The service requires a paid plan; no video was generated.'}]}}})
+        finished = to_agui_event(events[-1])
+        self.assertEqual(finished['type'], 'RUN_FINISHED')
+        self.assertNotIn('outcome', finished)
+        self.assertEqual(finished['metadata']['taskOutcome'], 'unverified')
+        self.assertEqual(finished['metadata']['status'], 'completed')
+
     def test_tools_have_separate_lifecycle_and_deduplicated_results(self):
         mapper = EventMapper()
         item = {'type': 'dynamicToolCall', 'id': 'tool-1', 'tool': 'remember',
@@ -68,7 +79,8 @@ class EventTests(unittest.TestCase):
             'STEP_STARTED', 'TOOL_CALL_RESULT', 'STEP_FINISHED', 'RUN_FINISHED'])
         self.assertTrue(all(event['threadId'] == 't' and event['runId'] == 'r' for event in events))
         self.assertTrue(all(event['toolCallId'] == 'tool-1' for event in events[1:-1]))
-        self.assertEqual(events[-1]['outcome'], {'type': 'success'})
+        self.assertNotIn('outcome', events[-1])
+        self.assertEqual(events[-1]['metadata']['taskOutcome'], 'unverified')
         self.assertIn('saved', events[-3]['content'])
         wire = to_agui_event(events[-3])
         self.assertNotIn('threadId', wire)

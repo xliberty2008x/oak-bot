@@ -185,7 +185,7 @@ async def run(config_path):
                                  config={'web_search': 'live', **config.get('runtime_config', {})}) as client:
             controller = Controller(client, state_dir / 'state.sqlite', cwd, None,
                                     load_context(config, config_file.parent), config=config)
-            controller.tools = Tools(controller, config)
+            controller.tools = Tools(controller, config, desktop=desktop)
             client.tool_handler = controller.tools.handle
             client.approval_handler = controller.interactions.approval
             client.request_input_handler = controller.interactions.user_input
