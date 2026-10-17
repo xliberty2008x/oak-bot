@@ -8,7 +8,7 @@ let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
-let panelPoll = null, telegramTheme = null;
+let panelPoll = null, telegramTheme = null, telegramBridge = null, bridgeObserver = null, confirmationPending = false;
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
@@ -381,7 +381,7 @@ async function syncSessions() {
   } finally { syncingSessions = false; }
 }
 async function selectSession(id) {
-  if (id === selectedSession || mutationBusy || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
+  if (id === selectedSession || mutationBusy || confirmationPending || $("confirmation").open || !sessionsData?.sessions.some(session => session.id === id)) return;
   panelPoll?.reset();
   sessionEpoch++;
   initialConversation = null;
@@ -572,12 +572,15 @@ function updateActions() {
   for (const button of document.querySelectorAll("[data-mutation]")) button.disabled = mutationBusy || refreshing || button.dataset.locked === "true";
   $("stop").disabled = mutationBusy || refreshing || !panelData?.session?.active || !!stopRequestState;
   $("computer-switch").disabled = mutationBusy || refreshing || $("computer-switch").dataset.locked !== "false";
-  for (const button of document.querySelectorAll("[data-session]")) button.disabled = mutationBusy || button.dataset.session === selectedSession;
+  for (const button of document.querySelectorAll("[data-session]")) button.disabled = mutationBusy || confirmationPending || button.dataset.session === selectedSession;
   updateModelActions();
   renderTopicCapability();
 }
 function confirmAction(title, description, action, danger = false) {
-  return new Promise(resolve => {
+  if (confirmationPending) return Promise.resolve(false);
+  confirmationPending = true; updateActions();
+  const native = telegramLaunch ? telegramBridge?.confirm(title + "\n\n" + description) : null;
+  const result = native || new Promise(resolve => {
     const dialog = $("confirmation");
     $("confirmation-title").textContent = title;
     $("confirmation-description").textContent = description;
@@ -585,8 +588,9 @@ function confirmAction(title, description, action, danger = false) {
     $("confirmation-submit").classList.toggle("danger", danger);
     dialog.returnValue = "cancel";
     dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), {once: true});
-    dialog.showModal();
+    dialog.showModal(); telegramBridge?.update();
   });
+  return result.finally(() => { confirmationPending = false; updateActions(); telegramBridge?.update(); });
 }
 async function mutation(title, description, action, work, danger = false) {
   if (mutationBusy || refreshing || $("workspace").hidden) return;
@@ -673,6 +677,7 @@ function renderApprovals(items) {
 async function decideApproval(id, accepted) {
   if (mutationBusy || refreshing || approvalBlocked.has(id) || $("workspace").hidden) return;
   const epoch = sessionEpoch;
+  telegramBridge?.feedback();
   approvalBlocked.add(id); mutationBusy = true;
   renderApprovals(panelData?.session?.legacy_approvals); updateActions();
   try {
@@ -1349,7 +1354,9 @@ function showView(view, focus = true) {
     else navButton.removeAttribute("aria-current");
   }
   for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== "view-" + view;
+  telegramBridge?.update();
   if (focus) {
+    telegramBridge?.feedback();
     window.scrollTo({top: 0});
     $(view + "-heading").focus({preventScroll: true});
   }
@@ -1369,8 +1376,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelPoll?.reset();
   else { void syncSessions(); panelPoll?.resume(); }
 });
-window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); });
-window.addEventListener("pageshow", () => { telegramTheme?.connect(); panelPoll?.resume(); });
+window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); telegramBridge?.destroy(); bridgeObserver?.disconnect(); });
+window.addEventListener("pageshow", () => { telegramTheme?.connect(); telegramBridge?.connect(); bridgeObserver?.observe(document.body, {subtree: true, attributes: true, attributeFilter: ["open", "hidden"]}); panelPoll?.resume(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });
@@ -1426,7 +1433,7 @@ $("login").addEventListener("submit", async event => {
 
 function telegramReady() {
   try { window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); } catch {}
-  telegramTheme?.connect();
+  telegramTheme?.connect(); telegramBridge?.connect();
 }
 async function inputRequestPanel() {
   if (inputRequestsPanel) return inputRequestsPanel;
@@ -1443,6 +1450,17 @@ $("telegram-sdk").addEventListener("load", telegramReady);
   try {
     const {createTelegramTheme} = await import("/telegram-theme.js");
     telegramTheme = createTelegramTheme({app: () => window.Telegram?.WebApp, root: document.documentElement});
+    const {createTelegramBridge} = await import("/telegram-bridge.js");
+    telegramBridge = createTelegramBridge({app: () => window.Telegram?.WebApp, root: document.documentElement,
+      canBack: () => authenticated && (!!document.querySelector("dialog[open]") || $("view-status").hidden),
+      back: () => {
+        const dialog = document.querySelector("dialog[open]");
+        if (dialog) { if (dialog.dispatchEvent(new Event("cancel", {cancelable: true}))) dialog.close("cancel"); }
+        else if (authenticated && $("view-status").hidden) showView("status");
+        telegramBridge.update();
+      }});
+    bridgeObserver = new MutationObserver(() => telegramBridge?.update());
+    bridgeObserver.observe(document.body, {subtree: true, attributes: true, attributeFilter: ["open", "hidden"]});
     const {createPanelPoll} = await import("/panel-poll.js");
     panelPoll = createPanelPoll({
       read: signal => api("/api/panel", undefined, {signal}),
