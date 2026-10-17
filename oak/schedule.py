@@ -3,6 +3,7 @@
 import asyncio
 from datetime import datetime
 import math
+import string
 import time
 import uuid
 from zoneinfo import ZoneInfo
@@ -53,7 +54,16 @@ class Scheduler:
     def cancel(self, chat_id, job_id):
         with self.db:
             return bool(self.db.execute("UPDATE jobs SET status='cancelled' WHERE id=? AND chat_id=? "
-                                        "AND status IN ('pending','running','uncertain','paused')", (job_id, chat_id)).rowcount)
+                                        "AND status IN ('pending','paused','running','uncertain')", (job_id, chat_id)).rowcount)
+
+    @staticmethod
+    def label(prompt):
+        text = ' '.join(prompt.split())
+        return text[:79] + '…' if len(text) > 80 else text
+
+    @classmethod
+    def notice_label(cls, prompt):
+        return cls.label(prompt).translate(str.maketrans({char: '\\' + char for char in string.punctuation}))
 
     def _finish(self, job_id, interval):
         with self.db:
@@ -64,25 +74,25 @@ class Scheduler:
                 self.db.execute("UPDATE jobs SET status='done' WHERE id=? AND status='running'", (job_id,))
 
     async def _settle_runs(self):
-        rows = self.db.execute("SELECT j.id,j.chat_id,j.interval,t.status FROM jobs j "
+        rows = self.db.execute("SELECT j.id,j.chat_id,j.interval,t.status,j.prompt FROM jobs j "
                                "JOIN turns t ON t.turn_id=j.turn_id "
                                "WHERE j.status='running' AND j.mode='run'").fetchall()
-        for job_id, chat_id, interval, status in rows:
+        for job_id, chat_id, interval, status, prompt in rows:
             if status == 'completed':
                 self._finish(job_id, interval)
             elif status in ('failed', 'interrupted', 'uncertain'):
                 with self.db:
                     self.db.execute("UPDATE jobs SET status='uncertain' WHERE id=? AND status='running'", (job_id,))
-                await self.controller.notice(chat_id, 'Задача ' + job_id +
+                await self.controller.notice(chat_id, 'Задача «' + self.notice_label(prompt) + '» (' + job_id + ')' +
                     ' не завершилася успішно. Перевір її стан; автоматично повторювати не буду.')
 
     async def recover(self):
         await self._settle_runs()
-        rows = self.db.execute("SELECT id,chat_id FROM jobs WHERE status='running'").fetchall()
+        rows = self.db.execute("SELECT id,chat_id,prompt FROM jobs WHERE status='running'").fetchall()
         with self.db:
             self.db.execute("UPDATE jobs SET status='uncertain' WHERE status='running'")
-        for job_id, chat_id in rows:
-            await self.controller.notice(chat_id, 'Задача ' + job_id +
+        for job_id, chat_id, prompt in rows:
+            await self.controller.notice(chat_id, 'Задача «' + self.notice_label(prompt) + '» (' + job_id + ')' +
                                          ' була перервана. Перевір її стан; автоматично повторювати не буду.')
 
     async def tick(self):
@@ -118,7 +128,8 @@ class Scheduler:
             except Exception:
                 with self.db:
                     self.db.execute("UPDATE jobs SET status='uncertain' WHERE id=? AND status='running'", (job_id,))
-                await self.controller.notice(chat_id, 'Не вдалося підтвердити виконання задачі ' + job_id + '.')
+                await self.controller.notice(chat_id, 'Не вдалося підтвердити виконання задачі «' +
+                                             self.notice_label(prompt) + '» (' + job_id + '). Перевір стан; автоматично не повторюю.')
 
     async def run(self):
         await self.recover()
