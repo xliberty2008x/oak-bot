@@ -205,3 +205,32 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('невідомий', await self.g._stop_callback(7, row['token']))
         await self.g._stop_callback(7, row['token'])
         self.assertEqual(self.c.client.request.await_count, 1)
+
+    async def test_durable_receipt_reaction_and_exact_success_binding(self):
+        message = {'update_id': 1, 'message': {'message_id': 33, 'chat': {'type': 'private', 'id': 7},
+                                              'from': {'id': 7}, 'text': 'hello'}}
+        await self.g._ingest(message)
+        await self.g._ingest(message)
+        self.assertEqual(self.g.db.execute('SELECT count(*) FROM input_reactions').fetchone()[0], 1)
+        await self.g._render_reactions()
+        self.assertEqual(self.g._api.call_args.args[1]['reaction'][0]['emoji'], '👀')
+        self.c.db.execute("INSERT INTO inputs(update_id,chat_id,text,status) VALUES (1,7,'hello','accepted')")
+        self.c.db.execute("INSERT INTO turns VALUES ('bound','thread',7,'inProgress')")
+        self.c._accepted(1, 7, 'bound')
+        self.g._bind_reaction(7, 1)
+        self.g._reaction_terminal(7, {'type': 'RUN_FINISHED', 'runId': 'other', 'status': 'completed'})
+        await self.g._render_reactions()
+        self.assertEqual(self.g._api.await_count, 1)
+        self.g._reaction_terminal(7, {'type': 'RUN_FINISHED', 'runId': 'bound', 'status': 'completed'})
+        await self.g._render_reactions()
+        self.assertEqual(self.g._api.call_args.args[1]['reaction'][0]['emoji'], '👍')
+
+    async def test_failed_run_and_failed_reaction_never_show_success_or_replay_input(self):
+        self.g.db.execute("INSERT INTO input_reactions VALUES (1,7,33,'bound','pending','waiting')")
+        self.g.db.commit()
+        self.g._api.side_effect = TelegramError('setMessageReaction')
+        await self.g._render_reactions()
+        self.g._reaction_terminal(7, {'type': 'RUN_ERROR', 'runId': 'bound'})
+        await self.g._render_reactions()
+        self.assertEqual(self.g._api.await_count, 1)
+        self.assertEqual(self.g.db.execute('SELECT completed FROM input_reactions').fetchone()[0], 'failed')
