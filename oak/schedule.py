@@ -19,6 +19,8 @@ class Scheduler:
             status TEXT NOT NULL DEFAULT 'pending')''')
         if 'turn_id' not in {row[1] for row in db.execute('PRAGMA table_info(jobs)')}:
             db.execute('ALTER TABLE jobs ADD COLUMN turn_id TEXT')
+        if 'occurrence' not in {row[1] for row in db.execute('PRAGMA table_info(jobs)')}:
+            db.execute('ALTER TABLE jobs ADD COLUMN occurrence INTEGER NOT NULL DEFAULT 0')
         db.commit()
         from .reminders import ReminderActions
         self.reminders = ReminderActions(self)
@@ -104,13 +106,14 @@ class Scheduler:
             if mode == 'run' and chat_id in self.controller.active:
                 continue
             with self.db:
-                claimed = self.db.execute("UPDATE jobs SET status='running' WHERE id=? AND status='pending'",
+                claimed = self.db.execute("UPDATE jobs SET status='running',occurrence=occurrence+1 WHERE id=? AND status='pending'",
                                           (job_id,)).rowcount
-            if not claimed:
-                continue
+                if not claimed:
+                    continue
+                generation = self.db.execute('SELECT occurrence FROM jobs WHERE id=?', (job_id,)).fetchone()[0]
             try:
                 if mode == 'remind':
-                    await self.reminders.publish(job_id, chat_id, prompt, due)
+                    await self.reminders.publish(job_id, chat_id, prompt, due, generation)
                     self._finish(job_id, interval)
                 else:
                     synthetic_id = -int(uuid.uuid4().hex[:15], 16)
