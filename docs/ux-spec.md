@@ -1,8 +1,9 @@
 # Oak UX behavior specification
 
-Status: proposed behavior for the [implementation roadmap](ux-roadmap.md),
-reconciled against `6517c71` on 2026-10-18. This specification does not assert that
-planned features exist. The current UI and privacy contract is
+Status: implemented behavior for the [implementation roadmap](ux-roadmap.md),
+initially reconciled against `6517c71` on 2026-10-18. The
+[completion record](ux-completion.md) separates implementation, local checks,
+deployment and unverified user-device/provider behavior. The current UI and privacy contract is
 [DESIGN.md](../DESIGN.md); update it alongside any implemented contract change.
 
 ## Shared requirements

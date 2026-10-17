@@ -1,15 +1,17 @@
 # Oak UX implementation roadmap
 
-Status: proposed implementation sequence. Source baseline: `main` at `6517c71`,
-rechecked on 2026-10-18. Product behavior and acceptance criteria are in
+Status: every implementation unit below is merged; application release
+`53cc8ce7909f0e9a6e9db8f97fd8224bc7749b1d` is deployed. Initial source baseline:
+`main` at `6517c71`, reconciled on 2026-10-18. Actual verification and deployment
+evidence is in [ux-completion.md](ux-completion.md). Behavior and acceptance criteria are in
 [ux-spec.md](ux-spec.md). Read [AGENTS.md](../AGENTS.md) and
 [DESIGN.md](../DESIGN.md) before implementing an item.
 
 The goal is to make ongoing work visible, make owner decisions understandable,
 and let owners manage their conversation without copying internal identifiers.
-Deliver one bounded behavior per PR. The first PR is this plan and specification;
-runtime changes follow in separate PRs. A proposed item is not a deployment or a
-claim of live Telegram verification.
+Implementation was delivered as small PRs, beginning with this plan and
+specification. A merge alone does not establish deployment or live Telegram
+client verification; the completion record separates these outcomes.
 
 ## Reconciliation of the original audit
 
@@ -93,18 +95,42 @@ the existing contextual Mini App input and its native request binding.
 
 ## Handoff and progress ledger
 
-| Item | State at this documentation change | PR / evidence |
+| Item | Implemented behavior | Merged PRs |
 | --- | --- | --- |
-| UX-00 | In review | [PR #25](https://github.com/xliberty2008x/oak-bot/pull/25); source reconciliation against `6517c71`, 36 local links and diff/portable-path checks passed. |
-| UX-01 | In review | [PR #26](https://github.com/xliberty2008x/oak-bot/pull/26), head `d772c95`; 9 command, 14 state and 11 renderer tests passed; no live Telegram/deployment check. |
-| UX-02 through UX-19 | Planned | No completion, deployment or live verification claimed. |
+| UX-00 | Plan/specification, reconciliation and release identity | [#25](https://github.com/xliberty2008x/oak-bot/pull/25), [#75](https://github.com/xliberty2008x/oak-bot/pull/75) |
+| UX-01 | Readable schedule | [#26](https://github.com/xliberty2008x/oak-bot/pull/26) |
+| UX-02 | Command menu and grouped help | [#27](https://github.com/xliberty2008x/oak-bot/pull/27) |
+| UX-03 | Durable approval decisions and card settlement | [#29](https://github.com/xliberty2008x/oak-bot/pull/29) |
+| UX-04 | Approval deadlines, reminder and expiry | [#30](https://github.com/xliberty2008x/oak-bot/pull/30) |
+| UX-05a | Private-safe activity and elapsed time | [#33](https://github.com/xliberty2008x/oak-bot/pull/33) |
+| UX-05b | Run-bound stop | [#34](https://github.com/xliberty2008x/oak-bot/pull/34) |
+| UX-06a | Durable received/completed reactions | [#39](https://github.com/xliberty2008x/oak-bot/pull/39) |
+| UX-06b | Explicit edit policy | [#40](https://github.com/xliberty2008x/oak-bot/pull/40) |
+| UX-07 | Human time grammar and DST | [#28](https://github.com/xliberty2008x/oak-bot/pull/28), [#72](https://github.com/xliberty2008x/oak-bot/pull/72) |
+| UX-08a | Occurrence-bound snooze/done | [#55](https://github.com/xliberty2008x/oak-bot/pull/55), [#70](https://github.com/xliberty2008x/oak-bot/pull/70) |
+| UX-08b | Owned cancellation and named failures | [#56](https://github.com/xliberty2008x/oak-bot/pull/56) |
+| UX-09 | Read-only conversation status | [#38](https://github.com/xliberty2008x/oak-bot/pull/38) |
+| UX-10 | Scoped polling and preserved drafts/focus | [#31](https://github.com/xliberty2008x/oak-bot/pull/31), [#65](https://github.com/xliberty2008x/oak-bot/pull/65), [#73](https://github.com/xliberty2008x/oak-bot/pull/73) |
+| UX-11 | Mini App approval decisions | [#35](https://github.com/xliberty2008x/oak-bot/pull/35) |
+| UX-12a | Scoped /forget | [#37](https://github.com/xliberty2008x/oak-bot/pull/37) |
+| UX-12b | Memory list/search/add/delete | [#41](https://github.com/xliberty2008x/oak-bot/pull/41), [#74](https://github.com/xliberty2008x/oak-bot/pull/74) |
+| UX-13a | Bounded owner task previews | [#42](https://github.com/xliberty2008x/oak-bot/pull/42), [#44](https://github.com/xliberty2008x/oak-bot/pull/44) |
+| UX-13b | Create/reschedule/pause with revision guards | [#46](https://github.com/xliberty2008x/oak-bot/pull/46), [#47](https://github.com/xliberty2008x/oak-bot/pull/47), [#48](https://github.com/xliberty2008x/oak-bot/pull/48), [#50](https://github.com/xliberty2008x/oak-bot/pull/50), [#51](https://github.com/xliberty2008x/oak-bot/pull/51), [#52](https://github.com/xliberty2008x/oak-bot/pull/52), [#65](https://github.com/xliberty2008x/oak-bot/pull/65), [#67](https://github.com/xliberty2008x/oak-bot/pull/67), [#69](https://github.com/xliberty2008x/oak-bot/pull/69), [#71](https://github.com/xliberty2008x/oak-bot/pull/71) |
+| UX-14a | Uncertainty inspection/acknowledgement | [#32](https://github.com/xliberty2008x/oak-bot/pull/32), [#58](https://github.com/xliberty2008x/oak-bot/pull/58), [#74](https://github.com/xliberty2008x/oak-bot/pull/74) |
+| UX-14b | Explicit fresh retry | [#36](https://github.com/xliberty2008x/oak-bot/pull/36), [#59](https://github.com/xliberty2008x/oak-bot/pull/59) |
+| UX-15 | Scoped Telegram model selection | [#68](https://github.com/xliberty2008x/oak-bot/pull/68) |
+| UX-16a | Durable albums | [#53](https://github.com/xliberty2008x/oak-bot/pull/53) |
+| UX-16b | Optional single transcript echo | [#54](https://github.com/xliberty2008x/oak-bot/pull/54) |
+| UX-17a | Telegram theme | [#49](https://github.com/xliberty2008x/oak-bot/pull/49), [#76](https://github.com/xliberty2008x/oak-bot/pull/76) |
+| UX-17b | Native navigation, insets and haptics | [#57](https://github.com/xliberty2008x/oak-bot/pull/57) |
+| UX-18a | Scoped file discovery and bounded downloads | [#43](https://github.com/xliberty2008x/oak-bot/pull/43), [#60](https://github.com/xliberty2008x/oak-bot/pull/60), [#66](https://github.com/xliberty2008x/oak-bot/pull/66) |
+| UX-18b | Activity history and Diagnostics | [#45](https://github.com/xliberty2008x/oak-bot/pull/45), [#61](https://github.com/xliberty2008x/oak-bot/pull/61) |
+| UX-19 | Shared incremental Ukrainian catalogue | [#62](https://github.com/xliberty2008x/oak-bot/pull/62), [#63](https://github.com/xliberty2008x/oak-bot/pull/63) |
 
-Next implementation: UX-02 command discovery, or independently UX-03 approval
-feedback. Review UX-00 before merging UX-01; both PRs target `main` independently.
-
-For every implementation PR, update this ledger with its URL and actual check
-results. Use `prepared`, `in review`, `merged`, and `deployed/verified` separately;
-never infer deployment from a merge. Record source SHA and remaining limitations.
+All rows are merged and included in the deployed application release above.
+The [completion record](ux-completion.md) records exact test sources/counts,
+browser coverage, actual server/Telegram API checks and remaining device/provider
+verification limits. No implementation item in this roadmap remains pending.
 
 To continue after a handoff:
 
