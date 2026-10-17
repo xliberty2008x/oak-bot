@@ -228,7 +228,7 @@ class ControlPanel:
         if task_id is not None:
             query += ' AND j.id=?'
             args.append(task_id)
-        query += " ORDER BY j.status IN ('pending','running','uncertain') DESC,j.due DESC LIMIT 100"
+        query += " ORDER BY j.status IN ('pending','running','uncertain','paused') DESC,j.due DESC LIMIT 100"
         rows = self.db.execute(query, args).fetchall()
         tasks = [{k: row[k] for k in ('id', 'due', 'interval', 'mode', 'status', 'revision')} |
                  {'turn_status': self.turn_status(row['turn_status']),
