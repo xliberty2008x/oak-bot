@@ -572,7 +572,12 @@ Confirmation displays the resolved local date, numeric offset and IANA timezone.
 Preserve the existing Oak green panel and compact private form. The panel follows
 Telegram light/dark appearance through the existing semantic tokens. Validated
 background/text hints use readable fallbacks; browser mode keeps the dark green
-default. Theme listeners are cleaned up on page hide and restored on reopen.
+default. Theme listeners are cleaned up on page hide and restored on reopen. Telegram
+BackButton cancels the current owned dialog before returning from a section;
+native confirmations and selection haptics are feature-detected with browser
+fallback. Native device/content insets augment the existing CSS safe-area rules. The
+feature contracts follow the [Telegram Mini Apps reference](https://core.telegram.org/bots/webapps);
+physical Telegram keyboard/orientation acceptance remains separate from Node checks.
 The separate private website document and its dark host remain unchanged. Reuse actual
 CSS and DOM components; this document introduces no redesign, font download or
 spacing framework.
