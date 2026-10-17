@@ -797,3 +797,11 @@ by session epoch and view generation. Technical settings live in a native,
 keyboard-accessible Diagnostics disclosure, initially collapsed; model and
 computer controls remain directly accessible. Existing desktop and task timelines
 remain the detailed entry points.
+
+Shared product strings are loaded from the authenticated `/api/locale` catalogue
+and formatted by the same-origin `locale.js` module. Ukrainian is the default
+and fallback; only migrated file/recovery/activity/task/memory labels use catalogue
+keys. A late locale response cannot cross a session epoch. Existing Ukrainian
+labels remain readable if catalogue retrieval fails. User content is never used
+as a translation key or HTML; catalogue output is assigned with `textContent`.
+See [the incremental localization contract](docs/localization.md).
