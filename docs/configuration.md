@@ -413,3 +413,9 @@ local transcription also produces one owner-visible quotation, bounded to 2000
 characters before Markdown escaping. It does not transcribe a second time. A
 receipt keyed by the original input prevents duplicate echoes; echo delivery
 failure does not fail or repeat model submission.
+
+Delivered reminders expose `+10 хв`, `+1 год` and `Готово` for seven days. The
+controls identify one owned occurrence. Snooze creates one new reminder from
+click time and leaves a recurring parent's next occurrence unchanged. Repeated
+clicks return the stored outcome; a different second choice is rejected. Agent
+jobs cannot be snoozed into another execution. Expired controls cannot act.

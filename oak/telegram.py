@@ -659,7 +659,15 @@ class TelegramGateway:
                 scope = self._message_scope(message)
                 outcome = 'Запит недоступний.'
                 stop = re.fullmatch(r'stop:([a-f0-9]{16})', data)
-                if stop and not self.sessions.deleted(scope):
+                reminder = re.fullmatch(r'remind:([a-f0-9]{16}):(600|3600|done)', data)
+                if reminder and not self.sessions.deleted(scope):
+                    try:
+                        result = self.controller.scheduler.reminders.decide(scope, reminder[1], reminder[2])
+                        outcome = 'Нагадаю пізніше.' if result['state'] == 'snoozed' else 'Нагадування завершено.'
+                        self.events.put_nowait(None)
+                    except ValueError as exc:
+                        outcome = str(exc)
+                elif stop and not self.sessions.deleted(scope):
                     outcome = await self._stop_callback(scope, stop[1])
                 elif match and not self.sessions.deleted(scope):
                     outcome = await self._decision(scope, f'/{match[1]} {match[2]}', notify=False)
@@ -1075,6 +1083,19 @@ class TelegramGateway:
                 self._queue_delivery(chat_id, method, {
                     'chat_id': chat_id, 'caption': split_text(caption, 1024)[0],
                     '_upload': {'path': str(path), 'mime': mime}})
+            elif name == 'reminder':
+                identifier = str(value.get('id', ''))
+                if not re.fullmatch(r'[a-f0-9]{16}', identifier):
+                    raise ValueError('Invalid reminder occurrence.')
+                chunks = split_text(str(value.get('text', 'Нагадування.')), 3800)
+                self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id,
+                    'text': chunks[0], 'reply_markup': {'inline_keyboard': [[
+                        {'text': '+10 хв', 'callback_data': f'remind:{identifier}:600'},
+                        {'text': '+1 год', 'callback_data': f'remind:{identifier}:3600'},
+                        {'text': 'Готово', 'callback_data': f'remind:{identifier}:done'}]]}}, f'{chat_id}:reminder:{identifier}')
+                for index, chunk in enumerate(chunks[1:], 1):
+                    self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id, 'text': chunk},
+                                         f'{chat_id}:reminder-part:{identifier}:{index}')
             elif name == 'progress':
                 from .activity import UNSUPPORTED_INPUT_MESSAGE
                 if value.get('message') == UNSUPPORTED_INPUT_MESSAGE:
@@ -1411,10 +1432,46 @@ class TelegramGateway:
             with self.db:
                 self.db.execute('UPDATE deliveries SET receipt=? WHERE id=?', (json.dumps(receipt), row['id']))
 
+    def _reminder_payload(self, row, payload):
+        prefix = str(row['chat_id']) + ':reminder:'
+        if not row['id'].startswith(prefix):
+            return payload, None
+        actions = getattr(getattr(self.controller, 'scheduler', None), 'reminders', None)
+        if not callable(getattr(type(actions), 'snapshot', None)):
+            return payload, None
+        try:
+            state = actions.snapshot(row['chat_id'], row['id'][len(prefix):])['state']
+        except ValueError:
+            state = 'expired'
+        labels = {'snoozed': 'Нагадаю пізніше.', 'done': 'Нагадування завершено.', 'expired': 'Кнопки нагадування прострочені.'}
+        if state not in labels:
+            return payload, state
+        return {**payload, 'text': split_text(payload['text'], 3800)[0] + '\n\n' + labels[state],
+                'reply_markup': {'inline_keyboard': []}}, state
+
+    async def _settle_reminders(self):
+        rows = self.db.execute("SELECT * FROM deliveries WHERE status='delivered' AND id LIKE '%:reminder:%' "
+                               "AND coalesce(json_extract(receipt,'$.reminder_state'),'pending')='pending'").fetchall()
+        for row in rows:
+            if self.sessions.deleted(row['chat_id']):
+                continue
+            payload, state = self._reminder_payload(row, json.loads(row['payload']))
+            receipt = json.loads(row['receipt'] or '{}')
+            if state in (None, 'pending') or type(receipt.get('message_id')) is not int:
+                continue
+            try:
+                await self._deliver('editMessageText', {**payload, 'message_id': receipt['message_id']})
+            except TelegramError:
+                pass
+            receipt['reminder_state'] = state
+            with self.db:
+                self.db.execute('UPDATE deliveries SET receipt=? WHERE id=?', (json.dumps(receipt), row['id']))
+
     async def _render_delivery(self, row):
         if row['method'] == CARD:
             return await self._render_card(row)
         payload, approval_state = self._approval_payload(row, json.loads(row['payload']))
+        payload, reminder_state = self._reminder_payload(row, payload)
         files = getattr(getattr(self.controller, 'tools', None), 'files', None)
         if files and '_upload' in payload and not files.stored(payload['_upload']['path']):
             payload['_upload']['path'] = str(await files.snapshot(payload['_upload']['path']))
@@ -1440,6 +1497,8 @@ class TelegramGateway:
         receipt = {'message_id': result['message_id']}
         if approval_state is not None:
             receipt['approval_state'] = approval_state
+        if reminder_state is not None:
+            receipt['reminder_state'] = reminder_state
         for kind in ('document', 'audio', 'voice', 'video', 'photo'):
             media = result.get(kind)
             if isinstance(media, list) and media:
@@ -1459,6 +1518,7 @@ class TelegramGateway:
                 if time.monotonic() - self._last_send.get(row['chat_id'], 0) >= 1:
                     await self._render_delivery(row)
             await self._settle_approvals()
+            await self._settle_reminders()
             pending = self._pending()
             for chat_id, reply, chunks in pending:
                 if time.monotonic() - self._last_send.get(chat_id, 0) >= 1:

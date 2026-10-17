@@ -19,6 +19,8 @@ class Scheduler:
         if 'turn_id' not in {row[1] for row in db.execute('PRAGMA table_info(jobs)')}:
             db.execute('ALTER TABLE jobs ADD COLUMN turn_id TEXT')
         db.commit()
+        from .reminders import ReminderActions
+        self.reminders = ReminderActions(self)
 
     def add(self, chat_id, prompt, delay_seconds=None, at=None, interval_seconds=None, mode='remind'):
         if not prompt.strip() or len(prompt) > 16000 or mode not in ('remind', 'run'):
@@ -98,8 +100,7 @@ class Scheduler:
                 continue
             try:
                 if mode == 'remind':
-                    await self.controller.notice(chat_id, 'Нагадування: ' + prompt,
-                                                 run_id='job-' + job_id + '-' + str(due))
+                    await self.reminders.publish(job_id, chat_id, prompt, due)
                     self._finish(job_id, interval)
                 else:
                     synthetic_id = -int(uuid.uuid4().hex[:15], 16)
