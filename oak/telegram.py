@@ -549,7 +549,7 @@ class TelegramGateway:
         return (chat.get('type') == 'private' and type(user_id) is int
                 and user_id in allowed and chat.get('id') == user_id and not sender.get('is_bot'))
 
-    async def _decision(self, chat_id, text):
+    async def _decision(self, chat_id, text, *, notify=True):
         parts = text.split(maxsplit=2)
         command = parts[0].split('@', 1)[0]
         if len(parts) < 2 or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}', parts[1]):
@@ -564,9 +564,13 @@ class TelegramGateway:
             else:
                 result = await self.controller.approve(chat_id, parts[1], command == '/approve')
         except (ValueError, RuntimeError):
-            await self._notice(chat_id, 'Запит недоступний, уже оброблений або завершився.')
+            outcome = 'Запит недоступний, уже оброблений або завершився.'
         else:
-            await self._notice(chat_id, result if isinstance(result, str) and result else 'Відповідь прийнято.')
+            outcome = result if isinstance(result, str) and result else 'Відповідь прийнято.'
+        self.events.put_nowait(None)
+        if notify:
+            await self._notice(chat_id, outcome)
+        return outcome
 
     async def _notice(self, chat_id, text):
         if callable(getattr(type(self.controller), 'notice', None)):
@@ -631,10 +635,11 @@ class TelegramGateway:
                 data = callback.get('data', '')
                 match = re.fullmatch(r'(approve|deny):([A-Za-z0-9_.:-]{1,56})', data)
                 scope = self._message_scope(message)
+                outcome = 'Запит недоступний.'
                 if match and not self.sessions.deleted(scope):
-                    await self._decision(scope, f'/{match[1]} {match[2]}')
+                    outcome = await self._decision(scope, f'/{match[1]} {match[2]}', notify=False)
                 try:
-                    await self._api('answerCallbackQuery', {'callback_query_id': callback['id']})
+                    await self._api('answerCallbackQuery', {'callback_query_id': callback['id'], 'text': outcome or 'Запит недоступний.'})
                 except TelegramError as exc:
                     if exc.code != 400:  # An expired callback needs no replay.
                         raise
@@ -1123,10 +1128,52 @@ class TelegramGateway:
                 return finish('uncertain', {**receipt, **({'message_id': previous} if previous is not None else {})})
             return finish('delivered', {**receipt, 'message_id': message_id})
 
+    def _approval_payload(self, row, payload):
+        prefix = str(row['chat_id']) + ':approval_request:'
+        if not row['id'].startswith(prefix):
+            return payload, None
+        interactions = getattr(self.controller, 'interactions', None)
+        if not callable(getattr(type(interactions), 'snapshot', None)):
+            return payload, None
+        try:
+            state = interactions.snapshot(row['chat_id'], row['id'][len(prefix):])['state']
+        except ValueError:
+            state = 'expired'
+        labels = {'accepted': '✅ Дозволено', 'declined': '❌ Відхилено',
+                  'answered': 'Відповідь прийнято', 'expired': '⌛ Прострочено', 'cancelled': 'Скасовано'}
+        if state not in labels:
+            return payload, state
+        text = payload.get('text', '').split('\n\n/approve ', 1)[0]
+        return {**payload, 'text': split_text(text + '\n\n' + labels[state])[0],
+                'reply_markup': {'inline_keyboard': []}}, state
+
+    async def _settle_approvals(self):
+        # Receipts are authority for message identity. Never resend an uncertain card.
+        rows = self.db.execute("SELECT * FROM deliveries WHERE method='sendMessage' AND status='delivered' "
+                               "AND id LIKE '%:approval_request:%'").fetchall()
+        for row in rows:
+            if self.sessions.deleted(row['chat_id']):
+                continue
+            payload, state = self._approval_payload(row, json.loads(row['payload']))
+            receipt = json.loads(row['receipt'] or '{}')
+            if state in (None, 'pending') or receipt.get('approval_state') == state:
+                continue
+            if type(receipt.get('message_id')) is not int:
+                continue
+            try:
+                await self._deliver('editMessageText', {**payload, 'message_id': receipt['message_id']})
+                receipt['approval_edit'] = 'delivered'
+            except TelegramError:
+                receipt['approval_edit'] = 'failed'
+            # A cosmetic failure never undoes or repeats the native decision.
+            receipt['approval_state'] = state
+            with self.db:
+                self.db.execute('UPDATE deliveries SET receipt=? WHERE id=?', (json.dumps(receipt), row['id']))
+
     async def _render_delivery(self, row):
         if row['method'] == CARD:
             return await self._render_card(row)
-        payload = json.loads(row['payload'])
+        payload, approval_state = self._approval_payload(row, json.loads(row['payload']))
         files = getattr(getattr(self.controller, 'tools', None), 'files', None)
         if files and '_upload' in payload and not files.stored(payload['_upload']['path']):
             payload['_upload']['path'] = str(await files.snapshot(payload['_upload']['path']))
@@ -1150,6 +1197,8 @@ class TelegramGateway:
                 return
             raise
         receipt = {'message_id': result['message_id']}
+        if approval_state is not None:
+            receipt['approval_state'] = approval_state
         for kind in ('document', 'audio', 'voice', 'video', 'photo'):
             media = result.get(kind)
             if isinstance(media, list) and media:
@@ -1168,6 +1217,7 @@ class TelegramGateway:
             for row in self._deliveries():
                 if time.monotonic() - self._last_send.get(row['chat_id'], 0) >= 1:
                     await self._render_delivery(row)
+            await self._settle_approvals()
             pending = self._pending()
             for chat_id, reply, chunks in pending:
                 if time.monotonic() - self._last_send.get(chat_id, 0) >= 1:
@@ -1175,7 +1225,7 @@ class TelegramGateway:
             pending = self._pending()
             pending_chats = [chat_id for chat_id, _, _ in pending] + [row['chat_id'] for row in self._deliveries()]
             delay = min((max(0, 1 - (time.monotonic() - self._last_send.get(chat_id, 0)))
-                         for chat_id in pending_chats), default=None)
+                         for chat_id in pending_chats), default=1)
             try:
                 await asyncio.wait_for(self.events.get(), timeout=delay)
             except asyncio.TimeoutError:
