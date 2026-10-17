@@ -486,6 +486,11 @@ It renders as literal text. Raw prompts remain absent from task responses, panel
 summaries, lifecycle history and events; previews are not a general disclosure of
 private request, tool or website-form content.
 
+Recovery inspection is scoped to the owner and selected conversation. Lists show
+fixed family labels and bounded input/job previews only, never native responses
+or outbox payloads. Marking a record reviewed records an acknowledgement and
+leaves every uncertain execution/delivery state unchanged.
+
 The Memory view reads only the selected conversation through `MemoryStore`, with
 20 records per page and bounded full-text queries. Add/delete operations commit
 with durable scoped operation receipts; a lost response can be checked with the
