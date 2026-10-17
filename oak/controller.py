@@ -710,7 +710,8 @@ class Controller:
             return ('Oak готовий до роботи. Напиши задачу або надішли фото, файл чи голосове.\n\n'
                     '/help — усі команди\n/status — стан розмови\n/stop — зупинити задачу')
         if name == '/status':
-            return 'Oak працює. ' + ('Є активна задача.' if chat_id in self.active else 'Готовий до нової задачі.')
+            from .status import chat_text
+            return chat_text(self, chat_id)
         if name == '/web':
             url = self.web_app_url(chat_id)
             if not url:
