@@ -8,13 +8,18 @@ import re
 TIME_HELP = 'Формат: /remind 10m текст; 2h; 18:30; завтра 09:00; 2026-10-18T09:00+03:00'
 
 
-def local_time(wall, zone):
+def local_choices(wall, zone):
     choices = {}
     for fold in (0, 1):
         aware = wall.replace(tzinfo=zone, fold=fold)
         epoch = aware.timestamp()
         if datetime.fromtimestamp(epoch, zone).replace(tzinfo=None) == wall:
             choices[epoch] = aware
+    return choices
+
+
+def local_time(wall, zone):
+    choices = local_choices(wall, zone)
     if len(choices) != 1:
         raise ValueError('Цей місцевий час неоднозначний або не існує. Вкажи ISO-час із UTC-зсувом, наприклад 2026-10-25T03:30+02:00.')
     return next(iter(choices.values()))
@@ -43,10 +48,14 @@ def parse_when(value, zone, *, now=None):
         today = now.astimezone(zone).date()
         date = today + timedelta(days=1) if tomorrow else today
         wall = datetime.combine(date, datetime.min.time()).replace(hour=hour, minute=minute)
-        candidate = local_time(wall, zone)
-        if not tomorrow and candidate.timestamp() <= now.timestamp():
-            candidate = local_time(wall + timedelta(days=1), zone)
-        return candidate
+        if not tomorrow:
+            choices = local_choices(wall, zone)
+            # A fold is past only when both instants have elapsed. A gap has
+            # no instant: compare its wall clock after the transition instead.
+            elapsed = max(choices) <= now.timestamp() if choices else wall <= now.astimezone(zone).replace(tzinfo=None)
+            if elapsed:
+                wall += timedelta(days=1)
+        return local_time(wall, zone)
     try:
         moment = datetime.fromisoformat(value[:-1] + '+00:00' if value.endswith('Z') else value)
         if moment.tzinfo is None:
