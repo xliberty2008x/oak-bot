@@ -121,6 +121,22 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.memory.search(11), [])
         self.assertEqual(self.c.db.execute('SELECT count(*) FROM web_memory_operations').fetchone()[0], 0)
 
+    async def test_task_preview_is_bounded_and_absent_from_summary(self):
+        prompt = '<script>owner text</script>\n' + '🙂' * 100
+        identifier = self.c.scheduler.add(11, prompt, delay_seconds=60)
+        self.c.scheduler.add(22, 'OTHER_OWNER_PROMPT', delay_seconds=60)
+        value = await (await self.http.get('/api/tasks', headers=self.headers)).json()
+        self.assertEqual(len(value['tasks']), 1)
+        task = value['tasks'][0]
+        self.assertEqual(task['id'], identifier)
+        self.assertEqual(task['preview'], ' '.join(prompt.split())[:79] + '…')
+        self.assertEqual(len(task['preview']), 80)
+        self.assertNotIn('prompt', task)
+        self.assertNotIn('OTHER_OWNER_PROMPT', json.dumps(value))
+        self.assertNotIn('preview', value['summary']['next_task'])
+        panel = await (await self.http.get('/api/panel', headers=self.headers)).json()
+        self.assertNotIn('owner text', json.dumps(panel))
+
 
 if __name__ == '__main__':
     unittest.main()
