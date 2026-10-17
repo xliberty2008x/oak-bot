@@ -399,7 +399,8 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result['tasks']), 100)
         self.assertEqual(result['summary']['active_count'], 101)
         self.assertEqual(result['summary']['next_task']['id'], '0')
-        self.assertNotIn('PRIVATE_TASK', json.dumps(result))
+        self.assertNotIn('PRIVATE_TASK', json.dumps(result['summary']))
+        self.assertTrue(all(task['preview'] == 'PRIVATE_TASK' and 'prompt' not in task for task in result['tasks']))
         self.controller.db.execute("UPDATE jobs SET status='running' WHERE chat_id=11")
         summary = gateway.controls.tasks(11)['summary']
         self.assertEqual(summary['running_count'], 101)
