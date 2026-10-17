@@ -13,6 +13,7 @@ const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
 let recoveryNext = null, recoveryGeneration = 0;
+const recoveryRetries = new Map();
 let taskCreateOperation = null;
 const taskReschedules = new Map(), taskPauses = new Map();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
@@ -802,6 +803,23 @@ async function loadRecovery(before = null) {
         });
         actions.append(button);
       }
+      if (item.retry) {
+        const states = {accepted: "Новий запит прийнято", not_started: "Новий запуск не розпочато", dispatching: "Новий запит передається", uncertain: "Передавання нового запиту не підтверджено", failed: "Новий запуск завершився помилкою", cancelled: "Новий запуск скасовано"};
+        row.append(element("p", (states[item.retry.state] || "Стан нового запуску невідомий") + ". Первісний результат залишається невідомим.", "hint"));
+      }
+      if (item.can_retry) {
+        const retry = element("button", "Повторити як новий запит", "quiet"); retry.type = "button"; retry.dataset.mutation = "retry";
+        retry.addEventListener("click", () => mutation("Повторити запит?", "Спершу перевір результат у зовнішньому сервісі: повтор може дублювати вже виконану дію. Буде створено новий запит; попередній залишиться невизначеним.", "Створити новий запит", async current => {
+          if (!recoveryRetries.has(item.id)) recoveryRetries.set(item.id, crypto.randomUUID().replace(/-/g, ""));
+          try {
+            const result = await api("/api/recovery/" + encodeURIComponent(item.id) + "/retry", {confirmed: true, operation_id: recoveryRetries.get(item.id)});
+            if (current !== sessionEpoch) return;
+            message("notice", result.state === "accepted" ? "Новий запит прийнято. Первісний результат залишається невідомим." : "Перевір стан нового запиту нижче. Автоматичного повтору немає.");
+          } catch { if (current === sessionEpoch) message("notice", "Передавання потребує перевірки. Оновлюємо стан без автоматичного повтору.", true); }
+          if (current === sessionEpoch) await loadRecovery();
+        }, true));
+        actions.append(retry);
+      }
       row.append(actions); $("recovery-list").append(row);
     }
     recoveryNext = value.next_cursor; $("recovery-more").hidden = recoveryNext === null;
@@ -812,7 +830,7 @@ async function loadRecovery(before = null) {
 $("recovery-more").addEventListener("click", () => { if (recoveryNext !== null) void loadRecovery(recoveryNext); });
 
 function resetMemory() {
-  recoveryGeneration++; recoveryNext = null; $("recovery-list").replaceChildren(); $("recovery-more").hidden = true;
+  recoveryGeneration++; recoveryNext = null; recoveryRetries.clear(); $("recovery-list").replaceChildren(); $("recovery-more").hidden = true;
   memoryGeneration++; memoryNext = null; memoryQuery = ""; memoryOperation = null; memoryDeletes.clear();
   $("memory-list").replaceChildren(); $("memory-more").hidden = true;
   $("memory-text").value = ""; $("memory-text").disabled = false; $("memory-query").value = "";
