@@ -30,6 +30,16 @@ def preview(text, limit=80):
     return text if len(text) <= limit else text[:limit - 1] + '…'
 
 
+ARTIFACT_MEDIA = {'image': {'image/png', 'image/jpeg', 'image/gif', 'image/webp'},
+                  'video': {'video/mp4', 'video/webm'},
+                  'audio': {'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav'}}
+
+
+def artifact_mime(mime):
+    return mime if mime in {'application/pdf', 'text/plain', 'application/zip'} \
+        or any(mime in types for types in ARTIFACT_MEDIA.values()) else 'application/octet-stream'
+
+
 class OwnerViews:
     def __init__(self, controller):
         self.controller, self.db = controller, controller.db
@@ -44,16 +54,12 @@ class OwnerViews:
                                + 'ORDER BY rowid DESC LIMIT ?',
                                (scope, before, limit + 1) if before is not None else (scope, limit + 1)).fetchall()
         items = []
-        media = {'image': {'image/png', 'image/jpeg', 'image/gif', 'image/webp'},
-                 'video': {'video/mp4', 'video/webm'},
-                 'audio': {'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav'}}
         for row in rows[:limit]:
             name = str(row['name'] or '').replace('\\', '/').rsplit('/', 1)[-1]
             name = preview(''.join(char for char in name if ord(char) >= 32 and not 127 <= ord(char) <= 159), 120)
             name = name or 'Файл'
-            mime = row['mime'] if row['mime'] in {'application/pdf', 'text/plain', 'application/zip'} \
-                or any(row['mime'] in types for types in media.values()) else 'application/octet-stream'
-            kind = next((kind for kind, types in media.items() if mime in types), 'document')
+            mime = artifact_mime(row['mime'])
+            kind = next((kind for kind, types in ARTIFACT_MEDIA.items() if mime in types), 'document')
             size = None
             try:
                 path = Path(row['path'])
