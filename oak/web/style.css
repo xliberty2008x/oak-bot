@@ -616,3 +616,5 @@ dialog.signin-host { width: min(calc(100% - 24px), 560px); max-height: calc(100d
 .task-create { margin-bottom: 24px; padding: 20px 24px; }
 .task-create summary { cursor: pointer; min-height: 24px; font-weight: 600; }
 .task-create details { margin-top: 18px; }
+
+.artifact-preview { display: block; max-width: 100%; max-height: 480px; object-fit: contain; margin-top: 16px; border-radius: var(--radius-sm); }
