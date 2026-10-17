@@ -70,6 +70,74 @@ class OwnerViewTests(unittest.TestCase):
         with self.assertRaises(LookupError):
             self.views.artifacts(7, topic)
 
+    def turn(self, identifier, *, scope=7, status='completed', events=()):
+        with self.db:
+            self.db.execute('INSERT INTO turns VALUES (?,?,?,?)', (identifier, 'thread', scope, status))
+            for event in events:
+                self.db.execute('INSERT INTO ui_events(chat_id,run_id,event) VALUES (?,?,?)',
+                                (scope, identifier, json.dumps(event)))
+
+    def test_activity_projects_lifecycle_and_fixed_tool_labels_without_private_data(self):
+        self.turn('PRIVATE_TURN', events=[
+            {'type': 'RUN_STARTED', 'timestamp': 100000, 'input': 'PRIVATE_INPUT'},
+            {'type': 'TOOL_CALL_START', 'toolCallId': 'one', 'toolCallName': 'webSearch'},
+            {'type': 'TOOL_CALL_START', 'toolCallId': 'one', 'toolCallName': 'webSearch'},
+            {'type': 'TOOL_CALL_START', 'toolCallId': 'two', 'toolCallName': 'PRIVATE_TOOL'},
+            {'type': 'TOOL_CALL_ARGS', 'delta': 'PRIVATE_ARGS'},
+            {'type': 'TOOL_CALL_RESULT', 'content': 'PRIVATE_RESULT'},
+            {'type': 'RUN_FINISHED', 'timestamp': 101500, 'outcome': {'type': 'success'}, 'result': 'PRIVATE_RESULT'},
+        ])
+        item = self.views.activity(7, 7)['items'][0]
+        self.assertEqual(item['duration_seconds'], 1.5)
+        self.assertEqual((item['started_at'], item['finished_at']), (100, 101.5))
+        self.assertEqual(item['tool_count'], 2)
+        self.assertEqual(set(item['tool_labels']), {'Шукаю в інтернеті', 'Виконую дію'})
+        self.assertEqual(item['task_outcome'], 'unverified')
+        self.assertEqual(item['status'], 'completed')
+        self.assertNotIn('PRIVATE_', json.dumps(item))
+
+    def test_activity_status_duration_and_unknown_timing_remain_distinct(self):
+        for status in ('inProgress', 'uncertain', 'failed', 'interrupted', 'PRIVATE_STATUS'):
+            self.turn(status, status=status, events=[{'type': 'RUN_STARTED', 'timestamp': 100000}])
+        self.turn('failed-timed', status='failed', events=[
+            {'type': 'RUN_STARTED', 'timestamp': 100000},
+            {'type': 'RUN_ERROR', 'timestamp': 99000, 'message': 'PRIVATE_ERROR'}])
+        result = self.views.activity(7, 7)
+        self.assertEqual({item['status'] for item in result['items']}, {'inProgress', 'uncertain', 'failed', 'interrupted', 'unknown'})
+        self.assertTrue(all(item['duration_seconds'] is None for item in result['items']))
+        self.assertNotIn('PRIVATE_', json.dumps(result))
+        self.assertTrue(all(item['task_outcome'] == 'unverified' for item in result['items']))
+
+    def test_activity_ignores_notice_events_and_scopes_pagination(self):
+        topic = self.controller.sessions.resolve(7, 42)
+        for number in range(4):
+            self.turn(str(number), scope=topic)
+        self.turn('other-owner', scope=8)
+        self.db.execute('INSERT INTO ui_events(chat_id,run_id,event) VALUES (?,?,?)',
+                        (topic, 'notice', json.dumps({'type': 'RUN_STARTED', 'timestamp': 1})))
+        first = self.views.activity(7, topic, limit=2)
+        second = self.views.activity(7, topic, before=first['next_cursor'], limit=2)
+        self.assertEqual((len(first['items']), len(second['items'])), (2, 2))
+        self.assertIsNone(second['next_cursor'])
+        self.assertFalse({item['id'] for item in first['items']} & {item['id'] for item in second['items']})
+        self.assertEqual(self.views.activity(7, 7)['items'], [])
+        with self.assertRaises(LookupError):
+            self.views.activity(8, topic)
+        self.controller.sessions.delete(topic)
+        with self.assertRaises(LookupError):
+            self.views.activity(7, topic)
+
+    def test_activity_bounded_labels_and_malformed_timestamp_never_expose_raw_values(self):
+        self.turn('run', events=[{'type': 'TOOL_CALL_START', 'toolCallId': str(number),
+                                  'toolCallName': 'PRIVATE_' + str(number)} for number in range(210)]
+                  + [{'type': 'RUN_STARTED', 'timestamp': 'PRIVATE_TIME'}, {'type': 'RUN_ERROR', 'timestamp': 10**30}])
+        item = self.views.activity(7, 7)['items'][0]
+        self.assertEqual(item['tool_count'], 210)
+        self.assertTrue(item['tool_labels_truncated'])
+        self.assertEqual(item['tool_labels'], ['Виконую дію'])
+        self.assertIsNone(item['started_at'])
+        self.assertIsNone(item['finished_at'])
+
 
 if __name__ == '__main__':
     unittest.main()

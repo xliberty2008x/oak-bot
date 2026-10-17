@@ -1,6 +1,7 @@
 """Bounded owner-facing projections; never expose stored event payloads or paths."""
 
 from pathlib import Path
+import hashlib
 
 
 def require_scope(controller, owner, scope):
@@ -63,4 +64,46 @@ class OwnerViews:
             items.append({'id': row['id'], 'name': name, 'mime': mime, 'kind': kind,
                           'size_bytes': size, 'available': size is not None,
                           'url': '/api/artifacts/' + row['id'] if size is not None else None})
+        return {'items': items, 'next_cursor': rows[limit - 1]['rowid'] if len(rows) > limit else None}
+
+    def activity(self, owner, scope, *, before=None, limit=30):
+        from .activity import tool_label
+
+        require_scope(self.controller, owner, scope)
+        page_bounds(before, limit)
+        rows = self.db.execute('SELECT rowid,turn_id,status FROM turns WHERE chat_id=? '
+                               + ('AND rowid<? ' if before is not None else '')
+                               + 'ORDER BY rowid DESC LIMIT ?',
+                               (scope, before, limit + 1) if before is not None else (scope, limit + 1)).fetchall()
+        events_exist = self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ui_events'").fetchone()
+        items = []
+        for row in rows[:limit]:
+            status = row['status'] if row['status'] in {'inProgress', 'completed', 'failed', 'interrupted', 'uncertain'} else 'unknown'
+            started, finished, count, labels, truncated = None, None, 0, [], False
+            if events_exist:
+                # Select only bounded metadata. Message bodies, tool arguments,
+                # results, native errors and task-outcome claims stay private.
+                stats = self.db.execute('''SELECT
+                    MIN(CASE WHEN json_extract(event,'$.type')='RUN_STARTED'
+                             AND json_type(event,'$.timestamp')='integer' THEN json_extract(event,'$.timestamp') END),
+                    MAX(CASE WHEN json_extract(event,'$.type') IN ('RUN_FINISHED','RUN_ERROR')
+                             AND json_type(event,'$.timestamp')='integer' THEN json_extract(event,'$.timestamp') END),
+                    COUNT(DISTINCT CASE WHEN json_extract(event,'$.type')='TOOL_CALL_START'
+                             THEN json_extract(event,'$.toolCallId') END)
+                    FROM ui_events WHERE chat_id=? AND run_id=? AND json_valid(event)''', (scope, row['turn_id'])).fetchone()
+                started, finished, count = stats
+                names = self.db.execute('''SELECT DISTINCT json_extract(event,'$.toolCallName')
+                    FROM ui_events WHERE chat_id=? AND run_id=? AND json_valid(event)
+                    AND json_extract(event,'$.type')='TOOL_CALL_START' LIMIT 201''', (scope, row['turn_id'])).fetchall()
+                labels = sorted({tool_label(name[0]) for name in names[:200]})
+                truncated = len(names) > 200
+            started = started / 1000 if type(started) is int and 0 <= started <= 8640000000000000 else None
+            finished = finished / 1000 if type(finished) is int and 0 <= finished <= 8640000000000000 else None
+            if status == 'inProgress':
+                finished = None
+            duration = finished - started if started is not None and finished is not None and finished >= started else None
+            items.append({'id': hashlib.sha256(row['turn_id'].encode()).hexdigest()[:24], 'status': status,
+                          'started_at': started, 'finished_at': finished, 'duration_seconds': duration,
+                          'tool_labels': labels, 'tool_count': count, 'tool_labels_truncated': truncated,
+                          'task_outcome': 'unverified'})
         return {'items': items, 'next_cursor': rows[limit - 1]['rowid'] if len(rows) > limit else None}
