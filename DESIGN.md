@@ -486,6 +486,12 @@ It renders as literal text. Raw prompts remain absent from task responses, panel
 summaries, lifecycle history and events; previews are not a general disclosure of
 private request, tool or website-form content.
 
+The Files view lists paginated safe names/types/sizes for the selected scope.
+Missing files remain explicitly unavailable; download authorization rechecks live
+ownership and selected scope. User-triggered downloads/previews use authenticated
+bounded blobs (100 MiB maximum in the panel), abort on owner/view reset and revoke
+object URLs. Private paths and artifact contents are absent from list responses.
+
 Recovery inspection is scoped to the owner and selected conversation. Lists show
 fixed family labels and bounded input/job previews only, never native responses
 or outbox payloads. Marking a record reviewed records an acknowledgement and
