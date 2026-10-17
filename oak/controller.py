@@ -63,6 +63,8 @@ class Controller:
             CREATE TABLE IF NOT EXISTS inputs (
                 update_id INTEGER PRIMARY KEY, chat_id INTEGER NOT NULL,
                 text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending');
+            CREATE TABLE IF NOT EXISTS input_runs (
+                update_id INTEGER PRIMARY KEY, chat_id INTEGER NOT NULL, turn_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS turns (
                 turn_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL,
                 chat_id INTEGER NOT NULL, status TEXT NOT NULL);
@@ -531,7 +533,7 @@ class Controller:
                         try:
                             await self.client.request('turn/steer', {**payload, 'expectedTurnId': turn_id})
                             self.task_briefs[chat_id] = (self.task_briefs.get(chat_id, '') + '\n' + text)[-16000:]
-                            self._status(update_id, 'accepted')
+                            self._accepted(update_id, chat_id, turn_id)
                             return True
                         except RpcError as exc:
                             if 'no active turn' not in str(exc).lower():
@@ -581,7 +583,7 @@ class Controller:
                 with self.db:
                     self.db.execute('INSERT OR REPLACE INTO turns VALUES (?,?,?,?)',
                                     (turn_id, thread_id, chat_id, 'inProgress'))
-                self._status(update_id, 'accepted')
+                self._accepted(update_id, chat_id, turn_id)
                 if cancelled:
                     raise asyncio.CancelledError
                 return True
@@ -778,6 +780,11 @@ class Controller:
             await self.submit(chat_id, direct[name] + argument, update_id)
             return None
         await self.submit(chat_id, text, update_id)
+
+    def _accepted(self, update_id, chat_id, turn_id):
+        with self.db:
+            self.db.execute('INSERT OR REPLACE INTO input_runs VALUES (?,?,?)', (update_id, chat_id, turn_id))
+            self.db.execute("UPDATE inputs SET status='accepted' WHERE update_id=?", (update_id,))
 
     async def stop(self, chat_id, *, expected_turn=None):
         async with self._lock(chat_id):
