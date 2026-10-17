@@ -155,6 +155,21 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.http.post('/api/tasks?conversation=topic:999', headers=self.headers, json=payload)).status, 404)
         self.assertEqual((await self.http.post(url, headers=self.headers, json=payload | {'operation_id': 'b' * 32, 'at': '2026-10-25T03:30'})).status, 400)
 
+    async def test_reschedule_rechecks_scope_revision_and_active_status(self):
+        identifier = self.c.scheduler.add(11, 'Move me', delay_seconds=60, interval_seconds=3600)
+        other = self.c.scheduler.add(22, 'Other', delay_seconds=60)
+        payload = {'confirmed': True, 'operation_id': 'a' * 32, 'expected_revision': 1, 'at': '2026-11-11T08:00+02:00'}
+        path = '/api/tasks/' + identifier + '/reschedule'
+        self.assertEqual((await self.http.post('/api/tasks/' + other + '/reschedule', headers=self.headers, json=payload)).status, 404)
+        first = await (await self.http.post(path, headers=self.headers, json=payload)).json()
+        self.assertEqual(first['revision'], 2)
+        self.assertEqual(await (await self.http.post(path, headers=self.headers, json=payload)).json(), first)
+        self.assertEqual((await self.http.post(path, headers=self.headers, json=payload | {'operation_id': 'b' * 32})).status, 409)
+        with self.c.db:
+            self.c.db.execute("UPDATE jobs SET status='running' WHERE id=?", (identifier,))
+        self.assertEqual((await self.http.post(path, headers=self.headers, json=payload | {'operation_id': 'c' * 32, 'expected_revision': 2})).status, 409)
+        self.assertEqual(self.c.db.execute('SELECT interval FROM jobs WHERE id=?', (identifier,)).fetchone()[0], 3600)
+
 
 if __name__ == '__main__':
     unittest.main()
