@@ -1,10 +1,12 @@
 """Persistent chat routing; The runtime remains the owner of the agent loop."""
 
 import asyncio
+from datetime import datetime
 import json
 import re
 import shutil
 import sqlite3
+import string
 import uuid
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -726,7 +728,33 @@ class Controller:
                 return 'Формат: /remind 60 текст нагадування'
             return 'Нагадування створено: ' + job
         if name == '/tasks':
-            return json.dumps(self.scheduler.list(chat_id), ensure_ascii=False, indent=2) or 'Розклад порожній.'
+            tasks = self.scheduler.list(chat_id)
+            if not tasks:
+                return 'Розклад порожній.'
+            lines = ['Розклад (' + str(self.scheduler.timezone) + '):']
+            escapes = str.maketrans({char: '\\' + char for char in string.punctuation})
+            modes = {'remind': 'Нагадування', 'run': 'Задача'}
+            statuses = {'pending': 'Очікує', 'running': 'Виконується', 'uncertain': 'Потребує перевірки'}
+            for index, task in enumerate(tasks, 1):
+                preview = ' '.join(task['prompt'].split())
+                if len(preview) > 80:
+                    preview = preview[:79] + '…'
+                try:
+                    due = datetime.fromtimestamp(task['due'], self.scheduler.timezone).strftime('%d.%m.%Y %H:%M %Z (%z)')
+                except (OverflowError, OSError, ValueError):
+                    due = 'Час поза підтримуваним діапазоном'
+                lines.extend(['', f'{index}. {preview.translate(escapes)}',
+                              modes.get(task['mode'], 'Задача') + ' · ' + statuses.get(task['status'], 'Невідомий стан'),
+                              due])
+                if task['interval'] is not None:
+                    remaining, parts = task['interval'], []
+                    for seconds, unit in ((86400, 'дн'), (3600, 'год'), (60, 'хв'), (1, 'с')):
+                        amount, remaining = divmod(remaining, seconds) if seconds > 1 else (remaining, 0)
+                        if amount:
+                            parts.append(f'{amount:g} {unit}')
+                    lines.append('Повтор: ' + ' '.join(parts))
+                lines.append('Скасувати: `/cancel ' + task['id'] + '`')
+            return '\n'.join(lines)
         if name == '/cancel':
             return 'Скасовано.' if self.scheduler.cancel(chat_id, argument.strip()) else 'Задачу не знайдено.'
         direct = {'/image': 'Створи обкладинку інструментом oak_create_image. Назва: ',
