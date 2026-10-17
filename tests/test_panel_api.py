@@ -188,6 +188,31 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed['due'], due)
         self.c.client.request.assert_not_awaited()
 
+    async def test_activity_history_is_scoped_paginated_and_does_not_claim_task_success(self):
+        topic = self.c.sessions.resolve(11, 42)
+        with self.c.db:
+            for number in range(23):
+                run = 'PRIVATE_RUN_' + str(number)
+                self.c.db.execute('INSERT INTO turns(turn_id,chat_id,thread_id,status) VALUES (?,?,?,?)',
+                                  (run, topic, 'PRIVATE_THREAD', 'completed'))
+                for event in ({'type': 'RUN_STARTED', 'timestamp': 1000},
+                              {'type': 'RUN_FINISHED', 'timestamp': 4500},
+                              {'type': 'TOOL_CALL_START', 'toolCallId': 'one', 'toolCallName': 'PRIVATE_TOOL'},
+                              {'type': 'TOOL_CALL_ARGS', 'delta': 'PRIVATE_ARGUMENTS'}):
+                    self.c.db.execute('INSERT INTO ui_events(chat_id,run_id,event) VALUES (?,?,?)', (topic, run, json.dumps(event)))
+        self.assertEqual((await (await self.http.get('/api/activity', headers=self.headers)).json())['items'], [])
+        path = '/api/activity?conversation=topic:42'
+        first = await (await self.http.get(path, headers=self.headers)).json()
+        second = await (await self.http.get(path + '&before=' + str(first['next_cursor']), headers=self.headers)).json()
+        self.assertEqual([len(first['items']), len(second['items'])], [20, 3])
+        self.assertNotIn('PRIVATE_', json.dumps(first))
+        self.assertEqual(first['items'][0]['duration_seconds'], 3.5)
+        self.assertEqual(first['items'][0]['task_outcome'], 'unverified')
+        self.assertEqual(first['items'][0]['tool_labels'], ['Виконую дію'])
+        self.assertEqual((await self.http.get(path + '&before=0', headers=self.headers)).status, 400)
+        self.c.sessions.delete(topic)
+        self.assertEqual((await self.http.get(path, headers=self.headers)).status, 404)
+
     async def test_artifact_list_and_download_revalidate_selected_topic(self):
         topic = self.c.sessions.resolve(11, 42)
         self.c.sessions.resolve(11, 43)
