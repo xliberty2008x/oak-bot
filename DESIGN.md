@@ -822,3 +822,8 @@ small size in the gallery cannot turn a large download into an image preview.
 An ambiguous pause/resume response keeps its original operation receipt. Its
 confirmation explicitly checks that previous operation, even if a later list
 already reflects the new status; a fresh opposite action needs a new confirmation.
+
+Ordinary-question launchers also reuse their keyed button when another request
+appears or completes. A pending-to-delivery-attention change updates that
+request's own control and keeps focus on its replacement; the question dialog
+and its private/native authority are unchanged.
