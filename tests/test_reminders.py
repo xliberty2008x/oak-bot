@@ -1,9 +1,11 @@
 import json
+from datetime import datetime, timezone
 import unittest
 from unittest.mock import patch
 
 import test_telegram_ux as fixtures
 from oak.reminders import ReminderActions
+from oak.job_controls import JobControls
 
 
 class ReminderTests(unittest.IsolatedAsyncioTestCase):
@@ -70,6 +72,66 @@ class ReminderTests(unittest.IsolatedAsyncioTestCase):
             self.c.scheduler.reminders.decide(7, token, '600')
         self.assertEqual(self.c.db.execute('SELECT count(*) FROM jobs').fetchone()[0], 1)
         self.assertEqual(self.c.scheduler.reminders.snapshot(7, token)['state'], 'pending')
+
+    async def test_rescheduling_recurring_job_to_old_due_creates_one_new_delivery(self):
+        parent, first = await self.occurrence(recurring=True)
+        due = self.c.db.execute('SELECT due FROM reminder_occurrences WHERE token=?', (first,)).fetchone()[0]
+        controls = JobControls(self.c)
+        revision = self.c.db.execute('SELECT revision FROM jobs WHERE id=?', (parent,)).fetchone()[0]
+        controls.reschedule_owned(7, parent, 'reschedule-previous-due', revision,
+                                  datetime.fromtimestamp(due, timezone.utc).isoformat())
+        await self.c.scheduler.tick()
+        rows = self.c.db.execute('SELECT token,due,generation FROM reminder_occurrences WHERE job_id=? ORDER BY generation',
+                                 (parent,)).fetchall()
+        self.assertEqual(len(rows), 2)
+        self.assertNotEqual(rows[0][0], rows[1][0])
+        self.assertAlmostEqual(rows[0][1], rows[1][1], places=5)
+        self.assertEqual([row[2] for row in rows], [1, 2])
+        await self.c.scheduler.reminders.publish(parent, 7, 'Drink water', rows[1][1], rows[1][2])
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM reminder_occurrences').fetchone()[0], 2)
+        self.assertEqual(self.g.db.execute("SELECT count(*) FROM deliveries WHERE id LIKE '7:reminder:%'").fetchone()[0], 2)
+        for row in rows:
+            await self.g._render_delivery(self.g.db.execute('SELECT * FROM deliveries WHERE id=?',
+                                                           ('7:reminder:' + row[0],)).fetchone())
+        self.assertEqual(self.g._deliver.await_count, 2)
+
+    async def test_legacy_occurrence_migration_keeps_decisions_and_does_not_replay_uncertain(self):
+        from oak.schedule import Scheduler
+        parent = self.c.scheduler.add(7, 'Legacy reminder', delay_seconds=0, interval_seconds=3600)
+        with self.c.db:
+            self.c.db.execute('DROP TABLE reminder_occurrences')
+            self.c.db.execute('''CREATE TABLE reminder_occurrences (
+                token TEXT PRIMARY KEY,job_id TEXT,chat_id INTEGER,due REAL,prompt TEXT,
+                expires REAL,state TEXT,action TEXT,new_job TEXT,UNIQUE(job_id,due))''')
+            self.c.db.executemany('INSERT INTO reminder_occurrences VALUES (?,?,7,?,?,4000000000,?,?,?)', [
+                ('a' * 16, parent, 1, 'Legacy reminder', 'snoozed', '600', 'original-child'),
+                ('b' * 16, parent, 2, 'Legacy reminder', 'pending', None, None)])
+            self.c.db.execute("UPDATE jobs SET status='running' WHERE id=?", (parent,))
+        before = [tuple(row) for row in self.c.db.execute('SELECT * FROM reminder_occurrences ORDER BY due')]
+        self.c.scheduler = Scheduler(self.c.db, self.c)
+        after = [tuple(row) for row in self.c.db.execute('SELECT * FROM reminder_occurrences ORDER BY due')]
+        self.assertEqual([row[:-1] for row in after], before)
+        self.assertEqual([row[-1] for row in after], [1, 2])
+        self.assertEqual(self.c.db.execute('SELECT occurrence FROM jobs WHERE id=?', (parent,)).fetchone()[0], 2)
+        self.assertEqual(self.c.scheduler.reminders.decide(7, 'a' * 16, '600'),
+                         {'state': 'snoozed', 'job': 'original-child'})
+        await self.c.scheduler.recover()
+        await self.c.scheduler.tick()
+        self.assertEqual(self.c.db.execute('SELECT status FROM jobs WHERE id=?', (parent,)).fetchone()[0], 'uncertain')
+        self.assertEqual(self.g.db.execute("SELECT count(*) FROM deliveries WHERE id LIKE '7:reminder:%'").fetchone()[0], 0)
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM jobs').fetchone()[0], 1)
+
+    async def test_uncertain_publish_is_not_claimed_as_a_new_occurrence(self):
+        from unittest.mock import AsyncMock
+        parent = self.c.scheduler.add(7, 'Unknown send', delay_seconds=0, interval_seconds=3600)
+        self.c.emit = AsyncMock(side_effect=RuntimeError('delivery unknown'))
+        self.c.notice = AsyncMock()
+        await self.c.scheduler.tick()
+        await self.c.scheduler.tick()
+        self.assertEqual(self.c.emit.await_count, 1)
+        row = self.c.db.execute('SELECT status,occurrence FROM jobs WHERE id=?', (parent,)).fetchone()
+        self.assertEqual(tuple(row), ('uncertain', 1))
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM reminder_occurrences').fetchone()[0], 1)
 
     async def test_cancel_controls_reject_foreign_jobs_and_settle_without_replay(self):
         job = self.c.scheduler.add(7, 'Own reminder', delay_seconds=60)
