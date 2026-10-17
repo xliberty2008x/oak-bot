@@ -18,6 +18,7 @@ from .schedule import Scheduler
 from .interaction import Interactions
 from .media import ToolUnavailable
 from .sessions import SessionStore
+from .strings import text as ui_text
 
 MODEL = "gpt-6.1-sol"
 
@@ -752,14 +753,14 @@ class Controller:
         if name == '/remember':
             if not argument.strip():
                 return 'Формат: /remember факт, який потрібно зберегти'
-            return 'Збережено: ' + self.memory.remember(chat_id, argument)
+            return ui_text('memory.saved', self.config.get('locale'), id=self.memory.remember(chat_id, argument))
         if name == '/memory':
-            return '\n\n'.join(n['id'] + ': ' + n['text'] for n in self.memory.search(chat_id, argument)) or 'Нотаток ще немає.'
+            return '\n\n'.join(n['id'] + ': ' + n['text'] for n in self.memory.search(chat_id, argument)) or ui_text('memory.empty', self.config.get('locale'))
         if name == '/forget':
             note = argument.strip()
             if not re.fullmatch(r'[a-f0-9]{12}', note):
                 return 'Формат: /forget ID нотатки з /memory'
-            return 'Нотатку видалено.' if self.memory.forget(chat_id, note) else 'Нотатку в цій розмові не знайдено.'
+            return ui_text('memory.deleted' if self.memory.forget(chat_id, note) else 'memory.not_found', self.config.get('locale'))
         if name == '/remind':
             from .time_input import reminder_input
             try:
@@ -772,11 +773,12 @@ class Controller:
         if name == '/tasks':
             tasks = self.scheduler.list(chat_id)
             if not tasks:
-                return 'Розклад порожній.'
+                return ui_text('tasks.empty', self.config.get('locale'))
             lines = ['Розклад (' + str(self.scheduler.timezone) + '):']
             escapes = str.maketrans({char: '\\' + char for char in string.punctuation})
-            modes = {'remind': 'Нагадування', 'run': 'Задача'}
-            statuses = {'pending': 'Очікує', 'running': 'Виконується', 'uncertain': 'Потребує перевірки', 'paused': 'Призупинено'}
+            modes = {mode: ui_text('tasks.mode.' + mode, self.config.get('locale')) for mode in ('remind', 'run')}
+            statuses = {status: ui_text('tasks.status.' + status, self.config.get('locale'))
+                        for status in ('pending', 'running', 'uncertain', 'paused')}
             for index, task in enumerate(tasks, 1):
                 preview = ' '.join(task['prompt'].split())
                 if len(preview) > 80:
@@ -784,9 +786,9 @@ class Controller:
                 try:
                     due = datetime.fromtimestamp(task['due'], self.scheduler.timezone).strftime('%d.%m.%Y %H:%M %Z (%z)')
                 except (OverflowError, OSError, ValueError):
-                    due = 'Час поза підтримуваним діапазоном'
+                    due = ui_text('tasks.date_unavailable', self.config.get('locale'))
                 lines.extend(['', f'{index}. {preview.translate(escapes)}',
-                              modes.get(task['mode'], 'Задача') + ' · ' + statuses.get(task['status'], 'Невідомий стан'),
+                              modes.get(task['mode'], modes['run']) + ' · ' + statuses.get(task['status'], ui_text('tasks.status.unknown', self.config.get('locale'))),
                               due])
                 if task['interval'] is not None:
                     remaining, parts = task['interval'], []
