@@ -107,6 +107,27 @@ assert.equal(document.activeElement.dataset.session,'telegram');
         result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_ambiguous_pause_confirmation_keeps_original_operation_after_status_refresh(self):
+        app = (ROOT / 'oak/web/app.js').read_text()
+        source = app[app.index('function taskPause('):app.index('function taskHistory(')]
+        script = r"""
+const assert=require('node:assert/strict');let sessionEpoch=1;const taskPauses=new Map(),prompts=[],writes=[];
+const element=()=>({dataset:{},addEventListener(type,fn){this.click=fn;}}),message=()=>{},loadTasks=async()=>{};
+const crypto={randomUUID:()=> 'b'.repeat(32)};
+const mutation=async(title,description,action,run)=>{prompts.push({title,description,action});await run(1);};
+const api=async(path,payload)=>{writes.push(payload);return {status:payload.paused?'paused':'pending'};};
+""" + source + r"""
+(async()=>{
+const task={id:'task',status:'paused',revision:2};
+taskPauses.set(task.id,{operation_id:'a'.repeat(32),expected_revision:1,paused:true});
+await taskPause(task).click();assert.equal(prompts[0].title,'Перевірити попередню зміну?');assert.equal(prompts[0].action,'Перевірити');
+assert.equal(writes[0].operation_id,'a'.repeat(32));assert.equal(writes[0].expected_revision,1);assert.equal(writes[0].paused,true);
+await taskPause(task).click();assert.equal(prompts[1].title,'Відновити розклад?');assert.equal(writes[1].paused,false);assert.equal(writes[1].expected_revision,2);
+})().catch(e=>{console.error(e);process.exit(1)});
+"""
+        result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_locale_response_cannot_apply_after_session_change(self):
         app = (ROOT / 'oak/web/app.js').read_text()
         source = app[app.index('function text('):app.index('function element(')]
