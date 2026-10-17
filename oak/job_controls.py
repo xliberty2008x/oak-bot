@@ -127,3 +127,21 @@ class JobControls:
             if updated.rowcount != 1:
                 raise RuntimeError('Задача вже змінилася. Онови розклад перед новою дією.')
             return self._record(scope, operation_id, fingerprint, identifier)
+
+    def pause_owned(self, scope, identifier, operation_id, expected_revision, paused):
+        if type(paused) is not bool:
+            raise ValueError('Призупинення потребує логічного значення.')
+        with self.db:
+            fingerprint, receipt = self._operation(scope, operation_id,
+                {'kind': 'pause', 'id': identifier, 'expected_revision': expected_revision, 'paused': paused})
+            if receipt is not None:
+                return receipt
+            self._editable(scope, identifier, expected_revision)
+            # Resume retains the owner's due time: an overdue job becomes due
+            # on the next ordinary scheduler tick, never inside this request.
+            updated = self.db.execute("UPDATE jobs SET status=?,revision=revision+1 WHERE id=? AND chat_id=? "
+                                      "AND revision=? AND status IN ('pending','paused')",
+                                      ('paused' if paused else 'pending', identifier, scope, expected_revision))
+            if updated.rowcount != 1:
+                raise RuntimeError('Задача вже змінилася. Онови розклад перед новою дією.')
+            return self._record(scope, operation_id, fingerprint, identifier)
