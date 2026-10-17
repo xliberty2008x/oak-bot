@@ -7,16 +7,17 @@ import time
 import uuid
 
 from .owner_views import page_bounds, preview, require_scope
+from .strings import text
 
 
 SOURCES = {
-    'input': ('inputs', 'update_id', "status='uncertain'", 'Запит до Oak'),
-    'job': ('jobs', 'id', "status='uncertain'", 'Запланована задача'),
-    'turn': ('turns', 'turn_id', "status='uncertain'", 'Виконання задачі'),
-    'native_request': ('input_requests', 'id', "delivery='uncertain'", 'Передавання відповіді на запит'),
-    'telegram_intake': ('intake', 'update_id', "status='uncertain'", 'Отримання повідомлення Telegram'),
-    'telegram_delivery': ('deliveries', 'id', "status='uncertain'", 'Доставлення повідомлення або файлу'),
-    'telegram_reply': ('replies', 'run_id', "status='uncertain'", 'Доставлення відповіді Oak'),
+    'input': ('inputs', 'update_id', "status='uncertain'", 'recovery.input'),
+    'job': ('jobs', 'id', "status='uncertain'", 'recovery.job'),
+    'turn': ('turns', 'turn_id', "status='uncertain'", 'recovery.turn'),
+    'native_request': ('input_requests', 'id', "delivery='uncertain'", 'recovery.native_request'),
+    'telegram_intake': ('intake', 'update_id', "status='uncertain'", 'recovery.telegram_intake'),
+    'telegram_delivery': ('deliveries', 'id', "status='uncertain'", 'recovery.telegram_delivery'),
+    'telegram_reply': ('replies', 'run_id', "status='uncertain'", 'recovery.telegram_reply'),
 }
 
 
@@ -77,7 +78,7 @@ class RecoveryStore:
             prompt, retryable = source['prompt'], source['mode'] == 'run'
         retry = self.db.execute('SELECT * FROM owner_retries WHERE chat_id=? AND recovery_id=?',
                                 (reference['chat_id'], reference['id'])).fetchone()
-        return {'id': reference['id'], 'kind': kind, 'label': SOURCES[kind][3],
+        return {'id': reference['id'], 'kind': kind, 'label': text(SOURCES[kind][3], self.controller.config.get('locale')),
                 'preview': preview(prompt) if prompt else None, 'state': 'uncertain',
                 'observed_at': reference['observed'], 'reviewed': reference['reviewed'] is not None,
                 'reviewed_at': reference['reviewed'],

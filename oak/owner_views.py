@@ -3,6 +3,8 @@
 from pathlib import Path
 import hashlib
 
+from .strings import text
+
 
 def require_scope(controller, owner, scope):
     """Validate an already selected conversation, including private web sessions."""
@@ -57,7 +59,7 @@ class OwnerViews:
         for row in rows[:limit]:
             name = str(row['name'] or '').replace('\\', '/').rsplit('/', 1)[-1]
             name = preview(''.join(char for char in name if ord(char) >= 32 and not 127 <= ord(char) <= 159), 120)
-            name = name or 'Файл'
+            name = name or text('common.file', self.controller.config.get('locale'))
             mime = artifact_mime(row['mime'])
             kind = next((kind for kind, types in ARTIFACT_MEDIA.items() if mime in types), 'document')
             size = None
