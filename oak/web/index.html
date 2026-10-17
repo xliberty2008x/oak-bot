@@ -102,9 +102,22 @@
         </section>
         <section id="view-tasks" class="view" aria-labelledby="tasks-heading" hidden>
           <div class="view-heading"><h1 id="tasks-heading" tabindex="-1">Задачі</h1><p id="tasks-timezone">Нагадування та запланована робота Oak</p></div>
+          <details class="topic-form task-create"><summary>Створити задачу</summary>
+            <form id="task-create-form">
+              <label for="task-prompt">Що потрібно зробити?</label><textarea id="task-prompt" rows="3" maxlength="16000" required></textarea>
+              <label for="task-mode">Тип</label><select id="task-mode"><option value="remind">Нагадати в Telegram</option><option value="run">Доручити Oak</option></select>
+              <label for="task-at">Дата й час</label><input id="task-at" type="datetime-local" required>
+              <p id="task-create-zone" class="hint"></p>
+              <details><summary>Повторення й UTC-зсув</summary>
+                <label for="task-repeat">Повторення</label><select id="task-repeat"><option value="">Одноразово</option><option value="3600">Щогодини</option><option value="86400">Кожні 24 години</option><option value="604800">Кожні 7 діб</option></select>
+                <label for="task-offset">UTC-зсув, якщо час неоднозначний</label><input id="task-offset" placeholder="+03:00" pattern="[+-][0-9]{2}:[0-9]{2}" maxlength="6"><p class="hint">Зазвичай залишай порожнім. Під час переведення годинника вкажи потрібний зсув.</p>
+              </details>
+              <div class="item-actions"><button id="task-create-submit" type="submit" data-mutation="task-create">Створити</button></div><p id="task-create-status" class="hint" role="status"></p>
+            </form>
+          </details>
           <p id="tasks-status" class="section-message" role="status">Завантажуємо задачі…</p>
           <ul id="tasks-list" class="item-list task-list" aria-label="Заплановані задачі"></ul>
-          <p class="hint section-footnote">Створюй нагадування й задачі в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
+          <p class="hint section-footnote">Задачі можна також створити в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
         </section>
         <section id="view-memory" class="view" aria-labelledby="memory-heading" hidden>
           <div class="view-heading"><h1 id="memory-heading" tabindex="-1">Пам’ять</h1><p id="memory-context">Записи вибраної розмови</p></div>
