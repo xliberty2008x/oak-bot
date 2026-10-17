@@ -608,6 +608,7 @@ dialog.signin-host { width: min(calc(100% - 24px), 560px); max-height: calc(100d
 :root[data-theme="light"] :is(.page-header, .navigation, .refresh-bar) { background: var(--bg-2); }
 :root[data-theme="light"] body:has(#workspace:not([hidden])) main::before { background: var(--bg-2); }
 :root[data-theme="light"] :is(.hero-card, .tile, .next-card, .telegram-note, .item, .topic-form, .computer-control, .model-control, .facts.rows, .login, .inventory-empty, .integration-list, .remote-console) { background: var(--bg-2); }
+:root[data-theme="light"] .tile.attention dd { color: var(--amber); }
 :root[data-theme="light"] dialog:not(.signin-host) { background: var(--bg-2); }
 :root[data-theme="light"] :is(.login input, .topic-form input, .topic-form textarea, .a2ui-field input, .a2ui-field select, .model-form-row select, .computer-switch, .computer-status) { background: var(--glass); }
 :root[data-theme="light"] :is(.notice, .integration-attention > h2) { color: var(--accent-2); }
