@@ -36,6 +36,20 @@ class ReminderTimeTests(unittest.IsolatedAsyncioTestCase):
         b = self.parse('2026-10-25T03:30+02:00', now)
         self.assertEqual(b.timestamp() - a.timestamp(), 3600)
 
+    def test_elapsed_transition_clock_schedules_the_next_calendar_date(self):
+        for reference, expected in (
+            ('2026-03-29T04:00:00+03:00', '2026-03-30T03:30:00+03:00'),
+            ('2026-10-25T04:00:00+02:00', '2026-10-26T03:30:00+02:00'),
+        ):
+            with self.subTest(reference=reference):
+                self.assertEqual(self.parse('03:30', datetime.fromisoformat(reference)).isoformat(), expected)
+
+    def test_upcoming_gap_or_second_fold_still_requires_explicit_offset(self):
+        for reference in ('2026-03-29T02:00:00+02:00', '2026-10-25T02:00:00+03:00',
+                          '2026-10-25T03:45:00+03:00'):
+            with self.subTest(reference=reference), self.assertRaisesRegex(ValueError, 'UTC-зсувом'):
+                self.parse('03:30', datetime.fromisoformat(reference))
+
     def test_invalid_or_unbounded_input_does_not_become_a_date(self):
         for value in ['nan', 'inf', '-1', '25:00', '12:60', '1e30', '9' * 400, 'yesterday', '2026-01-01T00:00Z']:
             with self.subTest(value=value[:20]), self.assertRaises(ValueError):
