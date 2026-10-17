@@ -788,3 +788,12 @@ Recovery candidate verification: **667 tests passed, 0 skipped, 244.165 seconds*
 on runtime `9c052e2b`; this includes 17 actual Chromium/broker/private-renderer
 clarification tests with mocked model responses. Real model assistance, deployed
 service verification and owner login are separate acceptance results.
+
+Activity history shows paginated owner/selected-conversation lifecycle metadata:
+fixed state labels, known run duration and bounded tool labels. Completion means
+execution ended; the view explicitly leaves task outcome unverified. It never
+renders native events, arguments, results or provider errors. Reads are guarded
+by session epoch and view generation. Technical settings live in a native,
+keyboard-accessible Diagnostics disclosure, initially collapsed; model and
+computer controls remain directly accessible. Existing desktop and task timelines
+remain the detailed entry points.

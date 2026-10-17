@@ -52,7 +52,7 @@ assert.equal($('model-select').value,'typed draft');
 
     def test_artifact_preview_download_share_fetch_and_discard_late_owner_results(self):
         app = (ROOT / 'oak/web/app.js').read_text()
-        source = app[app.index('function clearArtifacts('):app.index('async function loadRecovery(')]
+        source = app[app.index('function clearArtifacts('):app.index('async function loadActivity(')]
         script = r"""
 const assert=require('node:assert/strict');
 class Node { constructor(){this.children=[];this.events={};this.isConnected=true;} append(...nodes){this.children.push(...nodes);} replaceChildren(){this.children=[];} addEventListener(type,fn){this.events[type]=fn;} click(){} }

@@ -125,7 +125,7 @@ class WebGateway:
             web.get('/api/requests/{id}', self.input_request),
             web.post('/api/requests/{id}', self.input_request_decision),
             web.post('/api/requests/{id}/signin', self.signin_start),
-            web.get('/api/artifacts', self.artifacts), web.get('/api/artifacts/{id}', self.artifact),
+            web.get('/api/activity', self.activity), web.get('/api/artifacts', self.artifacts), web.get('/api/artifacts/{id}', self.artifact),
         ])
 
     @web.middleware
@@ -636,6 +636,16 @@ class WebGateway:
         if not isinstance(data.get('text'), str):
             raise ValueError('Text is required.')
         return web.json_response(parse_markdown(data['text']))
+
+    async def activity(self, request):
+        owner = self.owner(request)
+        scope = self.conversation(request, owner)
+        before = int(request.query['before']) if 'before' in request.query else None
+        try:
+            result = self.owner_views.activity(owner, scope, before=before, limit=20)
+        except LookupError:
+            raise web.HTTPNotFound(text='Активність недоступна.') from None
+        return web.json_response(result)
 
     async def artifacts(self, request):
         owner = self.owner(request)
