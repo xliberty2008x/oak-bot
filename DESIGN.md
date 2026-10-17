@@ -818,3 +818,7 @@ any pending receipt for another task's mutation.
 Artifact preview limits are checked against the streamed response and actual Blob
 size, including a previously downloaded or concurrently shared file; a stale
 small size in the gallery cannot turn a large download into an image preview.
+
+An ambiguous pause/resume response keeps its original operation receipt. Its
+confirmation explicitly checks that previous operation, even if a later list
+already reflects the new status; a fresh opposite action needs a new confirmation.
