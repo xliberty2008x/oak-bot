@@ -699,12 +699,16 @@ class Controller:
     async def command(self, chat_id, text, update_id):
         name, _, argument = text.strip().partition(' ')
         name = name.split('@')[0]
-        if name in ('/start', '/help'):
-            return ('Oak готовий до роботи. Напиши задачу або надішли фото, файл чи голосове.\n'
-                    '/stop — зупинити; /new — нова розмова; /remember текст — зберегти факт; '
-                    '/memory запит — пошук; /remind секунди текст — нагадування; /tasks — розклад; '
-                    '/cancel ID — скасувати; /image назва — обкладинка; /preview назва — відео; '
-                    '/speak текст — озвучення; /research запит — пошук; /browse URL — браузер; /status — стан.')
+        if name == '/help':
+            from .commands import help_text
+            return help_text(web_available=bool(self.web_app_url(chat_id)))
+        if name == '/start':
+            url = self.web_app_url(chat_id)
+            if url:
+                await self.emit(chat_id, {'type': 'CUSTOM', 'name': 'web_app_link',
+                                         'value': {'url': url, 'label': 'Відкрити Oak'}})
+            return ('Oak готовий до роботи. Напиши задачу або надішли фото, файл чи голосове.\n\n'
+                    '/help — усі команди\n/status — стан розмови\n/stop — зупинити задачу')
         if name == '/status':
             return 'Oak працює. ' + ('Є активна задача.' if chat_id in self.active else 'Готовий до нової задачі.')
         if name == '/web':
