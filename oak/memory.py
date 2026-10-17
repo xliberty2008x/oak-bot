@@ -1,5 +1,6 @@
 """Private, conversation-scoped preferences and reusable working experience."""
 
+import hashlib
 import json
 import re
 import time
@@ -14,6 +15,9 @@ class MemoryStore:
             CREATE TABLE IF NOT EXISTS memory_notes (
                 id TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, text TEXT NOT NULL,
                 source TEXT NOT NULL, created REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS web_memory_operations (
+                chat_id INTEGER NOT NULL, operation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                result TEXT NOT NULL, PRIMARY KEY(chat_id,operation_id));
             CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(
                 id UNINDEXED, chat_id UNINDEXED, text, tokenize='unicode61');
             CREATE TABLE IF NOT EXISTS experience_notes (
@@ -120,36 +124,68 @@ class MemoryStore:
         return bool(found)
 
     def remember(self, chat_id, text, source='owner'):
+        with self.db:
+            return self._remember(chat_id, text, source)
+
+    def _remember(self, chat_id, text, source):
         text = text.strip()
         if not text or len(text) > 32000:
             raise ValueError('Нотатка має містити від 1 до 32000 символів.')
         note_id = uuid.uuid4().hex[:12]
-        with self.db:
-            self.db.execute('INSERT INTO memory_notes VALUES (?,?,?,?,?)',
-                            (note_id, chat_id, text, source, time.time()))
-            self.db.execute('INSERT INTO memory_search VALUES (?,?,?)', (note_id, chat_id, text))
+        self.db.execute('INSERT INTO memory_notes VALUES (?,?,?,?,?)',
+                        (note_id, chat_id, text, source, time.time()))
+        self.db.execute('INSERT INTO memory_search VALUES (?,?,?)', (note_id, chat_id, text))
         return note_id
 
-    def search(self, chat_id, query='', limit=10):
+    def search(self, chat_id, query='', limit=10, offset=0):
         limit = max(1, min(int(limit), 50))
+        if type(offset) is not int or not 0 <= offset <= 10000:
+            raise ValueError('Invalid memory offset.')
         words = re.findall(r'[^\W_]+', query, re.UNICODE)
         if words:
             rows = self.db.execute('''SELECT n.id,n.text,n.source FROM memory_search s
                 JOIN memory_notes n ON n.id=s.id WHERE memory_search MATCH ?
-                AND n.chat_id=? ORDER BY rank LIMIT ?''',
-                (' OR '.join('"' + w + '"' for w in words), chat_id, limit))
+                AND n.chat_id=? ORDER BY rank,n.created DESC,n.id LIMIT ? OFFSET ?''',
+                (' OR '.join('"' + w + '"' for w in words), chat_id, limit, offset))
         else:
             rows = self.db.execute('SELECT id,text,source FROM memory_notes WHERE chat_id=? '
-                                   'ORDER BY created DESC LIMIT ?', (chat_id, limit))
+                                   'ORDER BY created DESC,id LIMIT ? OFFSET ?', (chat_id, limit, offset))
         return [dict(zip(('id', 'text', 'source'), row)) for row in rows]
 
     def forget(self, chat_id, note_id):
         with self.db:
-            found = self.db.execute('DELETE FROM memory_notes WHERE id=? AND chat_id=?',
-                                    (note_id, chat_id)).rowcount
-            if found:
-                self.db.execute('DELETE FROM memory_search WHERE id=? AND chat_id=?', (note_id, chat_id))
+            return self._forget(chat_id, note_id)
+
+    def _forget(self, chat_id, note_id):
+        found = self.db.execute('DELETE FROM memory_notes WHERE id=? AND chat_id=?',
+                                (note_id, chat_id)).rowcount
+        if found:
+            self.db.execute('DELETE FROM memory_search WHERE id=? AND chat_id=?', (note_id, chat_id))
         return bool(found)
+
+    def change(self, chat_id, operation_id, action, value):
+        """Commit a panel mutation and its retry receipt in the same transaction."""
+        if not isinstance(operation_id, str) or not re.fullmatch(r'[a-f0-9]{32}', operation_id):
+            raise ValueError('Invalid operation identity.')
+        if action not in {'add', 'delete'} or not isinstance(value, str):
+            raise ValueError('Invalid memory operation.')
+        fingerprint = hashlib.sha256(json.dumps([action, value], ensure_ascii=False).encode()).hexdigest()
+        with self.db:
+            row = self.db.execute('SELECT fingerprint,result FROM web_memory_operations WHERE chat_id=? AND operation_id=?',
+                                  (chat_id, operation_id)).fetchone()
+            if row:
+                if row[0] != fingerprint:
+                    raise ValueError('Operation identity already used.')
+                return json.loads(row[1])
+            if action == 'add':
+                result = {'id': self._remember(chat_id, value, 'owner'), 'created': True}
+            else:
+                if not self._forget(chat_id, value):
+                    raise LookupError('Memory note not found.')
+                result = {'id': value, 'deleted': True}
+            self.db.execute('INSERT INTO web_memory_operations VALUES (?,?,?,?)',
+                            (chat_id, operation_id, fingerprint, json.dumps(result)))
+            return result
 
     def import_file(self, chat_id, path):
         source = Path(path).resolve()
