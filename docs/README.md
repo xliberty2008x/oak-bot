@@ -8,6 +8,8 @@
 - [Configuration](configuration.md): private deployment settings, voice models and memory import.
 - [Validation](validation.md): completed checks and remaining deployment verification.
 - [Control panel](control-panel.md): controls, privacy and operator retest steps.
+- [UX implementation roadmap](ux-roadmap.md): reconciled audit, small PR sequence and handoff ledger.
+- [UX behavior specification](ux-spec.md): proposed behavior, scope, acceptance criteria and recovery constraints.
 - [UI/UX concept and mockups](ui-redesign-concept.md): futuristic control panel design system, bento layout and mockups.
 - [Telegram sessions](session-switching-research.md): native topics and message-history limits.
 - [Remote desktop](remote-desktop.md): manual browser login and phone/desktop controls.
