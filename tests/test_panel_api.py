@@ -188,6 +188,18 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed['due'], due)
         self.c.client.request.assert_not_awaited()
 
+    async def test_locale_endpoint_is_authenticated_and_serves_catalogue_fallback(self):
+        from oak.strings import catalogue
+        self.assertEqual((await self.http.get('/api/locale')).status, 401)
+        self.c.config['locale'] = 'en-US'
+        response = await self.http.get('/api/locale', headers=self.headers)
+        self.assertEqual(response.status, 200)
+        self.assertEqual(await response.json(), catalogue('en-US'))
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        module = await self.http.get('/locale.js')
+        self.assertEqual(module.status, 200)
+        self.assertIn('export function createLocale', await module.text())
+
     async def test_activity_history_is_scoped_paginated_and_does_not_claim_task_success(self):
         topic = self.c.sessions.resolve(11, 42)
         with self.c.db:
