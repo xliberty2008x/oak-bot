@@ -466,6 +466,13 @@ logout and page hiding abort old reads; late responses cannot update another
 conversation. Live updates preserve settings drafts, contextual form fields and
 unchanged request controls. Raw AG-UI content is not used for panel status.
 
+Legacy approvals also appear in the selected panel conversation as at most 20
+fixed-label snapshots (ID, expiry and decision state). Stored command/request
+metadata never reaches this projection. Panel decisions use the same single-use
+resolver as Telegram, recheck the scope and pending state, and never retry an
+ambiguous submission automatically. Ordinary requests and private website forms
+retain their existing separate transports.
+
 Native MCP tool confirmations use the existing owner approval buttons, including
 when no Mini App is open. Codex's standard empty object form with
 `_meta.codex_approval_kind = "mcp_tool_call"` is a confirmation, not an input
