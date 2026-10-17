@@ -148,6 +148,7 @@ class TelegramGateway:
         os.close(fd)
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
+        self.db.execute('CREATE TABLE IF NOT EXISTS activity_stops (token TEXT PRIMARY KEY, outcome TEXT NOT NULL)')
         self.db.execute('''CREATE TABLE IF NOT EXISTS activity_cards (
             chat_id INTEGER, run_id TEXT, token TEXT UNIQUE, started REAL,
             tools TEXT NOT NULL, ended TEXT NOT NULL, state TEXT NOT NULL,
@@ -644,7 +645,10 @@ class TelegramGateway:
                 match = re.fullmatch(r'(approve|deny):([A-Za-z0-9_.:-]{1,56})', data)
                 scope = self._message_scope(message)
                 outcome = 'Запит недоступний.'
-                if match and not self.sessions.deleted(scope):
+                stop = re.fullmatch(r'stop:([a-f0-9]{16})', data)
+                if stop and not self.sessions.deleted(scope):
+                    outcome = await self._stop_callback(scope, stop[1])
+                elif match and not self.sessions.deleted(scope):
                     outcome = await self._decision(scope, f'/{match[1]} {match[2]}', notify=False)
                 try:
                     await self._api('answerCallbackQuery', {'callback_query_id': callback['id'], 'text': outcome or 'Запит недоступний.'})
@@ -860,6 +864,29 @@ class TelegramGateway:
             self.db.execute('UPDATE activity_cards SET tools=?,ended=?,state=? WHERE chat_id=? AND run_id=?',
                             (json.dumps(tools), json.dumps(ended), state, chat_id, run_id))
 
+    async def _stop_callback(self, chat_id, token):
+        row = self.db.execute('SELECT run_id,state FROM activity_cards WHERE token=? AND chat_id=?', (token, chat_id)).fetchone()
+        if row is None:
+            return 'Запит недоступний.'
+        receipt = self.db.execute('SELECT outcome FROM activity_stops WHERE token=?', (token,)).fetchone()
+        if receipt:
+            outcome = receipt[0]
+        elif row['state'] != 'running':
+            outcome = 'not_active'
+        else:
+            with self.db:
+                self.db.execute("INSERT INTO activity_stops VALUES (?,'dispatching')", (token,))
+            try:
+                outcome = await self.controller.stop(chat_id, expected_turn=row['run_id'])
+            except Exception:
+                outcome = 'uncertain'
+            with self.db:
+                self.db.execute('UPDATE activity_stops SET outcome=? WHERE token=?', (outcome, token))
+            self.events.put_nowait(None)
+        return {'requested': 'Запит на зупинку прийнято.', 'idle': 'Задача вже завершилася.',
+                'not_active': 'Ця задача вже завершилася.'}.get(outcome,
+                'Результат зупинки невідомий. Перевір стан; повторно не надсилаю.')
+
     def _activity_payload(self, row):
         labels = {'completed': 'Обробку завершено.', 'failed': 'Задача завершилася з помилкою.',
                   'interrupted': 'Задачу зупинено.', 'stale': 'Стан задачі після перезапуску потребує перевірки.'}
@@ -871,7 +898,10 @@ class TelegramGateway:
                 text += ' · ' + str(seconds // 60) + ' хв ' + str(seconds % 60 // 10 * 10) + ' с'
         else:
             text = labels.get(row['state'], 'Стан задачі недоступний.')
-        return {'chat_id': row['chat_id'], 'text': text, 'reply_markup': {'inline_keyboard': []}}
+        controls = []
+        if row['state'] == 'running' and not self.db.execute('SELECT 1 FROM activity_stops WHERE token=?', (row['token'],)).fetchone():
+            controls = [[{'text': '⏹ Зупинити', 'callback_data': 'stop:' + row['token']}]]
+        return {'chat_id': row['chat_id'], 'text': text, 'reply_markup': {'inline_keyboard': controls}}
 
     async def _render_activity(self):
         rows = self.db.execute("SELECT * FROM activity_cards WHERE delivery IN ('pending','delivered')").fetchall()
