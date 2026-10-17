@@ -121,24 +121,24 @@
           <p class="hint section-footnote">Задачі можна також створити в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
         </section>
         <section id="view-activity" class="view" aria-labelledby="activity-heading" hidden>
-          <div class="view-heading"><h1 id="activity-heading" tabindex="-1">Історія активності</h1><p>Стан виконання, тривалість і види дій у вибраній сесії</p></div>
+          <div class="view-heading"><h1 id="activity-heading" data-i18n="activity.title" tabindex="-1">Історія активності</h1><p>Стан виконання, тривалість і види дій у вибраній сесії</p></div>
           <p class="hint">Завершення виконання не підтверджує результат завдання. Перевір відповідь Oak у розмові.</p>
-          <p id="activity-status" class="section-message" role="status"></p><ol id="activity-list" class="item-list" aria-label="Виконання"></ol><button id="activity-more" type="button" class="quiet" hidden>Показати ще</button>
+          <p id="activity-status" class="section-message" role="status"></p><ol id="activity-list" class="item-list" aria-label="Виконання"></ol><button id="activity-more" data-i18n="common.more" type="button" class="quiet" hidden>Показати ще</button>
         </section>
         <section id="view-artifacts" class="view" aria-labelledby="artifacts-heading" hidden>
-          <div class="view-heading"><h1 id="artifacts-heading" tabindex="-1">Файли розмови</h1><p>Зображення, відео, аудіо та документи вибраної сесії</p></div>
-          <p id="artifacts-status" class="section-message" role="status"></p><ul id="artifacts-list" class="item-list" aria-label="Файли"></ul><button id="artifacts-more" type="button" class="quiet" hidden>Показати ще</button>
+          <div class="view-heading"><h1 id="artifacts-heading" data-i18n="artifacts.title" tabindex="-1">Файли розмови</h1><p>Зображення, відео, аудіо та документи вибраної сесії</p></div>
+          <p id="artifacts-status" class="section-message" role="status"></p><ul id="artifacts-list" class="item-list" aria-label="Файли"></ul><button id="artifacts-more" data-i18n="common.more" type="button" class="quiet" hidden>Показати ще</button>
         </section>
         <section id="view-recovery" class="view" aria-labelledby="recovery-heading" hidden>
-          <div class="view-heading"><h1 id="recovery-heading" tabindex="-1">Перевірка запитів</h1><p>Невідомий результат потребує перевірки в сервісі, де виконувалась дія. Позначка перевірки не означає, що дія завершилася успішно.</p></div>
-          <p id="recovery-status" class="section-message" role="status"></p><ul id="recovery-list" class="item-list" aria-label="Запити для перевірки"></ul><button id="recovery-more" type="button" class="quiet" hidden>Показати ще</button>
+          <div class="view-heading"><h1 id="recovery-heading" data-i18n="recovery.title" tabindex="-1">Перевірка запитів</h1><p>Невідомий результат потребує перевірки в сервісі, де виконувалась дія. Позначка перевірки не означає, що дія завершилася успішно.</p></div>
+          <p id="recovery-status" class="section-message" role="status"></p><ul id="recovery-list" class="item-list" aria-label="Запити для перевірки"></ul><button id="recovery-more" data-i18n="common.more" type="button" class="quiet" hidden>Показати ще</button>
         </section>
         <section id="view-memory" class="view" aria-labelledby="memory-heading" hidden>
-          <div class="view-heading"><h1 id="memory-heading" tabindex="-1">Пам’ять</h1><p id="memory-context">Записи вибраної розмови</p></div>
+          <div class="view-heading"><h1 id="memory-heading" data-i18n="memory.title" tabindex="-1">Пам’ять</h1><p id="memory-context">Записи вибраної розмови</p></div>
           <form id="memory-search" class="topic-form"><label for="memory-query">Знайти запис</label><div class="topic-form-row"><input id="memory-query" type="search" maxlength="500" autocomplete="off" placeholder="Слово або тема"><button type="submit">Знайти</button></div></form>
           <p id="memory-status" class="section-message" role="status"></p>
           <ul id="memory-list" class="item-list" aria-label="Записи пам’яті"></ul>
-          <button id="memory-more" type="button" class="quiet" hidden>Показати ще</button>
+          <button id="memory-more" data-i18n="common.more" type="button" class="quiet" hidden>Показати ще</button>
           <form id="memory-add" class="topic-form"><h2>Новий запис</h2><label for="memory-text">Що Oak має пам’ятати в цій розмові?</label><textarea id="memory-text" rows="4" maxlength="32000" required></textarea><div class="item-actions"><button id="memory-save" type="submit" data-mutation="memory">Зберегти запис</button></div><p id="memory-save-status" class="hint" role="status"></p></form>
         </section>
         <section id="view-integrations" class="view" aria-labelledby="integrations-heading" hidden>
