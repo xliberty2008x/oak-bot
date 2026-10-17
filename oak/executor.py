@@ -28,6 +28,7 @@ OPERATIONS = frozenset({
     'research.youtube', 'browser.run', 'browser.close', 'computer.run',
     'computer.type', 'computer.key', 'computer.status', 'remote.start',
     'remote.read', 'remote.write', 'remote.close', 'remote.type', 'remote.key',
+    'quality.inspect',
 })
 
 

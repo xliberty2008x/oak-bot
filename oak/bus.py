@@ -53,7 +53,7 @@ class EventBus:
                 files = getattr(self.controller.tools, 'files', None)
                 path = await files.snapshot(value['path']) if files else self.controller.tools.file(value['path'])
                 identifier = uuid.uuid4().hex
-                name = Path(value['path']).name
+                name = Path(value.get('name') or value['path']).name
                 mime = mimetypes.guess_type(name)[0] or 'application/octet-stream'
                 with self.db:
                     self.db.execute('INSERT INTO artifacts VALUES (?,?,?,?,?)', (identifier, chat_id, str(path), name, mime))

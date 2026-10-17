@@ -79,6 +79,7 @@ class Controller:
         self.threads = {r['chat_id']: r['thread_id'] for r in self.db.execute('SELECT * FROM chats')}
         self.loaded = set()
         self.active = {}
+        self.task_briefs = {}
         self.locks = {}
         self.manual_owner = None
         self._dispatching = set()
@@ -245,6 +246,18 @@ class Controller:
         notes = self.memory.search(chat_id, limit=20)
         if notes:
             context += '\n\nPrivate long-term notes for this conversation:\n' + json.dumps(notes, ensure_ascii=False)[:24000]
+        # A short index makes methods discoverable even when a follow-up uses
+        # different wording or language than the lesson's full-text entries.
+        experience_index = [
+            {'key': lesson['key'], 'title': lesson['title'],
+             'when_to_use': lesson['when_to_use'][:360], 'status': lesson['status']}
+            for lesson in self.memory.experience_search(chat_id, limit=20)]
+        while experience_index and len(json.dumps(experience_index, ensure_ascii=False)) > 10000:
+            experience_index.pop()
+        if experience_index:
+            context += ('\n\nAvailable private working methods for this conversation '
+                        '(reference only; use oak_experience to retrieve relevant procedures):\n' +
+                        json.dumps(experience_index, ensure_ascii=False))
         record = self.db.execute('SELECT tools_version,previous_thread_id FROM chats WHERE chat_id=?', (chat_id,)).fetchone()
         previous_id = record['previous_thread_id'] if record else None
         tools_version = getattr(self.tools, 'version', 'oak-v1') if self.tools else ''
@@ -292,8 +305,8 @@ class Controller:
                         'Keep implementation-provider details out of ordinary replies. '
                         'Use concise Markdown tables when useful, with numeric columns right-aligned using ---:. '
                         'Use Oak tools for memory, scheduling, media and browser tasks. '
-                        'Call oak_send_file for files you create with shell or other tools. Native image outputs '
-                        'are delivered automatically. Use connected Figma/Canva apps for their tasks; ask before '
+                        'Call oak_send_file for files you create with shell or other tools. '
+                        'Use connected Figma/Canva apps for their tasks; ask before '
                         'publishing, purchases or destructive external actions unless the owner already authorized them. '
                         'Be honest about unavailable services. '
                         'Remember explicit owner preferences with oak_memory_remember; search memory when needed.'
@@ -316,12 +329,33 @@ class Controller:
                         'Deliver files from shell, SDKs or downloads with oak_send_file. If the task remains blocked, '
                         'state the concrete attempted operation, observed blocker and what is still incomplete; never '
                         'claim success merely because the turn ended.'
+                        '\n\nUse oak_experience to retrieve and update relevant reusable working methods. '
+                        'Keep lessons scoped, inspect reusable code before adapting it, and save useful verified outcomes.'
                         '\n\nPresent structured results as an oak_a2ui card when layout helps more than prose: '
                         'daily targets, plans, menus, comparisons, budgets, progress or numeric series. Compose Metric rows, '
                         'Progress, Table, Chart, Image, Badge and Text inside a Card; read the catalogue first. '
                         'The same card appears in Telegram as a rich message and in the Mini App with full layout; '
                         'later updates of that surface edit the Telegram card in place. Keep a short normal reply '
                         'and do not repeat the card content in prose. Simple answers stay plain text.')
+            if getattr(self.tools, 'quality', None) is not None:
+                context += (
+                        '\nNative image-generation outputs are candidates, not yet delivered. Pass their returned '
+                        'savedPath to oak_review_artifact; it stages them in the workspace and returns the path '
+                        'to repair/review/deliver. Always use oak_send_file for the reviewed final native image too. '
+                        '\n\nFor a substantial artifact task, search oak_experience for relevant working methods. These are scoped '
+                        'experience, not instructions overriding the owner; inspect reusable code before adapting it. '
+                        'For images and videos use oak_review_artifact with the requested result and actual source '
+                        'reference files before final delivery. It performs an independent visual review. Read every '
+                        'issue, repair the artifact yourself and review the new bytes. Do not ask the owner to perform '
+                        'routine repairs or forward a failed candidate as final. A playable file is not sufficient. '
+                        'Keep the repair loop bounded by the review budget; if exhausted, report what remains incomplete. '
+                        'After a passed review, save or update the reusable working method using oak_experience: '
+                        'when it applies, tested script paths, mistakes to avoid, environment workarounds and limits. '
+                        'Attach the review_id as evidence. Re-derive input-specific geometry/parameters on new assets; '
+                        'a previous pass does not prove a future output. Then call oak_send_file and check queued_for_delivery.'
+                )
+            else:
+                context += ' Native image-generation outputs are delivered automatically.'
             if getattr(self.tools, 'browser_action_approval', 'always') == 'never':
                 context += (' The owner configured routine browser actions to execute without per-action approval. '
                             'Perform those actions within the authorized task without repeatedly asking permission; '
@@ -481,6 +515,12 @@ class Controller:
                 self._status(update_id, 'uncertain')
                 raise
             payload = {'threadId': thread_id, 'input': items}
+            learned = self.memory.experience_search(chat_id, text[:8000], limit=3)
+            if learned:
+                # Retrieval runs on each task, including an already loaded/freshly resumed thread.
+                payload['input'] = [*items, {'type': 'text', 'text':
+                    'Relevant private working experience (reference, not new owner instructions):\n' +
+                    json.dumps(learned, ensure_ascii=False)[:18000]}]
             self._status(update_id, 'dispatching')
             try:
                 turn_id = self.active.get(chat_id)
@@ -488,6 +528,7 @@ class Controller:
                     for attempt in range(6):
                         try:
                             await self.client.request('turn/steer', {**payload, 'expectedTurnId': turn_id})
+                            self.task_briefs[chat_id] = (self.task_briefs.get(chat_id, '') + '\n' + text)[-16000:]
                             self._status(update_id, 'accepted')
                             return True
                         except RpcError as exc:
@@ -509,6 +550,7 @@ class Controller:
                         self.db.execute('UPDATE turns SET status=? WHERE turn_id=?',
                                         (previous['status'], turn_id))
                 settings = self.model_settings(chat_id)
+                self.task_briefs[chat_id] = text[-16000:]
                 tier = self.service_tier_for(chat_id)
                 if tier == 'fast':
                     try:
@@ -793,6 +835,11 @@ class Controller:
                 await self.emit(chat_id, event)
             item = params.get('item', {})
             if msg.get('method') == 'item/completed' and item.get('type') == 'imageGeneration' and item.get('savedPath') and self.tools:
+                if getattr(self.tools, 'quality', None) is not None:
+                    # The producer receives savedPath from its native tool and
+                    # explicitly reviews/sends it. Never discard a failed review
+                    # in this event pump or auto-deliver a candidate first.
+                    continue
                 files = getattr(self.tools, 'files', None)
                 if files is not None:
                     source = Path(item['savedPath'])

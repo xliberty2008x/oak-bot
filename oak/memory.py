@@ -1,4 +1,4 @@
-"""Private, chat-scoped long-term notes with local full-text retrieval."""
+"""Private, conversation-scoped preferences and reusable working experience."""
 
 import json
 import re
@@ -16,7 +16,108 @@ class MemoryStore:
                 source TEXT NOT NULL, created REAL NOT NULL);
             CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(
                 id UNINDEXED, chat_id UNINDEXED, text, tokenize='unicode61');
+            CREATE TABLE IF NOT EXISTS experience_notes (
+                id TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, key TEXT NOT NULL,
+                title TEXT NOT NULL, when_to_use TEXT NOT NULL, procedure TEXT NOT NULL,
+                limitations TEXT NOT NULL, status TEXT NOT NULL,
+                evidence TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL,
+                revision INTEGER NOT NULL, UNIQUE(chat_id,key));
+            CREATE VIRTUAL TABLE IF NOT EXISTS experience_search USING fts5(
+                id UNINDEXED, chat_id UNINDEXED, title, when_to_use, procedure,
+                limitations, tokenize='unicode61');
         ''')
+
+    def save_experience(self, chat_id, key, title, when_to_use, procedure, *,
+                        limitations='', evidence=None, verified=False):
+        """Upsert a scoped lesson; only a trusted review caller may verify it.
+
+        ``verified`` is deliberately separate from model-supplied lesson text.
+        The caller must check the review receipt and artifact before passing
+        True. ``proven`` means this revision has passing artifact evidence;
+        it does not certify every claim in the narrated procedure or guarantee
+        a future result. Changed instructions without a new verified receipt
+        lose that status, even if an earlier revision worked.
+        """
+        limits = {'key': 160, 'title': 240, 'when_to_use': 2000,
+                  'procedure': 16000, 'limitations': 4000}
+        values = {'key': key, 'title': title, 'when_to_use': when_to_use,
+                  'procedure': procedure, 'limitations': limitations}
+        for name, value in values.items():
+            if not isinstance(value, str):
+                raise ValueError('Experience fields must be text.')
+            values[name] = value.strip()
+            if len(values[name]) > limits[name] or (name != 'limitations' and not values[name]):
+                raise ValueError('Experience field is empty or exceeds its size limit: ' + name)
+        values['key'] = ' '.join(values['key'].casefold().split())
+        if type(verified) is not bool:
+            raise ValueError('Experience verification must be boolean.')
+        if evidence is None:
+            evidence = []
+        # Keep local receipts as references, never an unbounded copy of model
+        # transcripts or media. The review layer validates their provenance.
+        allowed = {'review_id', 'artifact_sha256', 'path', 'outcome', 'note', 'kind', 'reference'}
+        if (not isinstance(evidence, list) or len(evidence) > 12
+                or any(not isinstance(item, dict) or not item or set(item) - allowed
+                       or any(not isinstance(value, str) or not value.strip() or len(value) > 2000
+                              for value in item.values()) for item in evidence)):
+            raise ValueError('Experience evidence must contain bounded review references.')
+        if verified and not evidence:
+            raise ValueError('Proven experience requires a verified evidence reference.')
+        serialized = json.dumps(evidence, ensure_ascii=False, sort_keys=True, allow_nan=False)
+        if len(serialized) > 12000:
+            raise ValueError('Experience evidence exceeds its size limit.')
+        status = 'proven' if verified else 'unverified'
+        now = time.time()
+        with self.db:
+            previous = self.db.execute(
+                'SELECT id,revision FROM experience_notes WHERE chat_id=? AND key=?',
+                (chat_id, values['key'])).fetchone()
+            note_id, revision = (previous[0], previous[1] + 1) if previous else (uuid.uuid4().hex[:12], 1)
+            if previous:
+                self.db.execute('''UPDATE experience_notes SET title=?,when_to_use=?,procedure=?,
+                    limitations=?,status=?,evidence=?,updated=?,revision=? WHERE id=? AND chat_id=?''',
+                    (values['title'], values['when_to_use'], values['procedure'], values['limitations'],
+                     status, serialized, now, revision, note_id, chat_id))
+                self.db.execute('DELETE FROM experience_search WHERE id=? AND chat_id=?', (note_id, chat_id))
+            else:
+                self.db.execute('INSERT INTO experience_notes VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                    (note_id, chat_id, values['key'], values['title'], values['when_to_use'],
+                     values['procedure'], values['limitations'], status, serialized, now, now, revision))
+            self.db.execute('INSERT INTO experience_search VALUES (?,?,?,?,?,?)',
+                (note_id, chat_id, values['title'], values['when_to_use'], values['procedure'], values['limitations']))
+        return {'id': note_id, 'key': values['key'], 'status': status, 'revision': revision}
+
+    def experience_search(self, chat_id, query='', limit=5):
+        """Retrieve procedures only from the selected conversation, after restart too."""
+        if not isinstance(query, str) or len(query) > 8000:
+            raise ValueError('Experience query must be text of at most 8000 characters.')
+        limit = max(1, min(int(limit), 20))
+        columns = ('id', 'key', 'title', 'when_to_use', 'procedure', 'limitations',
+                   'status', 'evidence', 'created', 'updated', 'revision')
+        selection = ','.join('n.' + column for column in columns)
+        words = re.findall(r'[^\W_]+', query, re.UNICODE)[:80]
+        if words:
+            rows = self.db.execute('SELECT ' + selection + ''' FROM experience_search s
+                JOIN experience_notes n ON n.id=s.id WHERE experience_search MATCH ?
+                AND n.chat_id=? ORDER BY bm25(experience_search,0,0,4,3,1,1),n.updated DESC LIMIT ?''',
+                (' OR '.join('"' + word + '"' for word in words), chat_id, limit))
+        else:
+            rows = self.db.execute('SELECT ' + selection + ''' FROM experience_notes n
+                WHERE n.chat_id=? ORDER BY n.updated DESC LIMIT ?''', (chat_id, limit))
+        result = []
+        for row in rows:
+            note = dict(zip(columns, row))
+            note['evidence'] = json.loads(note['evidence'])
+            result.append(note)
+        return result
+
+    def forget_experience(self, chat_id, note_id):
+        with self.db:
+            found = self.db.execute('DELETE FROM experience_notes WHERE id=? AND chat_id=?',
+                                    (note_id, chat_id)).rowcount
+            if found:
+                self.db.execute('DELETE FROM experience_search WHERE id=? AND chat_id=?', (note_id, chat_id))
+        return bool(found)
 
     def remember(self, chat_id, text, source='owner'):
         text = text.strip()

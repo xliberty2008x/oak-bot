@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import json
+import uuid
 from pathlib import Path
 
 
@@ -102,6 +103,20 @@ SPECS = [
     _spec('oak_memory_read', 'Read or search long-term memory for this private conversation.', {'query': STRING}),
     _spec('oak_memory_remember', 'Save a durable fact or preference the owner wants remembered.', {'text': STRING}, ['text']),
     _spec('oak_memory_forget', 'Forget one note by ID at the owner request.', {'id': STRING}, ['id']),
+    _spec('oak_experience', 'Search, save/update, or forget reusable working methods in this conversation. '
+          'Search before relevant tasks; save the working procedure, failed approaches, limitations and reusable script paths '
+          'after verification. Use a stable key to update a lesson. A passed review_id supplies verified artifact evidence; '
+          'without it the procedure is marked unverified. Never store secrets or copy private lessons across conversations.',
+          {'action': {'type': 'string', 'enum': ['search', 'save', 'forget']}, 'query': STRING, 'id': STRING,
+           'key': STRING, 'title': STRING, 'when_to_use': STRING, 'procedure': STRING,
+           'limitations': STRING, 'review_id': STRING}, ['action']),
+    _spec('oak_review_artifact', 'Independently review the actual image or video before delivery. '
+          'Give the requested result and actual source/reference paths, not a claimed verdict. '
+          'The reviewer sees decoded output and motion details. A revise result contains defects to fix autonomously; '
+          'render again and re-review. A pass applies only to those exact bytes and this task. '
+          'At most four reviews per task; on unverified/exhausted explain the actual limitation. '
+          'After pass save a useful reusable method with oak_experience, then deliver using oak_send_file.',
+          {'path': STRING, 'requirements': STRING, 'reference_paths': {'type': 'array', 'items': STRING, 'maxItems': 3}}, ['path']),
     _spec('oak_schedule', 'Schedule a reminder or agent task, one time or recurring. Dates use the deployment timezone.',
           {'prompt': STRING, 'delay_seconds': NUMBER, 'at': STRING, 'interval_seconds': NUMBER,
            'mode': {'type': 'string', 'enum': ['remind', 'run']}}, ['prompt']),
@@ -129,7 +144,9 @@ SPECS = [
            'url': STRING, 'selector': STRING, 'text': STRING, 'frame': STRING,
            'files': {'type': 'array', 'items': STRING},
            'timeout_ms': {'type': 'integer', 'minimum': 100, 'maximum': 60000}, 'tab': STRING}, ['action']),
-    _spec('oak_send_file', 'Deliver a generated file from the workspace to the owner chat.',
+    _spec('oak_send_file', 'Deliver a generated file from the workspace to the owner chat. '
+          'When visual review is enabled, images/videos are checked before delivery. A revise/unverified response '
+          'means nothing was sent: fix the defects and review again. Prefer oak_review_artifact with source references first.',
           {'path': STRING, 'caption': STRING}, ['path']),
 ]
 
@@ -177,7 +194,7 @@ class WorkerComputer:
 
 class Tools:
     specs = SPECS
-    version = 'oak-v16-browser-capabilities'
+    version = 'oak-v17-quality-learning'
 
     def __init__(self, controller, config, *, desktop=None):
         from .media import MediaTools
@@ -185,6 +202,12 @@ class Tools:
         from .browser import BrowserTools
         self.controller = controller
         self.workspace = Path(controller.cwd).resolve()
+        self.quality = None
+        if type(config.get('quality_review', False)) is not bool:
+            raise ValueError('quality_review must be boolean.')
+        if config.get('quality_review', False):
+            from .quality_gate import QualityGate
+            self.quality = QualityGate(self, config)
         self.browser_action_approval = config.get('browser_action_approval', 'always')
         if not isinstance(self.browser_action_approval, str) or self.browser_action_approval not in {'always', 'never'}:
             raise ValueError('browser_action_approval must be always or never.')
@@ -297,11 +320,48 @@ class Tools:
             raise ValueError('Приватні службові файли не надсилаються.')
         return resolved
 
+    async def _artifact_file(self, value):
+        """Stage a native generated image through its dedicated transfer namespace."""
+        if self.quality and self.files:
+            home = getattr(getattr(self.controller, 'client', None), 'home', None)
+            if home is None:
+                return self.file(value)
+            root = Path(home) / 'generated_images'
+            source = Path(value)
+            if source.is_absolute() and source.is_relative_to(root):
+                snapshot = await self.files.snapshot(source, namespace='generated_images')
+                target = self.workspace / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + snapshot.suffix)
+                await self.files.write_trusted(snapshot, target)
+                return target
+        return self.file(value)
+
     async def artifact(self, chat_id, path, caption=''):
-        path = self.file(path)
+        path = await self._artifact_file(path)
+        name = path.name
+        review = None
+        turn = getattr(self.controller, 'active', {}).get(chat_id)
+        if self.quality:
+            from .quality_gate import VISUAL_SUFFIXES
+            from .quality_media import _kind
+            if self.files:
+                delivery_path = await self.files.snapshot(path)
+            else:
+                raise ValueError('Independent visual review requires the configured execution worker.')
+            with delivery_path.open('rb') as stream:
+                header = stream.read(32)
+            if path.suffix.lower() in VISUAL_SUFFIXES or _kind(header) != 'unsupported':
+                review, snapshot = await self.quality.review(chat_id, path, snapshot=delivery_path)
+                if review.get('verdict') != 'pass':
+                    return {**review, 'queued_for_delivery': False, 'path': str(path)}
+                delivery_path = snapshot
+        else:
+            delivery_path = path
+        if review and self.controller.active.get(chat_id) != turn:
+            raise ValueError('Task stopped before delivery.')
         await self.controller.emit(chat_id, {'type': 'CUSTOM', 'name': 'artifact',
-                                           'value': {'path': str(path), 'caption': caption}})
-        return {'path': str(path), 'queued_for_delivery': True}
+                                           'value': {'path': str(delivery_path), 'name': name, 'caption': caption}})
+        return {'path': str(path), 'queued_for_delivery': True,
+                **({'review_id': review['review_id'], 'sha256': review['sha256']} if review else {})}
 
     async def _approve_browser_action(self, metadata, action, *, account=False):
         if self.browser_action_approval == 'never' or action not in {'click', 'type', 'upload', 'download'}:
@@ -441,6 +501,29 @@ class Tools:
             return {'id': c.memory.remember(chat_id, args['text'])}
         if name == 'oak_memory_forget':
             return {'forgotten': c.memory.forget(chat_id, args['id'])}
+        if name == 'oak_review_artifact':
+            if not isinstance(args, dict) or 'path' not in args or set(args) - {'path', 'requirements', 'reference_paths'}:
+                raise ValueError('Supply the workspace file and optional requirements/reference paths.')
+            if self.quality is None:
+                return {'ok': False, 'verdict': 'unverified', 'summary': 'Independent visual review is not configured.'}
+            path = await self._artifact_file(args['path'])
+            report, _ = await self.quality.review(chat_id, **{**args, 'path': path})
+            return {**report, 'path': str(path)}
+        if name == 'oak_experience':
+            if args['action'] == 'search':
+                return c.memory.experience_search(chat_id, args.get('query', ''))
+            if args['action'] == 'forget':
+                return {'forgotten': c.memory.forget_experience(chat_id, args['id'])}
+            if args['action'] != 'save':
+                raise ValueError('Unknown experience action.')
+            evidence = []
+            if args.get('review_id'):
+                if self.quality is None:
+                    raise ValueError('Independent visual review is not configured.')
+                evidence.append(self.quality.receipt(chat_id, args['review_id']))
+            return c.memory.save_experience(chat_id, args['key'], args['title'], args['when_to_use'],
+                args['procedure'], limitations=args.get('limitations', ''), evidence=evidence,
+                verified=bool(evidence and evidence[0]['outcome'] == 'pass'))
         if name == 'oak_schedule':
             return {'id': c.scheduler.add(chat_id, **args)}
         if name == 'oak_tasks':

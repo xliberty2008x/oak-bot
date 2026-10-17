@@ -511,6 +511,12 @@ release references, abort unused fetches and revoke unused URLs. Late responses
 cannot create or restore a URL after removal. This lifecycle never handles
 private website field values.
 
+When `quality_review` is enabled, A2UI image publication also requires a passed
+independent review before publication. Review runs outside the conversation
+lock so stop/steering remain responsive; rejected findings return to the agent
+for repair. The card uses the exact reviewed snapshot, including when its input
+is an existing conversation-owned artifact. This changes no renderer or catalogue.
+
 AG-UI uses Oak's mapper/validator without a pinned AG-UI SDK dependency.
 [Historical event checks](docs/validation.md), package installation, local tests,
 production rollout and successful provider login are separate claims.

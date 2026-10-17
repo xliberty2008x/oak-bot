@@ -1,0 +1,22 @@
+{
+  "model": "gpt-6.1-sol",
+  "billing": "existing ChatGPT subscription",
+  "synthetic_cards": {
+    "clipped": {
+      "verdict": "revise",
+      "elapsed_seconds": 12.361,
+      "summary": "Both text lines are cropped at the right edge and overlap, so the complete title and subtitle are not readable."
+    },
+    "correct": {
+      "verdict": "pass",
+      "elapsed_seconds": 19.528,
+      "summary": "The title card is clean, readable, and meets the brief."
+    }
+  },
+  "animation_review": {
+    "verdict": "revise",
+    "elapsed_seconds": 22.706,
+    "summary": "Моргання й легкий рух волосся присутні, персонаж збережений, камера нерухома. Потрібно узгодити промальовування закритих повік зі стилем оригіналу."
+  },
+  "note": "No private images, source files, account details or prompts are included. Initial broad crops missed the aesthetic defect; automatic localized magnification exposed it. Live producer repair and delivery are a separate acceptance step."
+}

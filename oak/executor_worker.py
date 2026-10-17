@@ -355,6 +355,7 @@ OPERATIONS = {
     'file.open_read': (('path',), ('namespace',)), 'file.read_chunk': (('handle',), ()),
     'file.close': (('handle',), ()), 'file.open_write': (('path',), ()),
     'file.write_chunk': (('handle', 'data'), ()), 'file.finish_write': (('handle',), ()),
+    'quality.inspect': (('path', 'sha256'), ()),
     'remote.start': ((), ()), 'remote.read': (('id',), ()), 'remote.write': (('id', 'data'), ()), 'remote.close': (('id',), ()),
     'remote.type': (('id', 'text'), ()), 'remote.key': (('id', 'key'), ()),
 }
@@ -507,6 +508,9 @@ class Worker:
             result = await asyncio.to_thread(probe_local, self.profile, args)
             return await result if inspect.isawaitable(result) else result
         group, method = op.split('.')
+        if group == 'quality':
+            from oak.quality_media import inspect_media
+            return await asyncio.to_thread(inspect_media, self.files, **args)
         if group == 'file':
             return getattr(self.files, method)(**args)
         if group == 'remote':

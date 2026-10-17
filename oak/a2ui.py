@@ -30,6 +30,12 @@ class StaleSurface(ValueError):
     pass
 
 
+class ImageReviewBlocked(ValueError):
+    def __init__(self, report):
+        self.report = report
+        super().__init__('Image quality review requires repair before publication.')
+
+
 def bounded_json(value):
     try:
         text = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':'))
@@ -410,11 +416,26 @@ class A2UIStore:
         if len(images) > 32:  # Four surfaces × eight images, including streamed replacements.
             raise ValueError('Oak supports at most 32 image sources per batch.')
 
-        async def image_path(value):
+        async def image_path(value, *, existing=False):
             path = await files.snapshot(value, limit=IMAGE_BYTES) if files else self.controller.tools.file(value)
             info = path.stat()
             if info.st_nlink != 1 or not 0 < info.st_size <= IMAGE_BYTES:
                 raise ValueError('Image must be a PNG, JPEG, WebP or GIF of at most 10 MiB.')
+            quality = getattr(self.controller.tools, 'quality', None)
+            if quality is not None:
+                source = value
+                if existing:
+                    # Older artifact IDs may predate quality review. Reinspect
+                    # their exact immutable bytes in this task's current brief.
+                    if files is None or not files.stored(path):
+                        raise ValueError('Stored image is not available for independent review.')
+                    source = self.controller.tools.workspace / 'artifacts' / ('a2ui-review-' + uuid.uuid4().hex + path.suffix)
+                    await files.write_trusted(path, source)
+                report, reviewed = await quality.review(chat, source, snapshot=path)
+                if report.get('verdict') != 'pass':
+                    raise ImageReviewBlocked(report)
+                # Do not reopen the mutable workspace source after the pass.
+                path = reviewed
             return path
 
         for message in messages:
@@ -422,11 +443,13 @@ class A2UIStore:
                 if item['component'] != 'Image':
                     continue
                 if 'artifact' in item:
+                    if item['artifact'] in artifacts:
+                        continue
                     row = self.db.execute('SELECT path,name,mime FROM artifacts WHERE id=? AND chat_id=?', (item['artifact'], chat)).fetchone()
                     if not row or row[2] not in IMAGE_TYPES:
                         raise ValueError('Image artifact is not available in this conversation.')
                     if item['artifact'] not in artifacts:
-                        path = await image_path(row[0])
+                        path = await image_path(row[0], existing=True)
                         artifacts[item['artifact']] = (item['artifact'], chat, str(path), row[1], row[2])
                     continue
                 source = self.controller.tools.file(item.pop('path'))
@@ -467,16 +490,46 @@ class A2UIStore:
         validate_messages(messages)
         string(fallback, 2000)
         c = self.controller
+        thread = c.threads.get(chat)
+        if not thread or c.sessions.deleted(chat) or (metadata and metadata.get('threadId') != thread):
+            raise StaleSurface('Session changed.')
+        run = (metadata or {}).get('turnId')
+        turn = self.db.execute('SELECT status FROM turns WHERE turn_id=?', (run,)).fetchone()
+        if run and ((turn and turn['status'] in {'interrupted', 'failed', 'uncertain'})
+                    or (chat in c.active and c.active[chat] != run)):
+            raise StaleSurface('A2UI update belongs to an inactive run.')
+        quality = getattr(c.tools, 'quality', None)
+        brief = getattr(c, 'task_briefs', {}).get(chat, '')
+        review_turn = c.active.get(chat)
+        inherited, initial_revisions = {}, {}
+        if quality is not None:
+            touched = {next(value for key, value in message.items() if key != 'version')['surfaceId'] for message in messages}
+            for row in self.db.execute('SELECT id,thread_id,revision,state FROM a2ui_surfaces WHERE chat_id=?', (chat,)):
+                if row['id'] in touched and row['thread_id'] == thread:
+                    initial_revisions[row['id']] = row['revision']
+                    inherited[row['id']] = json.loads(row['state'])['components']
+            for message in messages:
+                kind = next(key for key in message if key != 'version')
+                value = message[kind]
+                key = value['surfaceId']
+                if kind == 'createSurface':
+                    inherited[key] = {}
+                elif kind == 'deleteSurface':
+                    inherited.pop(key, None)
+                elif kind == 'updateComponents':
+                    inherited.setdefault(key, {}).update({item['id']: item for item in value['components']})
+            # Incremental card publication also resends unchanged images. They
+            # must not bypass review simply because only text/data changed.
+            images = [item for components in inherited.values() for item in components.values() if item['component'] == 'Image']
+            preflight = [*messages, {'updateComponents': {'components': images}}]
+        else:
+            preflight = messages
+        try:
+            prepared, artifacts = await self.attach_images(chat, preflight)
+        except ImageReviewBlocked as exc:
+            return {**exc.report, 'ok': False, 'published': False, 'queued_for_delivery': False}
+        messages = prepared[:-1] if quality is not None else prepared
         async with c._lock(chat):
-            thread = c.threads.get(chat)
-            if not thread or c.sessions.deleted(chat) or (metadata and metadata.get('threadId') != thread):
-                raise StaleSurface('Session changed.')
-            run = (metadata or {}).get('turnId')
-            turn = self.db.execute('SELECT status FROM turns WHERE turn_id=?', (run,)).fetchone()
-            if run and ((turn and turn['status'] in {'interrupted', 'failed', 'uncertain'})
-                        or (chat in c.active and c.active[chat] != run)):
-                raise StaleSurface('A2UI update belongs to an inactive run.')
-            messages, artifacts = await self.attach_images(chat, messages)
             # File transfer yields; a closed/replaced session cannot register or
             # publish its pending images after that boundary.
             if c.threads.get(chat) != thread or c.sessions.deleted(chat):
@@ -485,6 +538,12 @@ class A2UIStore:
             if run and ((turn and turn['status'] in {'interrupted', 'failed', 'uncertain'})
                         or (chat in c.active and c.active[chat] != run)):
                 raise StaleSurface('A2UI update belongs to an inactive run.')
+            if quality is not None:
+                current_revisions = {row['id']: row['revision'] for row in self.db.execute(
+                    'SELECT id,revision FROM a2ui_surfaces WHERE chat_id=? AND thread_id=?', (chat, thread)) if row['id'] in touched}
+                if (c.active.get(chat) != review_turn or current_revisions != initial_revisions
+                        or getattr(c, 'task_briefs', {}).get(chat, '') != brief):
+                    raise StaleSurface('Card or owner task changed during review; compose the current card again.')
             rows = {r['id']: r for r in self.db.execute('SELECT * FROM a2ui_surfaces WHERE chat_id=?', (chat,))}
             states = {key: json.loads(row['state']) for key, row in rows.items()
                       if row['thread_id'] == thread and row['expires'] >= time.time()}

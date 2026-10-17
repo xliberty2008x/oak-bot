@@ -22,6 +22,7 @@ paths resolve against the configuration file's directory.
 | `sandbox` | `workspace-write`, `read-only`, or owner-selected `danger-full-access` inside an isolated `execution` profile |
 | `runtime_config` | Runtime options such as approval policy and web search |
 | `browser_action_approval` | `always` (default) or owner-selected `never` for routine browser actions |
+| `quality_review` | `true` enables independent visual review before image/video file delivery; requires the execution worker and ChatGPT subscription runtime (default `false` for existing deployments) |
 | `piper_model` | Optional local `.onnx` narration model with adjacent `.onnx.json` |
 | `vosk_model` | Optional extracted local speech-recognition model directory |
 | `whisper_model` | Optional local faster-whisper model, used instead of Vosk |
