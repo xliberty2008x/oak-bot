@@ -850,12 +850,14 @@ async function loadArtifacts(before = null) {
             const asset = artifactAssets.get(file.id) || {controller: new AbortController(), url: null}; artifactAssets.set(file.id, asset);
             try {
               if (!asset.url) {
-                if (!asset.loading) asset.loading = artifact(file.id, {signal: asset.controller.signal, limit: 100 * 1024 * 1024, types: [file.mime]}).finally(() => { asset.loading = null; });
+                if (!asset.loading) asset.loading = artifact(file.id, {signal: asset.controller.signal, limit: (preview ? 10 : 100) * 1024 * 1024, types: [file.mime]}).finally(() => { asset.loading = null; });
                 const blob = await asset.loading;
                 if (epoch !== sessionEpoch || asset.controller.signal.aborted || !row.isConnected) return;
-                if (!asset.url) asset.url = URL.createObjectURL(blob);
+                if (preview && blob.size > 10 * 1024 * 1024) { status.textContent = "Перегляд доступний для зображень до 10 МБ. Файл можна завантажити."; return; }
+                if (!asset.url) { asset.size = blob.size; asset.url = URL.createObjectURL(blob); }
               }
               if (epoch !== sessionEpoch || asset.controller.signal.aborted) return;
+              if (preview && asset.size > 10 * 1024 * 1024) { status.textContent = "Перегляд доступний для зображень до 10 МБ. Файл можна завантажити."; return; }
               if (preview) { const image = element("img"); image.alt = file.name; image.src = asset.url; image.className = "artifact-preview"; row.append(image); button.hidden = true; }
               else { const link = element("a"); link.href = asset.url; link.download = file.name; link.click(); }
               status.textContent = "Файл готовий.";
