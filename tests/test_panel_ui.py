@@ -66,6 +66,25 @@ theme.destroy();assert.equal(listeners.size,0);app=null;theme.connect();assert.e
         result = subprocess.run([NODE, '--experimental-vm-modules', '-e', 'const SOURCE=' + json.dumps(source) + ';(async()=>{' + scenario + '})().catch(e=>{console.error(e);process.exit(1)});'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_native_bridge_scopes_listeners_insets_and_pending_confirmation(self):
+        source = (ROOT / 'oak/web/telegram-bridge.js').read_text()
+        scenario = r"""
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const mod=new vm.SourceTextModule(SOURCE);await mod.link(()=>{});await mod.evaluate();
+const styles=new Map(),events=new Map();let click=null,callback=null,visible=false,backs=0,canBack=false;
+const app={safeAreaInset:{top:20,bottom:-1},contentSafeAreaInset:{top:40,right:Infinity},
+BackButton:{onClick:fn=>click=fn,offClick:()=>click=null,show:()=>visible=true,hide:()=>visible=false},
+onEvent:(k,v)=>events.set(k,v),offEvent:k=>events.delete(k),showConfirm:(text,fn)=>callback=fn};
+const bridge=mod.namespace.createTelegramBridge({app:()=>app,root:{style:{setProperty:(k,v)=>styles.set(k,v)}},canBack:()=>canBack,back:()=>backs++});
+bridge.connect();bridge.connect();assert.equal(events.size,2);assert.equal(styles.get('--native-safe-top'),'20px');assert.equal(styles.get('--native-content-right'),'0px');
+canBack=true;bridge.update();assert.equal(visible,true);click();assert.equal(backs,1);
+let promise=bridge.confirm('Proceed?');callback(true);assert.equal(await promise,true);
+promise=bridge.confirm('Pending');bridge.destroy();assert.equal(await promise,false);assert.equal(events.size,0);assert.equal(click,null);assert.equal(visible,false);
+app.showConfirm=()=>{throw Error('unsupported')};assert.equal(bridge.confirm('fallback'),null);bridge.feedback();
+"""
+        result = subprocess.run([NODE, '--experimental-vm-modules', '-e', 'const SOURCE=' + json.dumps(source) + ';(async()=>{' + scenario + '})().catch(e=>{console.error(e);process.exit(1)});'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_single_request_and_five_second_poll(self):
         self.run_js('''panel.start();assert.equal([...timers.values()][0].ms,5000);await tick();
 assert.equal(reads.length,1);assert.equal(timers.size,0);reads[0].resolve({active:true});await flush();
