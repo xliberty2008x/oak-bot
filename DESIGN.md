@@ -805,3 +805,12 @@ keys. A late locale response cannot cross a session epoch. Existing Ukrainian
 labels remain readable if catalogue retrieval fails. User content is never used
 as a translation key or HTML; catalogue output is assigned with `textContent`.
 See [the incremental localization contract](docs/localization.md).
+
+Task, approval and session lists reconcile keyed DOM rows. An unchanged task
+revision/snapshot preserves the same editor nodes, drafts, open disclosures and
+keyboard focus; changed task state replaces its controls and announces that the
+schedule changed. An unrelated approval or session update preserves focused
+unchanged actions. Removed controls cannot remain actionable. Failed task reads
+mark cached rows stale without erasing drafts; owner logout or conversation
+switch clears them. Creating a task only clears its own creation form, keeping
+any pending receipt for another task's mutation.
