@@ -555,7 +555,11 @@ new UI dependency. Local wall times are round-trip checked against the configure
 timezone and require an explicit offset at ambiguous or nonexistent DST times.
 Confirmation displays the resolved local date, numeric offset and IANA timezone.
 
-Preserve the existing dark green panel and compact private form. Reuse actual
+Preserve the existing Oak green panel and compact private form. The panel follows
+Telegram light/dark appearance through the existing semantic tokens. Validated
+background/text hints use readable fallbacks; browser mode keeps the dark green
+default. Theme listeners are cleaned up on page hide and restored on reopen.
+The separate private website document and its dark host remain unchanged. Reuse actual
 CSS and DOM components; this document introduces no redesign, font download or
 spacing framework.
 
