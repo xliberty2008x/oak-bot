@@ -97,3 +97,33 @@ class JobControls:
             self.db.execute('INSERT INTO jobs(id,chat_id,prompt,due,interval,mode) VALUES (?,?,?,?,?,?)',
                             (identifier, scope, prompt.strip(), due, interval_seconds, mode))
             return self._record(scope, operation_id, fingerprint, identifier)
+
+    def _editable(self, scope, identifier, expected_revision):
+        if not isinstance(identifier, str) or not 1 <= len(identifier) <= 128:
+            raise LookupError('Задачу не знайдено.')
+        if type(expected_revision) is not int or not 1 <= expected_revision < 2**63:
+            raise ValueError('Потрібна поточна версія задачі.')
+        job = self.db.execute('SELECT id,revision,status,due FROM jobs WHERE id=? AND chat_id=?',
+                              (identifier, scope)).fetchone()
+        if job is None:
+            raise LookupError('Задачу не знайдено.')
+        if job['revision'] != expected_revision:
+            raise RuntimeError('Задача вже змінилася. Онови розклад перед новою дією.')
+        if job['status'] not in {'pending', 'paused'}:
+            raise RuntimeError('Можна змінювати лише задачі, що очікують або призупинені.')
+        return job
+
+    def reschedule_owned(self, scope, identifier, operation_id, expected_revision, at):
+        with self.db:
+            fingerprint, receipt = self._operation(scope, operation_id,
+                {'kind': 'reschedule', 'id': identifier, 'expected_revision': expected_revision, 'at': at})
+            if receipt is not None:
+                return receipt
+            self._editable(scope, identifier, expected_revision)
+            due = self._time(at)
+            updated = self.db.execute("UPDATE jobs SET due=?,revision=revision+1 WHERE id=? AND chat_id=? "
+                                      "AND revision=? AND status IN ('pending','paused')",
+                                      (due, identifier, scope, expected_revision))
+            if updated.rowcount != 1:
+                raise RuntimeError('Задача вже змінилася. Онови розклад перед новою дією.')
+            return self._record(scope, operation_id, fingerprint, identifier)
