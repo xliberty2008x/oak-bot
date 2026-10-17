@@ -89,7 +89,7 @@ class WebGateway:
             web.get('/remote.js', self.static), web.get('/vendor/novnc/{path:.+}', self.remote_vendor),
             web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
             web.get('/a2ui-theme.css', self.static), web.get('/vendor/a2ui/runtime.js', self.static),
-            web.get('/requests.js', self.static), web.get('/panel-poll.js', self.static),
+            web.get('/requests.js', self.static), web.get('/panel-poll.js', self.static), web.get('/telegram-theme.js', self.static),
             web.get('/form-controls.js', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
@@ -183,7 +183,7 @@ class WebGateway:
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
-                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/panel-poll.js': 'panel-poll.js', '/form-controls.js': 'form-controls.js',
+                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/panel-poll.js': 'panel-poll.js', '/telegram-theme.js': 'telegram-theme.js', '/form-controls.js': 'form-controls.js',
                 '/a2ui-catalog.json': 'a2ui-catalog.json', '/a2ui-theme.css': 'a2ui-theme.css',
                 '/vendor/a2ui/runtime.js': 'vendor/a2ui/runtime.js'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
