@@ -63,6 +63,8 @@ class WebGateway:
         self.controls = ControlPanel(self)
         from .job_controls import JobControls
         self.job_controls = JobControls(controller)
+        from .recovery import RecoveryStore
+        self.recovery = RecoveryStore(controller)
         from .remote import RemoteDesktop
         self.remote = RemoteDesktop(self)
         self.signin = None
@@ -96,6 +98,7 @@ class WebGateway:
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel),
+            web.get('/api/recovery', self.recovery_items), web.post('/api/recovery/{id}/review', self.review_recovery),
             web.get('/api/memory', self.memory), web.post('/api/memory', self.change_memory),
             web.post('/api/memory/{id}/delete', self.change_memory), web.get('/api/tasks', self.tasks), web.post('/api/tasks', self.create_task),
             web.get('/api/models', self.models), web.post('/api/models', self.set_model),
@@ -264,6 +267,25 @@ class WebGateway:
     async def panel(self, request):
         owner = self.owner(request)
         return web.json_response(self.controls.summary(self.conversation(request, owner)))
+
+    async def recovery_items(self, request):
+        owner = self.owner(request)
+        scope = self.conversation(request, owner)
+        before = int(request.query['before']) if 'before' in request.query else None
+        try:
+            result = self.recovery.inventory(owner, scope, before=before, limit=20)
+        except LookupError:
+            raise web.HTTPNotFound(text='Записи недоступні.') from None
+        return web.json_response(result)
+
+    async def review_recovery(self, request):
+        owner = self.owner(request)
+        scope = self.conversation(request, owner)
+        try:
+            result = self.recovery.review(owner, scope, request.match_info['id'])
+        except LookupError:
+            raise web.HTTPNotFound(text='Запис недоступний.') from None
+        return web.json_response(result)
 
     async def memory(self, request):
         scope = self.conversation(request, self.owner(request))
