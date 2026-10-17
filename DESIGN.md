@@ -475,6 +475,11 @@ Rescheduling uses the selected job revision and a durable operation receipt.
 Only pending/paused jobs can move; stale, running or uncertain jobs are rejected.
 The date editor retains an ambiguous request identity and never changes recurrence.
 
+Pause/resume uses the same revision-bound receipt protocol and never executes a
+job inside the HTTP request. Paused jobs remain visible and cancellable but are
+excluded from active/next-run counts. Resuming retains the due time; confirmation
+explains that an overdue job can start on the next scheduler tick.
+
 Task list/detail responses include one explicit owner-facing `preview`: at most
 80 whitespace-normalized characters from the selected conversation’s task text.
 It renders as literal text. Raw prompts remain absent from task responses, panel
