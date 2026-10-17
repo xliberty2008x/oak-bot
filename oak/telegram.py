@@ -674,6 +674,14 @@ class TelegramGateway:
                 if not queued:
                     self._checkpoint(update_id + 1)
                 return
+            if update.get('edited_message'):
+                self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id,
+                    'text': 'Редагування не запускає задачу повторно. Надішли виправлення новим повідомленням.'},
+                    'edited-input:' + str(update_id))
+                self.events.put_nowait(None)
+                if not queued:
+                    self._checkpoint(update_id + 1)
+                return
             text = message.get('text') or message.get('caption') or ''
             command = self._command(message)
             if command in {'/approve', '/deny', '/answer'}:
@@ -763,7 +771,7 @@ class TelegramGateway:
         if type(update_id) is not int or update_id < self.offset:
             return
         message = update.get('message') or update.get('edited_message') or {}
-        if (update.get('callback_query') or self._command(message) in
+        if (update.get('callback_query') or update.get('edited_message') or self._command(message) in
                 {'/stop', '/new', '/approve', '/deny', '/answer', '/status', '/help', '/start', '/web'}
                 or self._topic_service(message)
                 or not self._owner(message, message.get('from') or {}, self.allowed_user_ids)):
