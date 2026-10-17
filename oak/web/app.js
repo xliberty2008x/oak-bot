@@ -12,6 +12,7 @@ let panelPoll = null, telegramTheme = null, telegramBridge = null, bridgeObserve
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
+let recoveryNext = null, recoveryGeneration = 0;
 let taskCreateOperation = null;
 const taskReschedules = new Map(), taskPauses = new Map();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
@@ -533,7 +534,7 @@ async function api(path, data, {signal} = {}) {
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|recovery(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -778,7 +779,40 @@ function renderPanel(value, live = false) {
   updateActions();
 }
 
+async function loadRecovery(before = null) {
+  const epoch = sessionEpoch, generation = ++recoveryGeneration;
+  $("recovery-more").disabled = true; message("recovery-status", "Завантажуємо запити…");
+  try {
+    const value = await api("/api/recovery" + (before === null ? "" : "?before=" + before));
+    if (epoch !== sessionEpoch || generation !== recoveryGeneration) return;
+    if (before === null) $("recovery-list").replaceChildren();
+    for (const item of value.items) {
+      const row = element("li", undefined, "item"); row.append(element("h3", item.label));
+      if (item.preview) row.append(element("p", item.preview, "item-description"));
+      row.append(element("p", item.reviewed ? "Позначено перевіреним; результат залишається невідомим." : "Результат не підтверджено.", "hint"));
+      const actions = element("div", undefined, "item-actions");
+      if (!item.reviewed) {
+        const button = element("button", "Я перевірив", "quiet"); button.type = "button"; button.dataset.mutation = "review";
+        button.addEventListener("click", async () => {
+          if (mutationBusy || refreshing) return;
+          const current = sessionEpoch; mutationBusy = true; updateActions();
+          try { await api("/api/recovery/" + encodeURIComponent(item.id) + "/review", {}); if (current === sessionEpoch) await loadRecovery(); }
+          catch { if (current === sessionEpoch) message("recovery-status", "Не вдалося перевірити позначку. Онови список; жодну дію не повторено.", true); }
+          finally { if (current === sessionEpoch) { mutationBusy = false; updateActions(); } }
+        });
+        actions.append(button);
+      }
+      row.append(actions); $("recovery-list").append(row);
+    }
+    recoveryNext = value.next_cursor; $("recovery-more").hidden = recoveryNext === null;
+    message("recovery-status", value.items.length || before !== null ? "" : "Запитів із невідомим результатом немає."); updateActions();
+  } catch { if (epoch === sessionEpoch && generation === recoveryGeneration) message("recovery-status", "Не вдалося прочитати запити. Онови панель.", true); }
+  finally { if (epoch === sessionEpoch && generation === recoveryGeneration) $("recovery-more").disabled = false; }
+}
+$("recovery-more").addEventListener("click", () => { if (recoveryNext !== null) void loadRecovery(recoveryNext); });
+
 function resetMemory() {
+  recoveryGeneration++; recoveryNext = null; $("recovery-list").replaceChildren(); $("recovery-more").hidden = true;
   memoryGeneration++; memoryNext = null; memoryQuery = ""; memoryOperation = null; memoryDeletes.clear();
   $("memory-list").replaceChildren(); $("memory-more").hidden = true;
   $("memory-text").value = ""; $("memory-text").disabled = false; $("memory-query").value = "";
@@ -1364,13 +1398,14 @@ function showView(view, focus = true) {
 for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
   const view = button.dataset.view;
   showView(view);
+  if (view === "recovery") void loadRecovery();
   if (view === "memory") void loadMemory();
   if (view === "desktop") void desktopPanel();
   if (view === "status") void dynamicPanel();
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
-$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
+$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-recovery").hidden) void loadRecovery(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelPoll?.reset();
