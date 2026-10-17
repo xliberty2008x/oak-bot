@@ -50,6 +50,24 @@ assert.equal($('model-select').value,'typed draft');
         process = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr)
 
+    def test_locale_response_cannot_apply_after_session_change(self):
+        app = (ROOT / 'oak/web/app.js').read_text()
+        source = app[app.index('function text('):app.index('function element(')]
+        source = source.replace('import("/locale.js")', 'Promise.resolve({createLocale:value=>({locale:"uk",t:key=>value[key]})})')
+        script = r"""
+const assert=require('node:assert/strict');let productLocale=null,localeEpoch=-1,sessionEpoch=1;
+const taskLabels={pending:'Initial'},document={documentElement:{},querySelectorAll:()=>[]},requests=[];
+const api=()=>new Promise(resolve=>requests.push(resolve));
+""" + source + r"""
+(async()=>{const old=loadLocale(1);sessionEpoch=2;const current=loadLocale(2);
+requests[1]({'tasks.status.pending':'Current'});await current;requests[0]({'tasks.status.pending':'Old'});await old;
+assert.equal(taskLabels.pending,'Current');assert.equal(text('tasks.status.pending','Fallback'),'Current');
+sessionEpoch=3;assert.equal(text('tasks.status.pending','Fallback'),'Fallback');
+})().catch(e=>{console.error(e);process.exit(1)});
+"""
+        result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_artifact_preview_download_share_fetch_and_discard_late_owner_results(self):
         app = (ROOT / 'oak/web/app.js').read_text()
         source = app[app.index('function clearArtifacts('):app.index('async function loadActivity(')]
@@ -57,7 +75,7 @@ assert.equal($('model-select').value,'typed draft');
 const assert=require('node:assert/strict');
 class Node { constructor(){this.children=[];this.events={};this.isConnected=true;} append(...nodes){this.children.push(...nodes);} replaceChildren(){this.children=[];} addEventListener(type,fn){this.events[type]=fn;} click(){} }
 const nodes=new Map(),$=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
-const element=()=>new Node(),message=()=>{};let sessionEpoch=1,artifactsGeneration=0,artifactsNext=null;
+const element=()=>new Node(),message=()=>{},text=(key,fallback)=>fallback;let sessionEpoch=1,artifactsGeneration=0,artifactsNext=null;
 const artifactAssets=new Map(),created=[],revoked=[],reads=[];
 const URL={createObjectURL:blob=>{const url='blob:'+created.length;created.push(url);return url;},revokeObjectURL:url=>revoked.push(url)};
 const api=async()=>({items:[{id:'a'.repeat(32),name:'image.png',kind:'image',mime:'image/png',size_bytes:5,available:true}],next_cursor:null});
