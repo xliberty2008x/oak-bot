@@ -45,13 +45,13 @@ class Scheduler:
 
     def list(self, chat_id):
         rows = self.db.execute("SELECT id,prompt,due,interval,mode,status FROM jobs WHERE chat_id=? "
-                               "AND status IN ('pending','running','uncertain') ORDER BY due", (chat_id,))
+                               "AND status IN ('pending','running','uncertain','paused') ORDER BY due", (chat_id,))
         return [dict(zip(('id', 'prompt', 'due', 'interval', 'mode', 'status'), row)) for row in rows]
 
     def cancel(self, chat_id, job_id):
         with self.db:
             return bool(self.db.execute("UPDATE jobs SET status='cancelled' WHERE id=? AND chat_id=? "
-                                        "AND status IN ('pending','running','uncertain')", (job_id, chat_id)).rowcount)
+                                        "AND status IN ('pending','running','uncertain','paused')", (job_id, chat_id)).rowcount)
 
     def _finish(self, job_id, interval):
         with self.db:

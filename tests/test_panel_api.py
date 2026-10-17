@@ -170,6 +170,24 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.http.post(path, headers=self.headers, json=payload | {'operation_id': 'c' * 32, 'expected_revision': 2})).status, 409)
         self.assertEqual(self.c.db.execute('SELECT interval FROM jobs WHERE id=?', (identifier,)).fetchone()[0], 3600)
 
+    async def test_pause_resume_preserves_due_and_uses_scoped_receipts(self):
+        identifier = self.c.scheduler.add(11, 'Pause me', delay_seconds=60)
+        due = self.c.scheduler.list(11)[0]['due']
+        payload = {'confirmed': True, 'operation_id': 'a' * 32, 'expected_revision': 1, 'paused': True}
+        path = '/api/tasks/' + identifier + '/pause'
+        self.assertEqual((await self.http.post(path, headers=self.headers, json=payload | {'paused': 'true'})).status, 400)
+        first = await (await self.http.post(path, headers=self.headers, json=payload)).json()
+        self.assertEqual(first['status'], 'paused')
+        self.assertEqual(await (await self.http.post(path, headers=self.headers, json=payload)).json(), first)
+        listing = await (await self.http.get('/api/tasks', headers=self.headers)).json()
+        self.assertEqual(listing['tasks'][0]['status'], 'paused')
+        self.assertEqual(listing['summary']['active_count'], 0)
+        self.assertIsNone(listing['summary']['next_task'])
+        resumed = await (await self.http.post(path, headers=self.headers, json=payload | {'operation_id': 'b' * 32, 'expected_revision': 2, 'paused': False})).json()
+        self.assertEqual(resumed['status'], 'pending')
+        self.assertEqual(resumed['due'], due)
+        self.c.client.request.assert_not_awaited()
+
 
 if __name__ == '__main__':
     unittest.main()
