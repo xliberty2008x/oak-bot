@@ -10,6 +10,8 @@ let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
 let panelPoll = null;
 const approvalBlocked = new Set();
+let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
+const memoryDeletes = new Map();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -388,6 +390,7 @@ async function selectSession(id) {
   await refresh();
 }
 function resetSessionView() {
+  resetMemory();
   a2uiPanel?.reset();
   inputRequestsPanel?.reset();
   approvalBlocked.clear();
@@ -481,6 +484,7 @@ async function deleteTopic(session) {
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   panelPoll?.reset();
+  resetMemory();
   approvalBlocked.clear();
   $("approvals-list").replaceChildren();
   delete $("approvals-list").dataset.snapshot;
@@ -524,7 +528,7 @@ async function api(path, data, {signal} = {}) {
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -763,6 +767,63 @@ function renderPanel(value, live = false) {
   message("panel-error", "");
   updateActions();
 }
+
+function resetMemory() {
+  memoryGeneration++; memoryNext = null; memoryQuery = ""; memoryOperation = null; memoryDeletes.clear();
+  $("memory-list").replaceChildren(); $("memory-more").hidden = true;
+  $("memory-text").value = ""; $("memory-text").disabled = false; $("memory-query").value = "";
+  $("memory-save").textContent = "Зберегти запис"; message("memory-save-status", "");
+}
+async function loadMemory(offset = 0) {
+  const epoch = sessionEpoch, generation = ++memoryGeneration;
+  if (!offset) memoryQuery = $("memory-query").value;
+  $("memory-more").disabled = true;
+  message("memory-status", "Завантажуємо пам’ять…");
+  try {
+    const value = await api("/api/memory?q=" + encodeURIComponent(memoryQuery) + "&offset=" + offset);
+    if (epoch !== sessionEpoch || generation !== memoryGeneration) return;
+    if (!offset) $("memory-list").replaceChildren();
+    for (const note of value.items) {
+      const item = element("li", undefined, "item");
+      item.append(element("p", note.text, "item-description"));
+      const button = element("button", "Видалити запис", "danger"); button.type = "button"; button.dataset.mutation = "memory";
+      button.addEventListener("click", () => mutation("Видалити запис пам’яті?", "Запис буде видалено лише з цієї розмови. Дію неможливо скасувати.", "Видалити", async current => {
+        if (!memoryDeletes.has(note.id)) memoryDeletes.set(note.id, crypto.randomUUID().replace(/-/g, ""));
+        await api("/api/memory/" + encodeURIComponent(note.id) + "/delete", {confirmed: true, operation_id: memoryDeletes.get(note.id)});
+        if (current !== sessionEpoch) return;
+        message("notice", "Запис видалено."); await loadMemory();
+      }, true));
+      item.append(button); $("memory-list").append(item);
+    }
+    memoryNext = value.next_offset; $("memory-more").hidden = memoryNext === null;
+    $("memory-context").textContent = "Пам’ять сесії «" + selectedName() + "»";
+    message("memory-status", value.items.length || offset ? "" : "Записів не знайдено.");
+    updateActions();
+  } catch { if (epoch === sessionEpoch && generation === memoryGeneration) message("memory-status", "Не вдалося прочитати пам’ять. Повтори пошук або онови панель.", true); }
+  finally { if (epoch === sessionEpoch && generation === memoryGeneration) $("memory-more").disabled = false; }
+}
+async function saveMemory() {
+  const text = $("memory-text").value;
+  if (!text.trim()) return;
+  await mutation("Зберегти запис пам’яті?", "Oak використовуватиме цей запис лише у вибраній розмові.", "Зберегти", async epoch => {
+    if (!memoryOperation) memoryOperation = {operation_id: crypto.randomUUID().replace(/-/g, ""), text};
+    $("memory-text").disabled = true;
+    try {
+      await api("/api/memory", {...memoryOperation, confirmed: true});
+      if (epoch !== sessionEpoch) return;
+      memoryOperation = null; $("memory-text").value = ""; $("memory-text").disabled = false;
+      $("memory-save").textContent = "Зберегти запис";
+      message("memory-save-status", "Запис збережено."); await loadMemory();
+    } catch (error) {
+      if (epoch !== sessionEpoch) return;
+      if ([400, 403, 404, 409].includes(error.status)) { memoryOperation = null; $("memory-text").disabled = false; message("memory-save-status", "Запис не прийнято. Перевір дані та доступ.", true); }
+      else { $("memory-save").textContent = "Перевірити збереження"; message("memory-save-status", "Відповідь не отримано. Повторна перевірка використовує той самий запит і не створить дубль.", true); }
+    }
+  });
+}
+$("memory-search").addEventListener("submit", event => { event.preventDefault(); void loadMemory(); });
+$("memory-more").addEventListener("click", () => { if (memoryNext !== null) void loadMemory(memoryNext); });
+$("memory-add").addEventListener("submit", event => { event.preventDefault(); void saveMemory(); });
 
 function taskHistory(task) {
   const details = element("details", undefined, "task-history"), content = element("div", "Завантажуємо історію…", "hint");
@@ -1204,12 +1265,13 @@ function showView(view, focus = true) {
 for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
   const view = button.dataset.view;
   showView(view);
+  if (view === "memory") void loadMemory();
   if (view === "desktop") void desktopPanel();
   if (view === "status") void dynamicPanel();
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
-$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-desktop").hidden) void desktopPanel(); });
+$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelPoll?.reset();
