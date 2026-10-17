@@ -118,6 +118,63 @@ class JobControlTests(unittest.TestCase):
         self.controller.scheduler.timezone = ZoneInfo('Europe/Kyiv')
         self.assertEqual(self.create(at='2026-10-25T03:30'), created)
 
+    def test_pause_resume_preserves_due_and_recurrence_with_distinct_receipts(self):
+        created = self.create(at='2000-01-01T09:00:00+00:00', interval_seconds=300)
+        identifier = created['id']
+        paused = self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True)
+        self.assertEqual((paused['status'], paused['revision'], paused['due']), ('paused', 2, created['due']))
+        self.assertEqual(self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True), paused)
+        resumed = JobControls(self.controller).pause_owned(7, identifier, 'resume-operation-1', 2, False)
+        self.assertEqual((resumed['status'], resumed['revision'], resumed['due']), ('pending', 3, created['due']))
+        self.assertEqual(self.db.execute('SELECT interval FROM jobs WHERE id=?', (identifier,)).fetchone()[0], 300)
+        # Replaying an earlier receipt must not undo a later owner decision.
+        self.assertEqual(self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True), paused)
+        self.assertEqual(self.db.execute('SELECT status FROM jobs WHERE id=?', (identifier,)).fetchone()[0], 'pending')
+        self.controller.client.request.assert_not_called()
+
+    def test_pause_validates_scope_boolean_revision_and_execution_state(self):
+        identifier = self.create()['id']
+        for value in (1, 'true', None):
+            with self.assertRaises(ValueError):
+                self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, value)
+        with self.assertRaises(LookupError):
+            self.controls.pause_owned(8, identifier, 'pause-operation-1', 1, True)
+        with self.assertRaises(RuntimeError):
+            self.controls.pause_owned(7, identifier, 'pause-operation-1', 99, True)
+        for status in ('running', 'uncertain', 'done', 'cancelled'):
+            with self.db:
+                self.db.execute('UPDATE jobs SET status=? WHERE id=?', (status, identifier))
+            with self.subTest(status=status), self.assertRaises(RuntimeError):
+                self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM owner_job_operations').fetchone()[0], 1)
+
+    def test_pause_operation_binding_and_receipt_failure_cannot_mutate_a_job(self):
+        created = self.create()
+        identifier = created['id']
+        with patch.object(self.controls, '_record', side_effect=RuntimeError('synthetic failure')):
+            with self.assertRaises(RuntimeError):
+                self.controls.pause_owned(7, identifier, 'pause-operation-1', 1, True)
+        self.assertEqual(dict(self.db.execute('SELECT id,revision,status,due FROM jobs WHERE id=?', (identifier,)).fetchone()), created)
+        with self.assertRaises(RuntimeError):
+            self.controls.pause_owned(7, identifier, 'create-operation-1', 1, True)
+
+
+class PausedSchedulerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_paused_due_job_waits_until_explicit_resume_and_next_tick(self):
+        controller = Controller(AsyncMock(), ':memory:', '.', AsyncMock())
+        self.addCleanup(controller.close)
+        controller.notice = AsyncMock()
+        controls = JobControls(controller)
+        created = controls.create_owned(7, 'create-operation-1', 'Нагадати', '2000-01-01T00:00:00+00:00')
+        controls.pause_owned(7, created['id'], 'pause-operation-1', 1, True)
+        await controller.scheduler.tick()
+        controller.notice.assert_not_called()
+        controls.pause_owned(7, created['id'], 'resume-operation-1', 2, False)
+        controller.notice.assert_not_called()
+        await controller.scheduler.tick()
+        controller.notice.assert_awaited_once()
+        self.assertEqual(controller.db.execute('SELECT status FROM jobs WHERE id=?', (created['id'],)).fetchone()[0], 'done')
+
 
 if __name__ == '__main__':
     unittest.main()
