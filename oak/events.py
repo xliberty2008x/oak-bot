@@ -99,6 +99,7 @@ def validate_event(event):
             'user_input_request': {'id': 128, 'question': 16000},
             'input_request': {'id': 64, 'kind': 16, 'summary': 512},
             'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 2000},
+            'reminder': {'id': 16, 'text': 16032},
             'activity': {'activityId': 512},
             'a2ui': {}, 'a2ui_card': {'surfaceId': 64, 'label': 2000},
         }
