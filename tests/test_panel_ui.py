@@ -29,7 +29,7 @@ const tick=async()=>{assert.equal(timers.size,1);const [id,timer]=[...timers][0]
 
     def test_live_snapshot_preserves_drafts_and_existing_request_controls(self):
         app = (ROOT / 'oak/web/app.js').read_text()
-        render = app[app.index('function renderPanel('):app.index('async function loadRecovery(')]
+        render = app[app.index('function renderPanel('):app.index('function clearArtifacts(')]
         script = r"""
 const assert=require('node:assert/strict');
 const nodes=new Map();function $(id){if(!nodes.has(id))nodes.set(id,{dataset:{},value:'typed draft',replaced:0,replaceChildren(){this.replaced++;},removeAttribute(){}});return nodes.get(id);}
@@ -49,6 +49,31 @@ assert.equal($('model-select').value,'typed draft');
 """
         process = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr)
+
+    def test_artifact_preview_download_share_fetch_and_discard_late_owner_results(self):
+        app = (ROOT / 'oak/web/app.js').read_text()
+        source = app[app.index('function clearArtifacts('):app.index('async function loadRecovery(')]
+        script = r"""
+const assert=require('node:assert/strict');
+class Node { constructor(){this.children=[];this.events={};this.isConnected=true;} append(...nodes){this.children.push(...nodes);} replaceChildren(){this.children=[];} addEventListener(type,fn){this.events[type]=fn;} click(){} }
+const nodes=new Map(),$=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
+const element=()=>new Node(),message=()=>{};let sessionEpoch=1,artifactsGeneration=0,artifactsNext=null;
+const artifactAssets=new Map(),created=[],revoked=[],reads=[];
+const URL={createObjectURL:blob=>{const url='blob:'+created.length;created.push(url);return url;},revokeObjectURL:url=>revoked.push(url)};
+const api=async()=>({items:[{id:'a'.repeat(32),name:'image.png',kind:'image',mime:'image/png',size_bytes:5,available:true}],next_cursor:null});
+const artifact=(id,options)=>new Promise(resolve=>reads.push({resolve,options}));
+""" + source + r"""
+(async()=>{
+await loadArtifacts();const actions=$('artifacts-list').children[0].children[2];
+const preview=actions.children[0].events.click(),download=actions.children[1].events.click();
+assert.equal(reads.length,1);reads[0].resolve(new Blob(['image']));await Promise.all([preview,download]);assert.equal(created.length,1);
+clearArtifacts();assert.deepEqual(revoked,created);assert.equal(reads[0].options.signal.aborted,true);
+await loadArtifacts();const pending=$('artifacts-list').children[0].children[2].children[0].events.click();sessionEpoch++;clearArtifacts();
+reads[1].resolve(new Blob(['late']));await pending;assert.equal(created.length,1);assert.equal(artifactAssets.size,0);
+})().catch(e=>{console.error(e);process.exit(1)});
+"""
+        result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_telegram_theme_rejects_unsafe_or_unreadable_hints_and_cleans_up(self):
         source = (ROOT / 'oak/web/telegram-theme.js').read_text()
