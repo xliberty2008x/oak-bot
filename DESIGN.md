@@ -466,6 +466,11 @@ logout and page hiding abort old reads; late responses cannot update another
 conversation. Live updates preserve settings drafts, contextual form fields and
 unchanged request controls. Raw AG-UI content is not used for panel status.
 
+Creating a task in the panel uses the selected conversation and an atomic
+operation receipt. The owner sees the configured timezone; ambiguous or missing
+DST wall times are rejected, with an optional explicit UTC offset. A lost
+response locks the draft and can be checked using the same operation identity.
+
 Task list/detail responses include one explicit owner-facing `preview`: at most
 80 whitespace-normalized characters from the selected conversation’s task text.
 It renders as literal text. Raw prompts remain absent from task responses, panel
