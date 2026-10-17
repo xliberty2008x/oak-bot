@@ -118,12 +118,15 @@ private-data canaries and no new-send fallback after an ambiguous send.
 ## UX-06: intake feedback and edits
 
 Queue an optional `👀` reaction only after owner authorization and durable intake
-insertion. Correlate terminal `✅` with the actual accepted input/run; steer
+insertion. Correlate terminal `👍` with the actual accepted input/run; steer
 acceptance alone is not completion. Cosmetic reaction failures cannot fail or
 replay the input. Preserve topic/message identity and deduplication.
+The Bot API standard-reaction allowlist supports `👍`, while `✅` is not a
+standard reaction; use the supported symbol for completion feedback.
+[Transport contract](https://core.telegram.org/bots/api#reactiontypeemoji).
 Completion feedback describes processing state; it cannot establish that the
 user's task succeeded (`metadata.taskOutcome` remains independently unverified).
-Use `✅` only after the bound run completes without a failure/interruption or
+Use `👍` only after the bound run completes without a failure/interruption or
 uncertain processing result; those outcomes must not receive it.
 
 Default edit policy: consume an authorized `edited_message` durably without
