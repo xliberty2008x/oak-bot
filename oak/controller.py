@@ -724,6 +724,11 @@ class Controller:
             return 'Збережено: ' + self.memory.remember(chat_id, argument)
         if name == '/memory':
             return '\n\n'.join(n['id'] + ': ' + n['text'] for n in self.memory.search(chat_id, argument)) or 'Нотаток ще немає.'
+        if name == '/forget':
+            note = argument.strip()
+            if not re.fullmatch(r'[a-f0-9]{12}', note):
+                return 'Формат: /forget ID нотатки з /memory'
+            return 'Нотатку видалено.' if self.memory.forget(chat_id, note) else 'Нотатку в цій розмові не знайдено.'
         if name == '/remind':
             from .time_input import reminder_input
             try:
