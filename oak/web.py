@@ -65,6 +65,8 @@ class WebGateway:
         self.job_controls = JobControls(controller)
         from .recovery import RecoveryStore
         self.recovery = RecoveryStore(controller)
+        from .owner_views import OwnerViews
+        self.owner_views = OwnerViews(controller)
         from .remote import RemoteDesktop
         self.remote = RemoteDesktop(self)
         self.signin = None
@@ -123,7 +125,7 @@ class WebGateway:
             web.get('/api/requests/{id}', self.input_request),
             web.post('/api/requests/{id}', self.input_request_decision),
             web.post('/api/requests/{id}/signin', self.signin_start),
-            web.get('/api/artifacts/{id}', self.artifact),
+            web.get('/api/artifacts', self.artifacts), web.get('/api/artifacts/{id}', self.artifact),
         ])
 
     @web.middleware
@@ -635,6 +637,16 @@ class WebGateway:
             raise ValueError('Text is required.')
         return web.json_response(parse_markdown(data['text']))
 
+    async def artifacts(self, request):
+        owner = self.owner(request)
+        scope = self.conversation(request, owner)
+        before = int(request.query['before']) if 'before' in request.query else None
+        try:
+            result = self.owner_views.artifacts(owner, scope, before=before, limit=20)
+        except LookupError:
+            raise web.HTTPNotFound(text='Файли недоступні.') from None
+        return web.json_response(result)
+
     async def artifact(self, request):
         owner = self.owner(request)
         identifier = request.match_info['id']
@@ -642,11 +654,15 @@ class WebGateway:
         if not row:
             raise web.HTTPNotFound()
         chat = row[0]
-        if (chat != owner and self.controller.sessions.owner(chat) != owner
-                and not self.db.execute('SELECT 1 FROM web_conversations WHERE chat_id=? AND owner=?', (chat, owner)).fetchone()):
-            raise web.HTTPNotFound()
-        path = await self.bus.artifact_path(chat, identifier)
-        response = web.FileResponse(path, headers={'Content-Type': row[1]})
+        from .owner_views import artifact_mime, require_scope
+        try:
+            require_scope(self.controller, owner, chat)
+            if 'conversation' in request.query and self.conversation(request, owner) != chat:
+                raise LookupError('Different conversation.')
+            path = await self.bus.artifact_path(chat, identifier)
+        except (LookupError, FileNotFoundError, ValueError):
+            raise web.HTTPNotFound() from None
+        response = web.FileResponse(path, headers={'Content-Type': artifact_mime(row[1])})
         response.headers['Content-Disposition'] = "attachment; filename*=UTF-8''" + __import__('urllib.parse', fromlist=['quote']).quote(path.name)
         return response
 
