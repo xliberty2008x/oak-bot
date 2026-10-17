@@ -13,7 +13,7 @@ const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
 let taskCreateOperation = null;
-const taskReschedules = new Map();
+const taskReschedules = new Map(), taskPauses = new Map();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -22,7 +22,7 @@ let initialConversation = launchParams.get("conversation");
 let surfaceLaunch = !initialRequest && launchParams.has("surface") ? {conversation: initialConversation, id: launchParams.get("surface"), opened: false} : null;
 const topicBlocked = new Set();
 const appLinks = new Map(), oauthLinks = new Map(), oauthBlocked = new Set(), openIntegrations = new Set();
-const taskLabels = {pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
+const taskLabels = {paused: "Призупинено", pending: "Заплановано", running: "Виконується", uncertain: "Потрібна перевірка", done: "Завершено", cancelled: "Скасовано"};
 const turnLabels = {inProgress: "Виконується", running: "Виконується", completed: "Завершено", interrupted: "Перервано", failed: "Помилка виконання", uncertain: "Результат невідомий"};
 const authLabels = {unknown: "Не визначено", unsupported: "Не підтримується", notLoggedIn: "Потрібен вхід", bearerToken: "Токен налаштовано", oAuth: "OAuth-доступ збережено"};
 const runtimeLabels = {notStarted: "Ще не запущено", starting: "Запускається", connected: "Підключено до середовища", authenticationRequired: "Потрібна авторизація", failed: "Помилка", cancelled: "Запуск скасовано", disabled: "Вимкнено"};
@@ -832,7 +832,7 @@ $("memory-add").addEventListener("submit", event => { event.preventDefault(); vo
 
 const taskCreateFields = ["task-prompt", "task-mode", "task-at", "task-repeat", "task-offset"];
 function resetTaskCreate() {
-  taskCreateOperation = null; taskReschedules.clear();
+  taskCreateOperation = null; taskReschedules.clear(); taskPauses.clear();
   $("task-create-form").reset();
   for (const id of taskCreateFields) $(id).disabled = false;
   $("task-create-submit").textContent = "Створити"; message("task-create-status", "");
@@ -895,6 +895,25 @@ function taskReschedule(task) {
   return details;
 }
 
+function taskPause(task) {
+  const paused = task.status !== "paused", button = element("button", taskPauses.has(task.id) ? "Перевірити зміну" : paused ? "Призупинити" : "Відновити", "quiet");
+  button.type = "button"; button.dataset.mutation = "task-pause";
+  button.addEventListener("click", () => mutation(paused ? "Призупинити розклад?" : "Відновити розклад?",
+    paused ? "Наступні запуски не відбудуться до відновлення. Час і повторення збережуться." : "Початковий час збережеться. Якщо він уже минув, задача може початися одразу після відновлення.", paused ? "Призупинити" : "Відновити", async epoch => {
+      if (!taskPauses.has(task.id)) taskPauses.set(task.id, {operation_id: crypto.randomUUID().replace(/-/g, ""), expected_revision: task.revision, paused});
+      try {
+        const result = await api("/api/tasks/" + encodeURIComponent(task.id) + "/pause", {confirmed: true, ...taskPauses.get(task.id)});
+        if (epoch !== sessionEpoch) return;
+        taskPauses.delete(task.id); message("notice", result.status === "paused" ? "Розклад призупинено." : "Розклад відновлено."); await loadTasks(epoch);
+      } catch (error) {
+        if (epoch !== sessionEpoch) return;
+        if ([400, 403, 404, 409].includes(error.status)) { taskPauses.delete(task.id); message("notice", "Стан задачі змінився або дія недоступна. Онови список перед новою спробою.", true); }
+        else { button.textContent = "Перевірити зміну"; message("notice", "Відповідь не отримано. Перевірка використовує той самий запит без нової зміни розкладу.", true); }
+      }
+    }));
+  return button;
+}
+
 function taskHistory(task) {
   const details = element("details", undefined, "task-history"), content = element("div", "Завантажуємо історію…", "hint");
   details.append(element("summary", "Історія виконання"), content);
@@ -938,7 +957,7 @@ function renderTasks(value) {
     item.append(heading, meta);
     if (task.turn_status) item.append(element("p", "Виконання: " + label(turnLabels, task.turn_status).toLocaleLowerCase("uk-UA"), "item-description"));
     if (task.status === "uncertain") item.append(element("p", "Результат невідомий. Перевір його в Telegram перед повторним запуском.", "item-description warning"));
-    if (["pending", "running", "uncertain"].includes(task.status)) {
+    if (["pending", "running", "uncertain", "paused"].includes(task.status)) {
       const actions = element("div", undefined, "item-actions"), button = element("button", "Скасувати розклад", "danger");
       button.type = "button"; button.dataset.mutation = "cancel";
       button.addEventListener("click", () => mutation("Скасувати розклад?", "Майбутні запуски цієї задачі буде скасовано. Якщо вона вже працює, окремо натисни «Зупинити Oak» у розділі «Стан».", "Скасувати розклад", async epoch => {
@@ -948,7 +967,9 @@ function renderTasks(value) {
         message("notice", result.cancelled ? "Розклад скасовано. Робота, що вже почалась, потребує окремої зупинки." : "Задача вже завершена або скасована. Оновлюємо стан.");
         await loadTasks(epoch);
       }, true));
-      actions.append(button); item.append(actions);
+      actions.append(button);
+      if (["pending", "paused"].includes(task.status)) actions.append(taskPause(task));
+      item.append(actions);
     }
     if (["pending", "paused"].includes(task.status)) item.append(taskReschedule(task));
     item.append(taskHistory(task));
