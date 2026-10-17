@@ -215,7 +215,11 @@ class Controller:
         return bool(outbox is not None and outbox.execute(
             "SELECT 1 FROM intake WHERE chat_id=? AND status IN ('pending','processing') LIMIT 1", (chat_id,)).fetchone())
 
-    async def set_model(self, chat_id, model, effort=None, turbo=None):
+    def model_snapshot(self, chat_id):
+        return {'thread': self.threads.get(chat_id), **self.model_settings(chat_id),
+                'tier': self.service_tier_for(chat_id), 'effective_effort': self.effort_for(chat_id)}
+
+    async def set_model(self, chat_id, model, effort=None, turbo=None, *, expected=None):
         if not isinstance(model, str) or not model.strip():
             raise ValueError('Обери модель із переліку.')
         choice = next((item for item in await self.model_catalog(chat_id) if item['model'] == model), None)
@@ -226,6 +230,10 @@ class Controller:
         if turbo is not None and type(turbo) is not bool:
             raise ValueError('Режим турбо потребує логічного значення.')
         async with self._lock(chat_id):
+            if self.sessions.deleted(chat_id):
+                raise ValueError('Розмову вже видалено.')
+            if expected is not None and expected != self.model_snapshot(chat_id):
+                raise RuntimeError('Налаштування вже змінилися. Відкрий нове меню моделей.')
             if self.model_busy(chat_id):
                 raise RuntimeError('Дочекайся завершення поточної роботи перед зміною моделі.')
             current = self.model_settings(chat_id)
@@ -743,6 +751,9 @@ class Controller:
         if name == '/status':
             from .status import chat_text
             return chat_text(self, chat_id)
+        if name == '/model':
+            from .chat_models import chat_models
+            return await chat_models(self).open(chat_id)
         if name == '/web':
             url = self.web_app_url(chat_id)
             if not url:
