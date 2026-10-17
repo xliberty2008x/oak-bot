@@ -661,7 +661,11 @@ class TelegramGateway:
                 stop = re.fullmatch(r'stop:([a-f0-9]{16})', data)
                 reminder = re.fullmatch(r'remind:([a-f0-9]{16}):(600|3600|done)', data)
                 cancel_job = re.fullmatch(r'cancel-job:([a-f0-9]{12})', data)
-                if cancel_job and not self.sessions.deleted(scope):
+                model_choice = re.fullmatch(r'model:([a-f0-9]{32})', data)
+                if model_choice and not self.sessions.deleted(scope):
+                    from .chat_models import chat_models
+                    outcome = await chat_models(self.controller).choose(scope, model_choice[1])
+                elif cancel_job and not self.sessions.deleted(scope):
                     outcome = self._cancel_job(scope, cancel_job[1])
                     await self._settle_task_controls(scope, message.get('message_id'))
                 elif reminder and not self.sessions.deleted(scope):
@@ -806,7 +810,7 @@ class TelegramGateway:
             return
         message = update.get('message') or update.get('edited_message') or {}
         if (update.get('callback_query') or update.get('edited_message') or self._command(message) in
-                {'/stop', '/new', '/approve', '/deny', '/answer', '/status', '/help', '/start', '/web'}
+                {'/stop', '/new', '/approve', '/deny', '/answer', '/status', '/help', '/start', '/web', '/model'}
                 or self._topic_service(message)
                 or not self._owner(message, message.get('from') or {}, self.allowed_user_ids)):
             await self.handle_update(update)
@@ -1091,6 +1095,13 @@ class TelegramGateway:
                 self._queue_delivery(chat_id, method, {
                     'chat_id': chat_id, 'caption': split_text(caption, 1024)[0],
                     '_upload': {'path': str(path), 'mime': mime}})
+            elif name == 'model_choices':
+                from .events import validate_model_choices
+                value = validate_model_choices(value)
+                rows = [[{'text': choice['label'], 'callback_data': 'model:' + choice['token']} for choice in row]
+                        for row in value['rows']]
+                self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id, 'text': value['text'],
+                    'reply_markup': {'inline_keyboard': rows}}, f'{chat_id}:model-choices:{value["rows"][0][0]["token"]}')
             elif name == 'reminder':
                 identifier = str(value.get('id', ''))
                 if not re.fullmatch(r'[a-f0-9]{16}', identifier):
