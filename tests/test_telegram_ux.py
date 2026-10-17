@@ -181,3 +181,27 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
         restored._deliver = AsyncMock()
         await restored._render_activity()
         restored._deliver.assert_not_awaited()
+
+    async def test_stop_callback_is_bound_to_run_and_is_not_replayed(self):
+        self.g._apply(7, {'type': 'RUN_STARTED', 'runId': 'turn'})
+        row = self.g.db.execute('SELECT * FROM activity_cards').fetchone()
+        self.assertTrue(self.g._activity_payload(row)['reply_markup']['inline_keyboard'])
+        self.c.client.request = AsyncMock(return_value={})
+        self.assertIn('недоступний', await self.g._stop_callback(8, row['token']))
+        self.assertIn('прийнято', await self.g._stop_callback(7, row['token']))
+        self.assertIn('прийнято', await self.g._stop_callback(7, row['token']))
+        self.c.client.request.assert_awaited_once_with('turn/interrupt', {'threadId': 'thread', 'turnId': 'turn'})
+        self.assertEqual(self.g._activity_payload(row)['reply_markup']['inline_keyboard'], [])
+
+    async def test_stale_stop_and_uncertain_stop_never_interrupt_new_run(self):
+        self.g._apply(7, {'type': 'RUN_STARTED', 'runId': 'old'})
+        row = self.g.db.execute('SELECT * FROM activity_cards').fetchone()
+        self.c.client.request = AsyncMock()
+        self.assertIn('завершилася', await self.g._stop_callback(7, row['token']))
+        self.c.client.request.assert_not_awaited()
+        self.g._apply(7, {'type': 'RUN_STARTED', 'runId': 'turn'})
+        row = self.g.db.execute("SELECT * FROM activity_cards WHERE run_id='turn'").fetchone()
+        self.c.client.request.side_effect = OSError('network')
+        self.assertIn('невідомий', await self.g._stop_callback(7, row['token']))
+        await self.g._stop_callback(7, row['token'])
+        self.assertEqual(self.c.client.request.await_count, 1)
