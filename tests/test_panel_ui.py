@@ -29,7 +29,7 @@ const tick=async()=>{assert.equal(timers.size,1);const [id,timer]=[...timers][0]
 
     def test_live_snapshot_preserves_drafts_and_existing_request_controls(self):
         app = (ROOT / 'oak/web/app.js').read_text()
-        render = app[app.index('function renderPanel('):app.index('function resetMemory(')]
+        render = app[app.index('function renderPanel('):app.index('async function loadRecovery(')]
         script = r"""
 const assert=require('node:assert/strict');
 const nodes=new Map();function $(id){if(!nodes.has(id))nodes.set(id,{dataset:{},value:'typed draft',replaced:0,replaceChildren(){this.replaced++;},removeAttribute(){}});return nodes.get(id);}

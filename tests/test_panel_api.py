@@ -188,6 +188,22 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed['due'], due)
         self.c.client.request.assert_not_awaited()
 
+    async def test_recovery_review_is_scoped_and_preserves_unknown_outcome(self):
+        with self.c.db:
+            self.c.db.execute("INSERT INTO inputs(update_id,chat_id,text,status,attachments) VALUES (1,11,'My request','uncertain','[]')")
+            self.c.db.execute("INSERT INTO inputs(update_id,chat_id,text,status,attachments) VALUES (2,22,'OTHER_OWNER','uncertain','[]')")
+        listing = await (await self.http.get('/api/recovery', headers=self.headers)).json()
+        self.assertEqual(len(listing['items']), 1)
+        self.assertNotIn('OTHER_OWNER', json.dumps(listing))
+        identifier = listing['items'][0]['id']
+        self.c.sessions.resolve(11, 42)
+        self.assertEqual((await self.http.post('/api/recovery/' + identifier + '/review?conversation=topic:42', headers=self.headers, json={})).status, 404)
+        path = '/api/recovery/' + identifier + '/review'
+        first = await (await self.http.post(path, headers=self.headers, json={})).json()
+        self.assertTrue(first['reviewed'])
+        self.assertEqual(await (await self.http.post(path, headers=self.headers, json={})).json(), first)
+        self.assertEqual(self.c.db.execute('SELECT status FROM inputs WHERE update_id=1').fetchone()[0], 'uncertain')
+
 
 if __name__ == '__main__':
     unittest.main()
