@@ -33,6 +33,26 @@ def _patch(value):
             _string(operation.get('from'), 'patch.from', 4096, empty=True)
 
 
+def validate_model_choices(value):
+    if not isinstance(value, dict) or set(value) != {'text', 'rows'}:
+        raise ValueError('Invalid model choices.')
+    _string(value.get('text'), 'model choices text', 512)
+    rows = value.get('rows')
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 22:
+        raise ValueError('Invalid model choice rows.')
+    tokens = set()
+    for row in rows:
+        if not isinstance(row, list) or len(row) != 1 or not isinstance(row[0], dict) or set(row[0]) != {'label', 'token'}:
+            raise ValueError('Invalid model choice.')
+        choice = row[0]
+        _string(choice['label'], 'model choice label', 60)
+        token = choice['token']
+        if not isinstance(token, str) or len(token) != 32 or any(char not in '0123456789abcdef' for char in token) or token in tokens:
+            raise ValueError('Invalid model choice token.')
+        tokens.add(token)
+    return value
+
+
 def validate_event(event):
     """Return a validated Oak event, or raise ValueError; never silently drop it.
 
@@ -100,11 +120,14 @@ def validate_event(event):
             'input_request': {'id': 64, 'kind': 16, 'summary': 512},
             'progress': {'message': 16000}, 'web_app_link': {'url': 8192, 'label': 2000},
             'reminder': {'id': 16, 'text': 16032},
+            'model_choices': {'text': 512},
             'activity': {'activityId': 512},
             'a2ui': {}, 'a2ui_card': {'surfaceId': 64, 'label': 2000},
         }
         if name not in custom:
             raise ValueError(f'Unsupported custom event: {name}')
+        if name == 'model_choices':
+            validate_model_choices(value)
         if name == 'input_request' and value.get('kind') not in {'ordinary', 'sign_in'}:
             raise ValueError('Invalid input request kind.')
         if name == 'a2ui':
