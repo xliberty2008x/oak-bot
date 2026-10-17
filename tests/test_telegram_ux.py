@@ -258,3 +258,45 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
             'chat': {'type': 'private', 'id': 7}, 'from': {'id': 8}, 'caption': 'changed'}})
         self.assertEqual(self.g._deliveries(), [])
         self.assertEqual(self.g.db.execute('SELECT count(*) FROM input_reactions').fetchone()[0], 0)
+
+    async def test_album_is_one_input_with_all_original_attachment_ids_and_captions(self):
+        self.c.submit = AsyncMock(return_value=True)
+        self.g._attachments = AsyncMock(side_effect=lambda message, update: [{'path': str(update), 'mime': 'image/jpeg', 'name': 'photo.jpg'}])
+        for number, caption in ((1, 'first'), (2, 'second')):
+            await self.g._ingest({'update_id': number, 'message': {'message_id': number, 'media_group_id': 'album',
+                'chat': {'id': 7, 'type': 'private'}, 'from': {'id': 7}, 'caption': caption, 'photo': [{'file_id': str(number)}]}})
+        self.g.db.execute('UPDATE telegram_albums SET deadline=0')
+        self.g.db.commit()
+        worker = asyncio.create_task(self.g._intake_worker(7))
+        self.tasks.append(worker)
+        for _ in range(30):
+            if self.c.submit.await_count:
+                break
+            await asyncio.sleep(0)
+        self.c.submit.assert_awaited_once()
+        args, kwargs = self.c.submit.call_args
+        self.assertEqual(args, (7, 'first\n\nsecond', 1))
+        self.assertEqual([item['path'] for item in kwargs['attachments']], ['1', '2'])
+        late = {'update_id': 3, 'message': {'media_group_id': 'album', 'chat': {'id': 7, 'type': 'private'}, 'from': {'id': 7}, 'caption': 'late'}}
+        await self.g._ingest(late)
+        self.assertEqual(self.c.submit.await_count, 1)
+        self.assertTrue(self.g.db.execute("SELECT 1 FROM deliveries WHERE id='late-album:3'").fetchone())
+
+    async def test_album_download_failure_submits_nothing_and_restart_preserves_members(self):
+        for number in (1, 2):
+            await self.g._ingest({'update_id': number, 'message': {'message_id': number, 'media_group_id': 'album',
+                'chat': {'id': 7, 'type': 'private'}, 'from': {'id': 7}, 'photo': [{'file_id': str(number)}]}})
+        restored = TelegramGateway(self.c, 'synthetic-token', {7}, self.root)
+        self.addCleanup(restored.db.close)
+        self.c.submit = AsyncMock()
+        restored._attachments = AsyncMock(side_effect=[[{'path': 'one', 'mime': 'image/jpeg', 'name': 'one.jpg'}], ValueError('bad file')])
+        restored.db.execute('UPDATE telegram_albums SET deadline=0')
+        restored.db.commit()
+        worker = asyncio.create_task(restored._intake_worker(7)); self.tasks.append(worker)
+        for _ in range(30):
+            if restored._attachments.await_count == 2:
+                break
+            await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        self.c.submit.assert_not_awaited()
+        self.assertEqual(restored.db.execute('SELECT count(*) FROM telegram_album_members').fetchone()[0], 2)
