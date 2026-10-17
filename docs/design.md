@@ -96,8 +96,9 @@ then builds the final document from allowed AST nodes with `textContent` and
 Telegram typing has a dedicated worker with monotonic refresh deadlines and a
 short timeout. Its activity keys cover pending inputs and active runs, including
 tool waits. Removing one key does not stop another run's activity, and shutdown
-cancels and awaits workers. This deployment accepts private chats; Telegram group
-topics are not implemented.
+cancels and awaits workers. This deployment accepts private chats, including
+native private-chat topics with separate conversation state. Telegram group chats
+and group topics are not implemented. See [Telegram sessions](session-switching-research.md).
 
 The SQLite outbox records progressive replies, message IDs and discrete file or
 approval deliveries. Known message IDs permit subsequent edits. A process or
