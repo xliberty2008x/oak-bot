@@ -725,12 +725,14 @@ class Controller:
         if name == '/memory':
             return '\n\n'.join(n['id'] + ': ' + n['text'] for n in self.memory.search(chat_id, argument)) or 'Нотаток ще немає.'
         if name == '/remind':
-            seconds, _, prompt = argument.partition(' ')
+            from .time_input import reminder_input
             try:
-                job = self.scheduler.add(chat_id, prompt, delay_seconds=float(seconds))
-            except (ValueError, OverflowError):
-                return 'Формат: /remind 60 текст нагадування'
-            return 'Нагадування створено: ' + job
+                moment, prompt = reminder_input(argument, self.scheduler.timezone)
+                job = self.scheduler.add(chat_id, prompt, at=moment.isoformat())
+            except ValueError as exc:
+                return str(exc)
+            return ('Нагадування створено: ' + job + '\n' +
+                    moment.strftime('%d.%m.%Y %H:%M %Z (%z)') + ' · ' + str(self.scheduler.timezone))
         if name == '/tasks':
             tasks = self.scheduler.list(chat_id)
             if not tasks:

@@ -30,6 +30,14 @@ paths resolve against the configuration file's directory.
 | `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
 
+## Reminder times
+
+`/remind 60 text` keeps seconds support. You can also use `10m`, `2h`, `1d`,
+`18:30`, `завтра 09:00`, or ISO time such as `2026-10-25T03:30+02:00` followed by
+the reminder text. Clock time uses its next occurrence in `timezone`; tomorrow
+uses the next calendar date. Ambiguous/nonexistent local DST times require an
+explicit numeric offset. Confirmation shows the resolved local time and zone.
+
 ## Owner-authorized runtime access
 
 For an owner who has authorized autonomous tool use, the isolated deployment can
