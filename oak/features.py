@@ -6,12 +6,16 @@ from pathlib import Path
 
 SOURCE_FILES = (
     'oak/features.py', 'oak/__main__.py', 'oak/controller.py', 'oak/requests.py', 'oak/runtime.py', 'oak/tools.py',
+    'oak/activity.py', 'oak/chat_models.py', 'oak/commands.py', 'oak/events.py', 'oak/job_controls.py',
+    'oak/owner_views.py', 'oak/recovery.py', 'oak/reminders.py', 'oak/schedule.py',
+    'oak/status.py', 'oak/strings.py', 'oak/time_input.py',
     'oak/browser.py', 'oak/desktop.py', 'oak/memory.py',
     'oak/quality.py', 'oak/quality_gate.py', 'oak/quality_media.py',
     'oak/interaction.py', 'oak/sessions.py', 'oak/bus.py', 'oak/telegram.py',
     'oak/a2ui.py', 'oak/a2ui_telegram.py', 'oak/web.py', 'oak/panel.py', 'oak/signin.py',
     'oak/signin_broker.py', 'oak/signin_fixture.py', 'oak/web/requests.js', 'oak/web/a2ui.js',
     'oak/web/app.js', 'oak/web/index.html', 'oak/web/style.css',
+    'oak/web/locale.js', 'oak/web/panel-poll.js', 'oak/web/telegram-theme.js', 'oak/web/telegram-bridge.js',
     'oak/web/a2ui-catalog.json', 'oak/broker_web/human.js',
     'oak/broker_web/index.html',
     'oak/login.py', 'oak/login_broker.py', 'oak/signin_providers.py',
