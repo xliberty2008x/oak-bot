@@ -12,6 +12,7 @@ let panelPoll = null, telegramTheme = null;
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
+let taskCreateOperation = null;
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -260,6 +261,7 @@ function renderSelectedSession() {
   $("selected-session").title = name;
   $("selected-session").hidden = !authenticated;
   $("status-context").textContent = "Сесія «" + name + "» у Telegram";
+  $("task-create-zone").textContent = "Часовий пояс: " + (timezone || "не повідомлено");
   $("tasks-timezone").textContent = "Задачі сесії «" + name + "»" + (timezone ? ". Часовий пояс: " + timezone : "");
   $("integration-scope").textContent = integrationData ? integrationData.scope === "telegram" ? "Можливості сесії «" + name + "»" : "Інтеграції середовища Oak. Доступність у вибраній темі перевір у Telegram." : "Можливості сесії «" + name + "»";
 }
@@ -391,6 +393,7 @@ async function selectSession(id) {
 }
 function resetSessionView() {
   resetMemory();
+  resetTaskCreate();
   a2uiPanel?.reset();
   inputRequestsPanel?.reset();
   approvalBlocked.clear();
@@ -485,6 +488,7 @@ async function deleteTopic(session) {
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   panelPoll?.reset();
   resetMemory();
+  resetTaskCreate();
   approvalBlocked.clear();
   $("approvals-list").replaceChildren();
   delete $("approvals-list").dataset.snapshot;
@@ -824,6 +828,37 @@ async function saveMemory() {
 $("memory-search").addEventListener("submit", event => { event.preventDefault(); void loadMemory(); });
 $("memory-more").addEventListener("click", () => { if (memoryNext !== null) void loadMemory(memoryNext); });
 $("memory-add").addEventListener("submit", event => { event.preventDefault(); void saveMemory(); });
+
+const taskCreateFields = ["task-prompt", "task-mode", "task-at", "task-repeat", "task-offset"];
+function resetTaskCreate() {
+  taskCreateOperation = null;
+  $("task-create-form").reset();
+  for (const id of taskCreateFields) $(id).disabled = false;
+  $("task-create-submit").textContent = "Створити"; message("task-create-status", "");
+}
+async function createTask() {
+  await mutation("Створити задачу?", "Розклад буде збережено лише у вибраній розмові. Перевір дату, час і тип задачі.", "Створити", async epoch => {
+    if (!taskCreateOperation) taskCreateOperation = {operation_id: crypto.randomUUID().replace(/-/g, ""),
+      prompt: $("task-prompt").value, mode: $("task-mode").value, at: $("task-at").value + $("task-offset").value,
+      interval_seconds: $("task-repeat").value ? Number($("task-repeat").value) : null};
+    for (const id of taskCreateFields) $(id).disabled = true;
+    try {
+      await api("/api/tasks", {...taskCreateOperation, confirmed: true});
+      if (epoch !== sessionEpoch) return;
+      resetTaskCreate(); message("task-create-status", "Задачу створено."); await loadTasks(epoch);
+    } catch (error) {
+      if (epoch !== sessionEpoch) return;
+      if ([400, 403, 404, 409].includes(error.status)) {
+        taskCreateOperation = null; for (const id of taskCreateFields) $(id).disabled = false;
+        message("task-create-status", "Задачу не прийнято. Перевір текст і час. Для неоднозначного часу вкажи UTC-зсув; неіснуючий час потрібно змінити.", true);
+      } else {
+        $("task-create-submit").textContent = "Перевірити створення";
+        message("task-create-status", "Відповідь не отримано. Повторна перевірка цього запиту не створить дубль задачі.", true);
+      }
+    }
+  });
+}
+$("task-create-form").addEventListener("submit", event => { event.preventDefault(); void createTask(); });
 
 function taskHistory(task) {
   const details = element("details", undefined, "task-history"), content = element("div", "Завантажуємо історію…", "hint");
