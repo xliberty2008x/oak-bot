@@ -97,8 +97,9 @@ class TelegramTests(unittest.IsolatedAsyncioTestCase):
         await self.gateway.handle_update(self.update(2))
         await self.gateway.handle_update(self.update(2))
         await self.gateway.handle_update(self.update(3, 'changed', edited=True))
-        self.assertEqual(self.controller.submit.await_count, 2)
-        self.controller.submit.assert_awaited_with(7, 'changed', 3)
+        self.assertEqual(self.controller.submit.await_count, 1)
+        self.controller.submit.assert_awaited_with(7, 'hello', 2)
+        self.assertEqual(len(self.gateway._deliveries()), 1)
         self.assertEqual(json.loads(self.gateway.offset_path.read_text()),
                          {'offset': 4, 'api_url': 'https://api.telegram.org'})
 

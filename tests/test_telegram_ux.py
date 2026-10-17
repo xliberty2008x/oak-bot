@@ -234,3 +234,27 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
         await self.g._render_reactions()
         self.assertEqual(self.g._api.await_count, 1)
         self.assertEqual(self.g.db.execute('SELECT completed FROM input_reactions').fetchone()[0], 'failed')
+
+    async def test_edited_commands_and_media_are_consumed_once_without_dispatch(self):
+        self.c.submit = AsyncMock()
+        self.c.stop = AsyncMock()
+        self.g._attachments = AsyncMock()
+        update = {'update_id': 5, 'edited_message': {'message_id': 33, 'chat': {'type': 'private', 'id': 7},
+            'from': {'id': 7}, 'text': '/stop', 'document': {'file_id': 'file'}}}
+        await self.g._ingest(update)
+        await self.g._ingest(update)
+        self.c.submit.assert_not_awaited()
+        self.c.stop.assert_not_awaited()
+        self.g._attachments.assert_not_awaited()
+        self.assertEqual(self.g.db.execute('SELECT count(*) FROM intake').fetchone()[0], 0)
+        self.assertEqual(len(self.g._deliveries()), 1)
+        restored = TelegramGateway(self.c, 'synthetic-token', {7}, self.root)
+        self.addCleanup(restored.db.close)
+        await restored.handle_update(update)
+        self.assertEqual(len(restored._deliveries()), 1)
+
+    async def test_foreign_edit_has_no_notice_or_reaction(self):
+        await self.g._ingest({'update_id': 6, 'edited_message': {'message_id': 33,
+            'chat': {'type': 'private', 'id': 7}, 'from': {'id': 8}, 'caption': 'changed'}})
+        self.assertEqual(self.g._deliveries(), [])
+        self.assertEqual(self.g.db.execute('SELECT count(*) FROM input_reactions').fetchone()[0], 0)
