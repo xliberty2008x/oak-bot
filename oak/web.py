@@ -96,7 +96,7 @@ class WebGateway:
             web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
             web.get('/a2ui-theme.css', self.static), web.get('/vendor/a2ui/runtime.js', self.static),
             web.get('/requests.js', self.static), web.get('/panel-poll.js', self.static), web.get('/telegram-theme.js', self.static), web.get('/telegram-bridge.js', self.static),
-            web.get('/form-controls.js', self.static),
+            web.get('/form-controls.js', self.static), web.get('/locale.js', self.static), web.get('/api/locale', self.locale),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel),
@@ -192,10 +192,15 @@ class WebGateway:
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
-                '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/panel-poll.js': 'panel-poll.js', '/telegram-theme.js': 'telegram-theme.js', '/telegram-bridge.js': 'telegram-bridge.js', '/form-controls.js': 'form-controls.js',
+                '/locale.js': 'locale.js', '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/panel-poll.js': 'panel-poll.js', '/telegram-theme.js': 'telegram-theme.js', '/telegram-bridge.js': 'telegram-bridge.js', '/form-controls.js': 'form-controls.js',
                 '/a2ui-catalog.json': 'a2ui-catalog.json', '/a2ui-theme.css': 'a2ui-theme.css',
                 '/vendor/a2ui/runtime.js': 'vendor/a2ui/runtime.js'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
+
+    async def locale(self, request):
+        self.owner(request)
+        from .strings import catalogue
+        return web.json_response(catalogue(self.controller.config.get('locale')))
 
     async def remote_vendor(self, request):
         root = (Path(__file__).parent / 'web' / 'vendor' / 'novnc').resolve()
