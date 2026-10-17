@@ -65,6 +65,8 @@ class Controller:
                 text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending');
             CREATE TABLE IF NOT EXISTS input_runs (
                 update_id INTEGER PRIMARY KEY, chat_id INTEGER NOT NULL, turn_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS voice_echo_receipts (
+                update_id INTEGER PRIMARY KEY, chat_id INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS turns (
                 turn_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL,
                 chat_id INTEGER NOT NULL, status TEXT NOT NULL);
@@ -467,7 +469,13 @@ class Controller:
         if row and row['status'] != 'pending':
             return True
         try:
-            items = await self._input(text, attachments)
+            if self.config.get('voice_transcript_echo') is True:
+                transcripts = []
+                items = await self._input(text, attachments, transcripts=transcripts)
+                if transcripts:
+                    await self._echo_transcripts(chat_id, update_id, transcripts)
+            else:
+                items = await self._input(text, attachments)
         except asyncio.CancelledError:
             self._status(update_id, 'cancelled')
             raise
@@ -602,7 +610,23 @@ class Controller:
         finally:
             routing_lock.release()
 
-    async def _input(self, text, attachments):
+    async def _echo_transcripts(self, chat_id, update_id, transcripts):
+        if self.sessions.deleted(chat_id):
+            return
+        with self.db:
+            inserted = self.db.execute('INSERT OR IGNORE INTO voice_echo_receipts VALUES (?,?)', (update_id, chat_id)).rowcount
+        if not inserted:
+            return
+        text = '\n\n'.join(transcripts)
+        text = text[:1999] + '…' if len(text) > 2000 else text
+        escaped = ''.join('\\' + char if char in '\\`*_{}[]()<>#+-.!|~' else char for char in text)
+        try:
+            await self.notice(chat_id, 'Я почув:\n\n' + '\n'.join('> ' + line for line in escaped.splitlines()),
+                              run_id='voice-echo-' + str(update_id))
+        except Exception:
+            pass  # An optional receipt must never retry or fail the actual input.
+
+    async def _input(self, text, attachments, *, transcripts=None):
         items, details = [], []
         workspace = Path(self.cwd)
         inbox = workspace / 'inbox'
@@ -632,6 +656,8 @@ class Controller:
                         details.append('Attached audio available to tools: ' + str(destination))
                     else:
                         details.append('Голосове повідомлення:\n' + transcript)
+                        if transcripts is not None:
+                            transcripts.append(transcript)
                 elif destination.suffix.lower() in ('.txt', '.md', '.csv', '.json', '.py', '.html'):
                     with source.open(errors='replace') as attached:
                         details.append('Attached file ' + attachment.get('name', destination.name) + ':\n' + attached.read(64000))
@@ -654,6 +680,8 @@ class Controller:
                     details.append('Attached audio available to tools: ' + str(destination))
                 else:
                     details.append('Голосове повідомлення:\n' + transcript)
+                    if transcripts is not None:
+                        transcripts.append(transcript)
             elif destination.suffix.lower() in ('.txt', '.md', '.csv', '.json', '.py', '.html'):
                 with destination.open(errors='replace') as attached:
                     details.append('Attached file ' + attachment.get('name', destination.name) + ':\n' +

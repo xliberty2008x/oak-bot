@@ -407,3 +407,9 @@ stored before downloads. All members are prepared before one model submission;
 a member download failure submits none of the album. A late member is rejected
 with a request to send it separately. Undispatched albums resume after restart;
 interrupted dispatch stays uncertain and is never replayed automatically.
+
+`voice_transcript_echo` is opt-in (`false` by default). When `true`, the existing
+local transcription also produces one owner-visible quotation, bounded to 2000
+characters before Markdown escaping. It does not transcribe a second time. A
+receipt keyed by the original input prevents duplicate echoes; echo delivery
+failure does not fail or repeat model submission.

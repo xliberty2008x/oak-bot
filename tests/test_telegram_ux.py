@@ -300,3 +300,41 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.c.submit.assert_not_awaited()
         self.assertEqual(restored.db.execute('SELECT count(*) FROM telegram_album_members').fetchone()[0], 2)
+
+    async def test_voice_echo_uses_one_transcript_and_is_opt_in_bounded_and_deduplicated(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        audio = self.root / 'inbox' / 'voice.ogg'
+        audio.parent.mkdir(exist_ok=True)
+        audio.write_bytes(b'synthetic')
+        transcribe = Mock(return_value='[link](https://example.invalid) ' + 'a' * 2200)
+        self.c.tools = SimpleNamespace(media=SimpleNamespace(transcribe=transcribe))
+        transcripts = []
+        items = await self.c._input('listen', [{'path': str(audio), 'mime': 'audio/ogg'}], transcripts=transcripts)
+        self.assertEqual(transcribe.call_count, 1)
+        self.assertEqual(len(transcripts), 1)
+        self.assertIn(transcripts[0], items[0]['text'])
+        self.c.notice = AsyncMock()
+        await self.c._echo_transcripts(7, 99, transcripts)
+        await self.c._echo_transcripts(7, 99, transcripts)
+        self.c.notice.assert_awaited_once()
+        text = self.c.notice.call_args.args[1]
+        self.assertIn('Я почув', text)
+        self.assertIn('\\[link\\]', text)
+        self.assertLess(len(text), 2100)
+        self.assertEqual(transcribe.call_count, 1)
+        self.assertIsNot(self.c.config.get('voice_transcript_echo'), True)
+
+    async def test_voice_echo_disabled_during_submission_and_delivery_failure_does_not_block(self):
+        self.c._thread = AsyncMock(return_value='thread')
+        self.c._input = AsyncMock(return_value=[{'type': 'text', 'text': 'audio'}])
+        self.c._echo_transcripts = AsyncMock()
+        await self.c._submit(7, 'audio', 100)
+        self.c._echo_transcripts.assert_not_awaited()
+        self.c.config['voice_transcript_echo'] = True
+        async def prepare(text, attachments, *, transcripts):
+            transcripts.append('recognized')
+            return [{'type': 'text', 'text': 'audio'}]
+        self.c._input.side_effect = prepare
+        await self.c._submit(7, 'audio', 101)
+        self.c._echo_transcripts.assert_awaited_once_with(7, 101, ['recognized'])
