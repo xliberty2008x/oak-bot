@@ -50,6 +50,63 @@ assert.equal($('model-select').value,'typed draft');
         process = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr)
 
+    def test_keyed_task_drafts_and_unrelated_approval_session_focus_survive_refresh(self):
+        app = (ROOT / 'oak/web/app.js').read_text()
+        source = '\n'.join(app[app.index(start):app.index(end)] for start, end in (
+            ('function reconcileChildren(', 'function message('),
+            ('function renderTasks(', 'function svgIcon('),
+            ('function taskReschedule(', 'function taskPause('),
+            ('function renderApprovals(', 'async function decideApproval('),
+            ('function renderSessions(', 'async function loadSessions(')))
+        script = r"""
+const assert=require('node:assert/strict');
+const document={activeElement:null,createTextNode:value=>element('#text',value)};
+class Node {
+  constructor(tag){this.tag=tag;this.children=[];this.dataset={};this.value='';this.events={};}
+  append(...nodes){for(const node of nodes){node.remove();node.parent=this;this.children.push(node);}}
+  remove(){if(this.parent){if(this.contains(document.activeElement))document.activeElement=null;this.parent.children.splice(this.parent.children.indexOf(this),1);this.parent=null;}}
+  replaceChildren(){for(const node of [...this.children])node.remove();}
+  insertBefore(node,anchor){node.remove();node.parent=this;this.children.splice(anchor?this.children.indexOf(anchor):this.children.length,0,node);}
+  contains(node){return node===this||this.children.some(child=>child.contains(node));}
+  get isConnected(){return this.root||!!this.parent?.isConnected;}
+  focus(){document.activeElement=this;}
+  setAttribute(name,value){this[name]=value;}
+  addEventListener(name,fn){this.events[name]=fn;}
+  querySelector(selector){return descendants(this).find(node=>selector==='details[open]'&&node.tag==='details'&&node.open)||null;}
+}
+const descendants=node=>node.children.flatMap(child=>[child,...descendants(child)]);
+const nodes=new Map(),$=id=>{if(!nodes.has(id)){const node=new Node('div');node.root=true;nodes.set(id,node);}return nodes.get(id);};
+const element=(tag,value,cls)=>{const node=new Node(tag);node.textContent=value;node.className=cls;return node;};
+document.querySelectorAll=()=>[...nodes.values()].flatMap(descendants).filter(node=>node.dataset.session);
+const dateNode=()=>element('time'),intervalText=()=>'',label=(labels,value)=>labels[value]||value;
+const selectedName=()=> 'General',message=()=>{},updateActions=()=>{},renderTaskSummary=()=>{},renderSelectedSession=()=>{},fact=()=>{},count=String;
+const taskHistory=()=>element('details'),taskPause=()=>element('button');
+const taskLabels={pending:'Pending',running:'Running'},turnLabels={},taskReschedules=new Map(),taskPauses=new Map(),approvalBlocked=new Set(),topicBlocked=new Set();
+const topicKey=(kind,session)=>kind+session.id;
+let timezone='Europe/Kyiv',mutationBusy=false,refreshing=false,sessionsData=null,selectedSession='telegram';
+""" + source + r"""
+const task={id:'a'.repeat(32),revision:1,status:'pending',due:1234,preview:'Task',mode:'remind',interval:null};
+const snapshot={tasks:[task],timezone:'Europe/Kyiv',summary:{}};renderTasks(snapshot);
+const row=$('tasks-list').children[0],editor=descendants(row).find(node=>node.tag==='input');
+editor.value='2026-11-01T12:30';editor.focus();renderTasks(JSON.parse(JSON.stringify(snapshot)));
+assert.equal($('tasks-list').children[0],row);assert.equal(editor.value,'2026-11-01T12:30');assert.equal(document.activeElement,editor);
+renderTasks({...snapshot,tasks:[{...task,revision:2,due:5678}]});
+assert.notEqual($('tasks-list').children[0],row);assert.equal(descendants($('tasks-list').children[0]).find(node=>node.tag==='input').value,'');
+const approval={id:'a'.repeat(10),state:'pending',summary:'Allow?',expires:1234};renderApprovals([approval]);
+const approvalRow=$('approvals-list').children[0],approve=descendants(approvalRow).find(node=>node.tag==='button');approve.focus();
+renderApprovals([{...approval,id:'b'.repeat(10),state:'expired'},approval]);
+assert.equal($('approvals-list').children[1],approvalRow);assert.equal(document.activeElement,approve);
+renderApprovals([{...approval,state:'accepted'}]);assert.equal(approve.isConnected,false);
+const session={id:'telegram',name:'General',initialized:true};renderSessions({sessions:[session]});
+const sessionRow=$('sessions-list').children[0],select=descendants(sessionRow).find(node=>node.dataset.session);select.focus();
+renderSessions({sessions:[session,{...session,id:'topic:42',name:'Topic'}]});
+assert.equal($('sessions-list').children[0],sessionRow);assert.equal(document.activeElement,select);
+renderSessions({sessions:[{...session,active:true},{...session,id:'topic:42',name:'Topic'}]});
+assert.equal(document.activeElement.dataset.session,'telegram');
+"""
+        result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_locale_response_cannot_apply_after_session_change(self):
         app = (ROOT / 'oak/web/app.js').read_text()
         source = app[app.index('function text('):app.index('function element(')]

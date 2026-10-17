@@ -67,6 +67,20 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
+function reconcileChildren(list, next) {
+  const active = document.activeElement, focusedRow = Array.from(list.children).find(row => row.contains(active));
+  const retained = new Set(next);
+  for (const row of Array.from(list.children)) if (!retained.has(row)) row.remove();
+  for (const [index, row] of next.entries()) if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+  if (focusedRow && document.activeElement !== active) {
+    if (active.isConnected) active.focus({preventScroll: true});
+    else {
+      const replacement = next.find(row => row.dataset.key === focusedRow.dataset.key);
+      if (replacement) { replacement.tabIndex = -1; replacement.focus({preventScroll: true}); }
+    }
+  }
+}
+
 function message(id, text, isError = false) {
   const node = $(id);
   node.textContent = text;
@@ -301,11 +315,15 @@ function renderSessions(value) {
   sessionsData = value;
   const focused = document.activeElement?.dataset.session;
   const list = $("sessions-list");
-  list.replaceChildren();
+  const previous = new Map(Array.from(list.children, row => [row.dataset.key, row])), next = [];
   for (const session of value.sessions) {
     if (typeof session.name !== "string" || (session.id !== "telegram" && !/^topic:[1-9][0-9]*$/.test(session.id))) continue;
     const selected = session.id === selectedSession;
+    const signature = JSON.stringify([session, selected, topicBlocked.has(topicKey("rename", session))]);
+    const cached = previous.get(session.id);
+    if (cached?.dataset.signature === signature) { next.push(cached); continue; }
     const item = element("li", undefined, "item session-item" + (selected ? " selected" : ""));
+    item.dataset.key = session.id; item.dataset.signature = signature;
     const heading = element("div", undefined, "item-heading");
     const avatar = element("span", Array.from(session.name.trim())[0]?.toLocaleUpperCase("uk-UA") || "#", "avatar");
     avatar.setAttribute("aria-hidden", "true");
@@ -344,8 +362,9 @@ function renderSessions(value) {
       form.addEventListener("submit", event => { event.preventDefault(); void changeTopic("rename", session, input.value); });
       details.append(element("summary", "Перейменувати тему"), form); item.append(details);
     }
-    list.append(item);
+    next.push(item);
   }
+  reconcileChildren(list, next);
   message("sessions-status", "");
   renderSelectedSession();
   updateActions();
@@ -415,7 +434,7 @@ async function selectSession(id) {
 }
 function resetSessionView() {
   resetMemory();
-  resetTaskCreate();
+  resetTaskCreate(); taskReschedules.clear(); taskPauses.clear();
   a2uiPanel?.reset();
   inputRequestsPanel?.reset();
   approvalBlocked.clear();
@@ -510,7 +529,8 @@ async function deleteTopic(session) {
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   panelPoll?.reset();
   resetMemory();
-  resetTaskCreate();
+  resetTaskCreate(); taskReschedules.clear(); taskPauses.clear();
+  $("tasks-list").replaceChildren();
   approvalBlocked.clear();
   $("approvals-list").replaceChildren();
   delete $("approvals-list").dataset.snapshot;
@@ -668,14 +688,19 @@ async function toggleComputer() {
 
 function renderApprovals(items) {
   const list = $("approvals-list"), rows = Array.isArray(items) ? items : [];
-  const snapshot = JSON.stringify([rows, [...approvalBlocked]]);
+  const snapshot = JSON.stringify([rows, [...approvalBlocked], timezone]);
   if (list.dataset.snapshot === snapshot) return;
   list.dataset.snapshot = snapshot;
-  list.replaceChildren(); $("approvals-panel").hidden = rows.length === 0;
+  const previous = new Map(Array.from(list.children, row => [row.dataset.key, row])), next = [];
+  $("approvals-panel").hidden = rows.length === 0;
   const states = {accepted: "Дозволено", declined: "Відхилено", answered: "Відповідь прийнято", expired: "Прострочено", cancelled: "Скасовано"};
   for (const approval of rows) {
     if (!/^[a-f0-9]{10}$/.test(approval.id)) continue;
+    const signature = JSON.stringify([approval, approvalBlocked.has(approval.id), timezone]);
+    const cached = previous.get(approval.id);
+    if (cached?.dataset.signature === signature) { next.push(cached); continue; }
     const item = element("li", undefined, "item"), pending = approval.state === "pending";
+    item.dataset.key = approval.id; item.dataset.signature = signature;
     item.append(element("h3", approval.summary || "Дозволити дію?"));
     const status = element("p", pending ? "Очікує відповіді · до " : states[approval.state] || "Стан невідомий", "hint");
     if (pending) status.append(dateNode(approval.expires));
@@ -692,8 +717,9 @@ function renderApprovals(items) {
       item.append(actions);
       if (approvalBlocked.has(approval.id)) item.append(element("p", "Передавання потребує перевірки. Оновлюємо стан без повторної відповіді.", "hint"));
     }
-    list.append(item);
+    next.push(item);
   }
+  reconcileChildren(list, next);
 }
 async function decideApproval(id, accepted) {
   if (mutationBusy || refreshing || approvalBlocked.has(id) || $("workspace").hidden) return;
@@ -984,7 +1010,7 @@ $("memory-add").addEventListener("submit", event => { event.preventDefault(); vo
 
 const taskCreateFields = ["task-prompt", "task-mode", "task-at", "task-repeat", "task-offset"];
 function resetTaskCreate() {
-  taskCreateOperation = null; taskReschedules.clear(); taskPauses.clear();
+  taskCreateOperation = null;
   $("task-create-form").reset();
   for (const id of taskCreateFields) $(id).disabled = false;
   $("task-create-submit").textContent = "Створити"; message("task-create-status", "");
@@ -1097,10 +1123,15 @@ function renderTasks(value) {
   if (typeof value.timezone === "string") timezone = value.timezone;
   $("tasks-timezone").textContent = "Задачі сесії «" + selectedName() + "»" + (timezone ? ". Часовий пояс: " + timezone : "");
   const list = $("tasks-list");
-  list.replaceChildren();
+  const previous = new Map(Array.from(list.children, row => [row.dataset.key, row])), next = [];
   message("tasks-status", value.tasks.length ? "" : "Задач у розкладі поки немає. Створи нагадування або заплануй роботу в Telegram.");
   for (const task of value.tasks) {
+    const signature = JSON.stringify([task, timezone, taskLabels, taskReschedules.get(task.id), taskPauses.get(task.id)]);
+    const cached = previous.get(task.id);
+    if (cached?.dataset.signature === signature) { next.push(cached); continue; }
+    if (cached?.querySelector("details[open]")) message("notice", "Стан розкладу змінився. Перевір нові дані перед редагуванням.");
     const item = element("li", undefined, "item"), heading = element("div", undefined, "item-heading");
+    item.dataset.key = task.id; item.dataset.signature = signature;
     if (Object.hasOwn(taskLabels, task.status)) item.dataset.status = task.status;
     const tone = task.status === "uncertain" ? "warning" : task.status === "running" || task.status === "pending" ? "good" : "";
     heading.append(element("h3", task.preview || (task.mode === "remind" ? "Нагадування" : "Задача Oak")), element("span", label(taskLabels, task.status), "badge " + tone));
@@ -1125,8 +1156,9 @@ function renderTasks(value) {
     }
     if (["pending", "paused"].includes(task.status)) item.append(taskReschedule(task));
     item.append(taskHistory(task));
-    list.append(item);
+    next.push(item);
   }
+  reconcileChildren(list, next);
   renderTaskSummary(value.summary);
   updateActions();
 }
@@ -1348,9 +1380,8 @@ async function loadTasks(epoch) {
     return true;
   } catch {
     if (epoch === sessionEpoch) {
-      $("tasks-list").replaceChildren();
       renderTaskSummary(null);
-      message("tasks-status", "Задачі недоступні. Перевір з’єднання та натисни «Оновити».", true);
+      message("tasks-status", "Не вдалося оновити задачі. Показані дані можуть бути застарілими; чернетки збережено. Натисни «Оновити».", true);
     }
     return false;
   }
