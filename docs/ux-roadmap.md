@@ -24,7 +24,7 @@ browser transfers and remote desktop have since changed substantially.
 | B3: approval buttons remain | Open: legacy approval callbacks do not settle their originating message. | UX-03 adds feedback and durable message linkage. |
 | B4: silent approval expiry | Open: `Interactions.ask` uses a fixed 300-second timeout. | UX-04 makes expiry visible and configurable. |
 | B5: topics documentation | Correction: `docs/design.md` says **group** topics are unsupported; private-chat topics exist and group chats are rejected. | UX-00 clarifies this distinction; do not claim group-topic support. |
-| T1: work visibility | Open: the event mapper emits tool/step/progress events, while Telegram `_apply` accepts text and lifecycle events only. | UX-05 uses a bounded presentation of activity and adds a run-bound stop action. |
+| T1: work visibility | Open: the event mapper emits tool/step/progress events; Telegram drops tool/step events and has no handler for `CUSTOM progress`. | UX-05 uses a bounded presentation of activity and adds a run-bound stop action. |
 | T2: command menu | Open: startup sets the Mini App menu button, but does not register commands. | UX-02 registers owner-scoped commands and groups help. |
 | T3: questions and MCP forms | Partly implemented: `Interactions.user_input` delegates to `InputRequests.native`; supported native questions and MCP schemas open a contextual Mini App form through `requests.js`. Legacy approval handling remains separate. | Reuse `InputRequests`; no second JSON form engine or credential input through Telegram replies. |
 | T4: reminders | Open: `/remind` accepts seconds, notifications have no snooze controls, failure notices identify jobs by ID. | UX-07 and UX-08 extend input and controls separately. |
@@ -88,12 +88,14 @@ may proceed in parallel after UX-00; dependencies describe merge order.
 roadmap. Establish current Bot API support and preserve uncertain-send behavior
 before proposing it. Unsupported MCP schema types remain an explicit decline
 unless a separately reviewed extension to the existing catalogue is needed.
+Direct Telegram answer buttons/ForceReply are deferred; this sequence retains
+the existing contextual Mini App input and its native request binding.
 
 ## Handoff and progress ledger
 
 | Item | State at this documentation change | PR / evidence |
 | --- | --- | --- |
-| UX-00 | Prepared | Static source reconciliation against `6517c71`; link/diff checks recorded in its PR. |
+| UX-00 | In review | [PR #25](https://github.com/xliberty2008x/oak-bot/pull/25); source reconciliation against `6517c71`, 36 local links and diff/portable-path checks passed. |
 | UX-01 | Next implementation | Start from current `main`; use the `/tasks` contract in the specification. |
 | UX-02 through UX-19 | Planned | No completion, deployment or live verification claimed. |
 
