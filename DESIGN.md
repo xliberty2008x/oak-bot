@@ -466,6 +466,12 @@ logout and page hiding abort old reads; late responses cannot update another
 conversation. Live updates preserve settings drafts, contextual form fields and
 unchanged request controls. Raw AG-UI content is not used for panel status.
 
+Task list/detail responses include one explicit owner-facing `preview`: at most
+80 whitespace-normalized characters from the selected conversation’s task text.
+It renders as literal text. Raw prompts remain absent from task responses, panel
+summaries, lifecycle history and events; previews are not a general disclosure of
+private request, tool or website-form content.
+
 The Memory view reads only the selected conversation through `MemoryStore`, with
 20 records per page and bounded full-text queries. Add/delete operations commit
 with durable scoped operation receipts; a lost response can be checked with the

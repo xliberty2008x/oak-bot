@@ -862,9 +862,9 @@ function renderTasks(value) {
     const item = element("li", undefined, "item"), heading = element("div", undefined, "item-heading");
     if (Object.hasOwn(taskLabels, task.status)) item.dataset.status = task.status;
     const tone = task.status === "uncertain" ? "warning" : task.status === "running" || task.status === "pending" ? "good" : "";
-    heading.append(element("h3", task.mode === "remind" ? "Нагадування" : "Задача Oak"), element("span", label(taskLabels, task.status), "badge " + tone));
+    heading.append(element("h3", task.preview || (task.mode === "remind" ? "Нагадування" : "Задача Oak")), element("span", label(taskLabels, task.status), "badge " + tone));
     const meta = element("p", undefined, "item-meta");
-    meta.append(dateNode(task.due), document.createTextNode(". " + intervalText(task.interval) + ". ID: "), element("code", task.id));
+    meta.append(document.createTextNode((task.mode === "remind" ? "Нагадування" : "Задача Oak") + " · "), dateNode(task.due), document.createTextNode(". " + intervalText(task.interval) + ". ID: "), element("code", task.id));
     item.append(heading, meta);
     if (task.turn_status) item.append(element("p", "Виконання: " + label(turnLabels, task.turn_status).toLocaleLowerCase("uk-UA"), "item-description"));
     if (task.status === "uncertain") item.append(element("p", "Результат невідомий. Перевір його в Telegram перед повторним запуском.", "item-description warning"));

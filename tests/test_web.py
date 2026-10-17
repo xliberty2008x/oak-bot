@@ -207,7 +207,11 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([e['type'] for e in detail['timeline']], ['RUN_STARTED', 'RUN_ERROR'])
         self.assertNotIn('PRIVATE_PROVIDER_ERROR', json.dumps(detail))
         for secret in ('PRIVATE_TASK', 'PRIVATE_MEMORY', 'PRIVATE_INSTRUCTIONS', 'OTHER_TASK', 'OTHER_MEMORY'):
-            self.assertNotIn(secret, json.dumps([panel, tasks]))
+            self.assertNotIn(secret, json.dumps(panel))
+            if secret != 'PRIVATE_TASK':
+                self.assertNotIn(secret, json.dumps(tasks))
+        self.assertEqual(tasks[0]['preview'], 'PRIVATE_TASK')
+        self.assertNotIn('prompt', tasks[0])
         request._match_info['id'] = other
         request.json = AsyncMock(return_value={'confirmed': True})
         with self.assertRaises(web.HTTPNotFound):
