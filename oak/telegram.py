@@ -20,13 +20,13 @@ import urllib.request
 import uuid
 
 from .a2ui_telegram import card_blocks
+from .commands import command_names
 from .media import ToolUnavailable
 from .rendering import render_markdown
 
 MAX_UPLOAD = 50 * 1024 * 1024
 CARD = 'oakA2UICard'  # Outbox-only method; resolved to a rich send or an in-place edit.
-CONTROL_COMMANDS = {'/start', '/help', '/status', '/web', '/remember', '/memory', '/remind', '/tasks',
-                    '/cancel', '/image', '/preview', '/speak', '/research', '/browse'}
+CONTROL_COMMANDS = command_names() - {'/stop', '/new', '/approve', '/deny', '/answer'}
 
 
 class TelegramError(RuntimeError):

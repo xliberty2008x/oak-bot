@@ -258,6 +258,8 @@ async def run(config_path):
                     save_ready()
                     print('HTTPS tunnel recovered; Telegram menus updated.', flush=True)
 
+                from .commands import register_commands
+                await register_commands(gateway, allowed, web_available=bool(web_gateway and web_gateway.public_url))
                 await controller.recover()
                 save_ready()
                 print(json.dumps(ready), flush=True)
