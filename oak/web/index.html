@@ -72,8 +72,12 @@
               <span class="next-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
               <div><h2 id="next-heading">Наступний запуск</h2><p id="next-task" class="next-time">—</p><p id="next-task-meta" class="hint">Задачі ще не завантажено</p></div>
             </article>
-            <aside class="telegram-note"><h2>Продовжуй у Telegram</h2><p>Пиши Oak, додавай уточнення та відповідай на запити підтвердження в розмові з ботом.</p><p><code>/new</code> починає нову розмову, <code>/memory</code> показує пам’ять поточної розмови.</p></aside>
+            <aside class="telegram-note"><h2>Продовжуй у Telegram</h2><p>Пиши Oak і додавай уточнення в розмові з ботом. Підтверджувати дії можна тут або в Telegram.</p><p><code>/new</code> починає нову розмову, <code>/memory</code> показує пам’ять поточної розмови.</p></aside>
           </div>
+          <section id="approvals-panel" hidden aria-labelledby="approvals-heading">
+            <h2 id="approvals-heading">Підтвердження дій</h2>
+            <ul id="approvals-list" class="item-list" aria-label="Запити підтвердження"></ul>
+          </section>
           <section id="input-requests-panel" class="topic-form" hidden aria-labelledby="input-requests-heading">
             <h2 id="input-requests-heading">Запити задачі</h2>
             <div id="pending-input-requests" class="item-actions"></div>

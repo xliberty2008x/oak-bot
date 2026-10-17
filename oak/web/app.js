@@ -9,6 +9,7 @@ let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
 let panelPoll = null;
+const approvalBlocked = new Set();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -389,6 +390,10 @@ async function selectSession(id) {
 function resetSessionView() {
   a2uiPanel?.reset();
   inputRequestsPanel?.reset();
+  approvalBlocked.clear();
+  $("approvals-list").replaceChildren();
+  delete $("approvals-list").dataset.snapshot;
+  $("approvals-panel").hidden = true;
   panelData = integrationData = null;
   modelsData = null; lastModel = ""; modelsUnavailable = false; draftEffort = lastEffort = null; draftTurbo = lastTurbo = null;
   renderModels();
@@ -476,6 +481,10 @@ async function deleteTopic(session) {
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
   panelPoll?.reset();
+  approvalBlocked.clear();
+  $("approvals-list").replaceChildren();
+  delete $("approvals-list").dataset.snapshot;
+  $("approvals-panel").hidden = true;
   if (surfaceLaunch) { initialConversation = surfaceLaunch.conversation; surfaceLaunch.opened = false; }
   remotePanel?.reset();
   a2uiPanel?.reset();
@@ -515,7 +524,7 @@ async function api(path, data, {signal} = {}) {
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -623,6 +632,52 @@ async function toggleComputer() {
   }
 }
 
+function renderApprovals(items) {
+  const list = $("approvals-list"), rows = Array.isArray(items) ? items : [];
+  const snapshot = JSON.stringify([rows, [...approvalBlocked]]);
+  if (list.dataset.snapshot === snapshot) return;
+  list.dataset.snapshot = snapshot;
+  list.replaceChildren(); $("approvals-panel").hidden = rows.length === 0;
+  const states = {accepted: "Дозволено", declined: "Відхилено", answered: "Відповідь прийнято", expired: "Прострочено", cancelled: "Скасовано"};
+  for (const approval of rows) {
+    if (!/^[a-f0-9]{10}$/.test(approval.id)) continue;
+    const item = element("li", undefined, "item"), pending = approval.state === "pending";
+    item.append(element("h3", approval.summary || "Дозволити дію?"));
+    const status = element("p", pending ? "Очікує відповіді · до " : states[approval.state] || "Стан невідомий", "hint");
+    if (pending) status.append(dateNode(approval.expires));
+    item.append(status);
+    if (pending) {
+      const actions = element("div", undefined, "item-actions");
+      for (const [accepted, label] of [[true, "Дозволити"], [false, "Відхилити"]]) {
+        const button = element("button", label, accepted ? "" : "quiet"); button.type = "button";
+        button.dataset.mutation = "approval"; button.dataset.locked = String(approvalBlocked.has(approval.id));
+        button.disabled = mutationBusy || refreshing || approvalBlocked.has(approval.id);
+        button.addEventListener("click", () => { void decideApproval(approval.id, accepted); });
+        actions.append(button);
+      }
+      item.append(actions);
+      if (approvalBlocked.has(approval.id)) item.append(element("p", "Передавання потребує перевірки. Оновлюємо стан без повторної відповіді.", "hint"));
+    }
+    list.append(item);
+  }
+}
+async function decideApproval(id, accepted) {
+  if (mutationBusy || refreshing || approvalBlocked.has(id) || $("workspace").hidden) return;
+  const epoch = sessionEpoch;
+  approvalBlocked.add(id); mutationBusy = true;
+  renderApprovals(panelData?.session?.legacy_approvals); updateActions();
+  try {
+    const result = await api("/api/decision", {kind: "approval", id, accepted});
+    if (epoch !== sessionEpoch) return;
+    message("notice", result.message);
+  } catch (error) {
+    if (epoch !== sessionEpoch) return;
+    message("notice", [400, 403, 404, 409].includes(error.status) ? "Запит недоступний або вже завершено. Перевіряємо стан." : "Відповідь могла бути прийнята. Перевіряємо стан без повторного надсилання.", true);
+  } finally {
+    if (epoch === sessionEpoch) { mutationBusy = false; await loadPanel(epoch); updateActions(); }
+  }
+}
+
 function renderPanel(value, live = false) {
   if (!value || !value.session || !value.settings) throw new Error("Не вдалося прочитати стан Oak. Натисни «Оновити».");
   panelData = value;
@@ -630,6 +685,7 @@ function renderPanel(value, live = false) {
   renderSelectedSession();
   timezone = typeof value.settings.timezone === "string" ? value.settings.timezone : "";
   const session = value.session;
+  renderApprovals(session.legacy_approvals);
   const pendingInputs = Array.isArray(session.input_requests) ? session.input_requests : [];
   const inputAttention = Array.isArray(session.input_request_attention) ? session.input_request_attention : [];
   const requestKey = JSON.stringify([pendingInputs, inputAttention]);
@@ -659,7 +715,7 @@ function renderPanel(value, live = false) {
     indicator = "waiting";
   } else if (session.awaiting_confirmation > 0) {
     title = "Чекає на підтвердження";
-    description = "Відповідай на запити Oak у вибраній темі в Telegram.";
+    description = "Переглянь підтвердження нижче або відповідай у вибраній темі Telegram.";
     indicator = "waiting";
   } else if (session.active) {
     title = "Oak працює";

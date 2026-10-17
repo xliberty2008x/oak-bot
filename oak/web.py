@@ -510,7 +510,15 @@ class WebGateway:
         owner = self.owner(request)
         data = await request.json()
         chat = self.conversation(request, owner, data.get('conversation'))
+        if data.get('kind') not in {'approval', 'input'}:
+            raise ValueError('Unsupported decision kind.')
         if data.get('kind') == 'approval':
+            try:
+                approval = self.controller.interactions.snapshot(chat, data['id'])
+            except ValueError:
+                raise web.HTTPNotFound(text='Запит недоступний.') from None
+            if approval['state'] != 'pending':
+                raise web.HTTPConflict(text='Запит уже завершено.')
             if type(data.get('accepted')) is not bool:
                 raise ValueError('Approval requires a boolean.')
             result = await self.controller.approve(chat, data['id'], data['accepted'])

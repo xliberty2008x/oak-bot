@@ -36,6 +36,7 @@ const nodes=new Map();function $(id){if(!nodes.has(id))nodes.set(id,{dataset:{},
 let panelData=null,authenticated=false,timezone='',stopRequestState='',telegramLaunch=false;
 const window={};let modelRenders=0;
 const renderSelectedSession=()=>{},count=String,setAttention=()=>{},safeHTTPS=()=>null;
+const renderApprovals=()=>{};
 const renderModels=()=>{modelRenders++;},renderComputer=()=>{},message=()=>{},updateActions=()=>{};
 """ + render + r"""
 const snapshot={session:{active:true,input_requests:[],input_request_attention:[],awaiting_confirmation:0,uncertain_inputs:0},settings:{timezone:'Europe/Kyiv'},memory:{count:1}};

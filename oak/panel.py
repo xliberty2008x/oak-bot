@@ -197,6 +197,8 @@ class ControlPanel:
             'name': 'Oak', 'telegram_url': telegram_url,
             'session': {'initialized': bool(thread), 'active': owner in c.active,
                 'awaiting_confirmation': waiting, 'turn_status': self.turn_status(turn[0]) if turn else None,
+                'legacy_approvals': [c.interactions.snapshot(owner, row[0]) for row in self.db.execute(
+                    "SELECT id FROM interactions WHERE chat_id=? AND kind='approval' ORDER BY status='pending' DESC,rowid DESC LIMIT 20", (owner,))],
                 'input_requests': [row[0] for row in self.db.execute("SELECT id FROM input_requests WHERE chat_id=? AND outcome='pending' AND expires>? ORDER BY rowid", (owner, time.time()))],
                 'input_request_attention': [dict(row) for row in self.db.execute("SELECT id,outcome,delivery FROM input_requests WHERE chat_id=? AND outcome!='pending' AND delivery IN ('ready','uncertain') ORDER BY rowid DESC LIMIT 20", (owner,))],
                 'uncertain_inputs': (self.db.execute("SELECT count(*) FROM inputs WHERE chat_id=? AND status='uncertain'", (owner,)).fetchone()[0]
