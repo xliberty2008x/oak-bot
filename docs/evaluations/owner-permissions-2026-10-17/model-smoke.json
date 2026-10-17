@@ -1,0 +1,30 @@
+{
+  "native_binary_version": "0.162.1",
+  "model": "gpt-6.1-sol",
+  "model_provider": "openai",
+  "requested_sandbox": "danger-full-access",
+  "effective_thread_sandbox": {
+    "type": "dangerFullAccess"
+  },
+  "effective_thread_approval_policy": "on-request",
+  "apps_default_tools_approval_mode": "approve",
+  "thread_ephemeral": true,
+  "external_activity": "single public HTTPS GET https://example.com/",
+  "telegram_touched": false,
+  "server_approval_requests": [],
+  "command_executions": [
+    {
+      "exitCode": 0,
+      "status": "completed"
+    }
+  ],
+  "proof": {
+    "public_http_status": 200,
+    "public_http_body_bytes": 577,
+    "workspace_write_read": true,
+    "uid": 1900
+  },
+  "turn_status": "completed",
+  "turn_error_code": null,
+  "seconds": 11.792
+}

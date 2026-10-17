@@ -297,11 +297,25 @@ class InputRequests:
             if method == 'mcpServer/elicitation/request' and metadata.get('mode') == 'form':
                 schema = metadata.get('requestedSchema')
                 if (not isinstance(schema, dict) or schema.get('type') != 'object'
-                        or set(schema) - {'type', 'properties', 'required', 'additionalProperties'}
-                        or schema.get('additionalProperties') is not False):
+                        or set(schema) - {'$schema', 'type', 'properties', 'required', 'additionalProperties'}
+                        or schema.get('additionalProperties', False) is not False):
                     raise ValueError('Unsupported MCP schema.')
                 properties = schema.get('properties')
-                if not isinstance(properties, dict) or not 1 <= len(properties) <= 3 or set(schema.get('required', [])) != set(properties):
+                required = schema.get('required')
+                if required is None:
+                    required = []
+                if (not isinstance(properties, dict) or not isinstance(required, list)
+                        or any(not isinstance(key, str) for key in required)
+                        or set(required) != set(properties)):
+                    raise ValueError('Unsupported MCP fields.')
+                if not properties:
+                    # Codex 0.162.1 emits app-tool confirmations as an empty
+                    # standard form, distinct from a request to collect input.
+                    meta = metadata.get('_meta')
+                    if not isinstance(meta, dict) or meta.get('codex_approval_kind') != 'mcp_tool_call':
+                        raise ValueError('Unsupported empty MCP form.')
+                    return await self._mcp_confirmation(metadata)
+                if len(properties) > 3:
                     raise ValueError('Unsupported MCP fields.')
                 fields = []
                 for key, definition in properties.items():
@@ -320,7 +334,33 @@ class InputRequests:
                 return await self._ask(metadata, 'mcp', form(fields))
         except (ValueError, TypeError):
             pass  # Never echo, persist or publish rejected metadata or authentication URLs.
+        if method == 'mcpServer/elicitation/request':
+            try:
+                _, chat, _, _, _ = self._binding(metadata)
+            except RequestUnavailable:
+                pass
+            else:
+                await self.controller.emit(chat, {'type': 'CUSTOM', 'name': 'progress', 'value': {
+                    'message': 'Oak не підтримує цей формат запиту MCP. Дію не виконано; '
+                               'це не відмова користувача.'}})
         return {'answers': {}} if method == 'item/tool/requestUserInput' else {'action': 'decline', 'content': None}
+
+    async def _mcp_confirmation(self, metadata):
+        chat = self.controller.chat_for_thread(metadata.get('threadId'))
+        if chat is None:
+            raise RequestUnavailable('The original native request is unavailable.')
+        async with self.controller._lock(chat):
+            self._binding(metadata)
+        # Only routing and bounded display labels reach the approval store/chat.
+        # Tool arguments and authentication metadata never enter this channel.
+        meta = metadata['_meta']
+        label = text(meta.get('tool_title') or metadata.get('serverName'), 200)
+        routing = {key: metadata[key] for key in
+                   ('threadId', 'turnId', 'requestId', 'method', 'runtimeEpoch') if key in metadata}
+        accepted = await self.controller.interactions.ask(
+            routing, 'approval', 'Дозволити виклик інструмента «' + label + '»?')
+        self._binding(metadata)
+        return {'action': 'accept' if accepted else 'decline', 'content': {} if accepted else None}
 
     def row(self, owner, chat, identifier):
         row = self.db.execute('SELECT * FROM input_requests WHERE id=? AND owner=? AND chat_id=?',

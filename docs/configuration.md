@@ -19,7 +19,7 @@ paths resolve against the configuration file's directory.
 | `state_dir` | Persistent SQLite databases and process state |
 | `runtime_home` | Private runtime account/session directory, separate from desktop sessions |
 | `timezone` | IANA timezone for dates without an explicit offset |
-| `sandbox` | `workspace-write` or `read-only` for runtime execution |
+| `sandbox` | `workspace-write`, `read-only`, or owner-selected `danger-full-access` inside an isolated `execution` profile |
 | `runtime_config` | Runtime options such as approval policy and web search |
 | `piper_model` | Optional local `.onnx` narration model with adjacent `.onnx.json` |
 | `vosk_model` | Optional extracted local speech-recognition model directory |
@@ -27,6 +27,36 @@ paths resolve against the configuration file's directory.
 | `search_url` | Optional public SearXNG `/search` URL with JSON output enabled |
 | `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
+
+## Owner-authorized runtime access
+
+For an owner who has authorized autonomous tool use, the isolated deployment can
+remove the second, inner command sandbox and repetitive connected-app prompts:
+
+```json
+{
+  "sandbox": "danger-full-access",
+  "execution": {"profile": "/etc/oak-executor/profile.json"},
+  "runtime_config": {
+    "approval_policy": "on-request",
+    "apps": {"_default": {"default_tools_approval_mode": "approve"}}
+  }
+}
+```
+
+The existing attested OS executor still selects the available files, identity
+and network destinations. This mode requires that executor and does not grant
+root access. Oak applies the selected policy to new, resumed and forked threads
+and every subsequent turn. `on-request` keeps genuine server input/authentication
+requests available; `never` can reject those requests before Oak receives them.
+App-specific or managed policies can override the default. The
+[native configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+defines these approval settings.
+
+For deployments that retain `workspace-write`, set
+`runtime_config.sandbox_workspace_write.network_access` to `true` to allow
+command networking; Oak preserves that setting on subsequent turns. Existing
+deployments retain their defaults until the owner changes configuration.
 
 ## Large Telegram files
 

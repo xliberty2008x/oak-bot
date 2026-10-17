@@ -37,12 +37,18 @@ class RuntimeClient:
     def __init__(self, cwd=None, sandbox="workspace-write", approval_handler=None,
                  tool_handler=None, request_input_handler=None, config=None, home=None,
                  execution=None):
-        if sandbox not in {"read-only", "workspace-write"}:
-            raise ValueError("sandbox must be read-only or workspace-write")
+        if sandbox not in {"read-only", "workspace-write", "danger-full-access"}:
+            raise ValueError("Unsupported sandbox mode")
+        if sandbox == "danger-full-access" and execution is None:
+            raise ValueError("Full runtime access requires Oak's isolated execution profile")
         self.cwd = cwd
         self.sandbox = sandbox
         self.config = dict(config or {})
         self.execution = None if execution is None else dict(execution)
+        workspace_policy = self.config.get("sandbox_workspace_write", {})
+        if not isinstance(workspace_policy, dict) or type(workspace_policy.get("network_access", False)) is not bool:
+            raise ValueError("sandbox_workspace_write.network_access must be boolean")
+        self.network_access = workspace_policy.get("network_access", False)
         self.approval_policy = self.config.get("approval_policy", "on-request")
         if self.approval_policy not in {"on-request", "untrusted", "never"}:
             raise ValueError("Unsupported approval_policy")
@@ -133,8 +139,14 @@ class RuntimeClient:
             if method == 'thread/start':
                 params['allowProviderModelFallback'] = False
         if method == "turn/start":
-            policy = {"type": "readOnly" if self.sandbox == "read-only" else "workspaceWrite",
-                      "networkAccess": False}
+            if self.sandbox == "danger-full-access":
+                # The attested executor still owns filesystem, UID and host-network
+                # isolation. Do not silently put a second restrictive policy back
+                # on each turn after the owner selected full runtime access.
+                policy = {"type": "dangerFullAccess"}
+            else:
+                policy = {"type": "readOnly" if self.sandbox == "read-only" else "workspaceWrite",
+                          "networkAccess": self.network_access if self.sandbox == "workspace-write" else False}
             params.pop('modelProvider', None)
             params.update(approvalPolicy=self.approval_policy,
                           approvalsReviewer="user", sandboxPolicy=policy)

@@ -106,6 +106,40 @@ class EventTests(unittest.TestCase):
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_owner_execution_policy_survives_start_resume_fork_and_each_turn(self):
+        for sandbox, config, execution, expected in [
+            ('workspace-write', {}, None, {'type': 'workspaceWrite', 'networkAccess': False}),
+            ('workspace-write', {'sandbox_workspace_write': {'network_access': True}}, None,
+             {'type': 'workspaceWrite', 'networkAccess': True}),
+            ('read-only', {'sandbox_workspace_write': {'network_access': True}}, None,
+             {'type': 'readOnly', 'networkAccess': False}),
+            ('danger-full-access', {}, {'profile': '/reviewed/profile.json'}, {'type': 'dangerFullAccess'}),
+        ]:
+            with self.subTest(sandbox=sandbox, config=config):
+                client = RuntimeClient(sandbox=sandbox, config=config, execution=execution)
+                client._authenticated = True
+                messages = []
+
+                async def send(message):
+                    messages.append(message)
+                    client._pending[message['id']].set_result({'model': 'gpt-6.1-sol', 'modelProvider': 'openai'})
+
+                client._send = send
+                for method in ('thread/start', 'thread/resume', 'thread/fork', 'turn/start', 'turn/start'):
+                    await client.request(method, {})
+                    params = messages[-1]['params']
+                    if method.startswith('thread/'):
+                        self.assertEqual(params['sandbox'], sandbox)
+                    else:
+                        self.assertEqual(params['sandboxPolicy'], expected)
+
+    def test_full_runtime_access_requires_external_executor_and_typed_network_setting(self):
+        with self.assertRaises(ValueError):
+            RuntimeClient(sandbox='danger-full-access')
+        for value in ('false', 1, None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                RuntimeClient(config={'sandbox_workspace_write': {'network_access': value}})
+
     async def test_explicit_runtime_model_is_preserved_and_provider_mismatch_is_rejected(self):
         client = RuntimeClient()
         client._authenticated = True

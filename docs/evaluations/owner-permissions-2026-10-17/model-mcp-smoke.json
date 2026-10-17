@@ -1,0 +1,58 @@
+[
+  {
+    "default_tools_approval_mode": "auto",
+    "decline_any_interactive_request": true,
+    "requests": [
+      {
+        "method": "mcpServer/elicitation/request",
+        "mode": "form",
+        "serverName": "oak_permission_probe",
+        "requestedSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "_meta": {
+          "codex_approval_kind": "mcp_tool_call",
+          "persist": [
+            "session",
+            "always"
+          ],
+          "tool_description": "Permission test: append a harmless marker in the probes own temporary file, then return LOCAL_TOOL_EXECUTED. No external actions.",
+          "tool_params": {},
+          "tool_params_display": []
+        }
+      }
+    ],
+    "tool_items": [
+      {
+        "type": "mcpToolCall",
+        "server": "oak_permission_probe",
+        "tool": "probe_local",
+        "status": "failed",
+        "error": {
+          "message": "user rejected MCP tool call"
+        }
+      }
+    ],
+    "synthetic_execution_count": 0,
+    "turn_status": "completed",
+    "seconds": 8.639
+  },
+  {
+    "default_tools_approval_mode": "approve",
+    "decline_any_interactive_request": true,
+    "requests": [],
+    "tool_items": [
+      {
+        "type": "mcpToolCall",
+        "server": "oak_permission_probe",
+        "tool": "probe_local",
+        "status": "completed",
+        "error": null
+      }
+    ],
+    "synthetic_execution_count": 1,
+    "turn_status": "completed",
+    "seconds": 8.404
+  }
+]

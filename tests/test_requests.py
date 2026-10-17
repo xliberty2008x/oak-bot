@@ -140,6 +140,81 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
         await self.c.requests.decide(11, 11, identifier, self.payload(values={'pace': 'slow'}))
         self.assertEqual(await task, {'action': 'accept', 'content': {'pace': 'slow'}})
 
+    async def test_standard_mcp_enum_schema_needs_no_additional_properties_extension(self):
+        metadata = {**self.native, 'method': 'mcpServer/elicitation/request', 'mode': 'form',
+                    'serverName': 'example', 'message': 'Choose a pace',
+                    'requestedSchema': {'$schema': 'https://json-schema.org/draft/2020-12/schema',
+                        'type': 'object', 'properties': {
+                            'pace': {'type': 'string', 'enum': ['slow', 'fast']}}, 'required': ['pace']}}
+        task = asyncio.create_task(self.c.requests.native(metadata)); self.tasks.append(task)
+        await asyncio.sleep(0)
+        identifier = next(iter(self.c.requests.waiters))
+        await self.c.requests.decide(11, 11, identifier, self.payload(values={'pace': 'fast'}))
+        self.assertEqual(await task, {'action': 'accept', 'content': {'pace': 'fast'}})
+
+    async def test_native_app_confirmation_reaches_owner_and_resumes_original_call_once(self):
+        self.c.web = None  # Confirmation must also work directly in Telegram.
+        canary = 'PRIVATE_ARGUMENT_CANARY'
+        message = {'id': 42, 'method': 'mcpServer/elicitation/request', 'params': {
+            'threadId': 'original-thread', 'turnId': 'original-turn',
+            'serverName': 'codex_apps', 'mode': 'form', 'message': canary,
+            'requestedSchema': {'type': 'object', 'properties': {}},
+            '_meta': {'codex_approval_kind': 'mcp_tool_call', 'tool_title': 'Create issue',
+                      'persist': ['session', 'always'], 'tool_params': {'body': canary}}}}
+        task = asyncio.create_task(self.runtime._handle_server_request(message)); self.tasks.append(task)
+        await asyncio.sleep(0); await asyncio.sleep(0)
+        identifier = next(iter(self.c.interactions.pending))
+        self.runtime._send.assert_not_awaited()
+        event = self.bus.replay(11)[0]['event']
+        self.assertEqual(event['name'], 'approval_request')
+        self.assertIn('Create issue', event['value']['summary'])
+        with self.assertRaises(ValueError):
+            self.c.interactions.resolve(22, identifier, True, 'approval')
+        self.c.interactions.resolve(11, identifier, True, 'approval')
+        await task
+        self.runtime._send.assert_awaited_once_with(
+            {'id': 42, 'result': {'action': 'accept', 'content': {}}})
+        with self.assertRaises(ValueError):
+            self.c.interactions.resolve(11, identifier, True, 'approval')
+        self.assertNotIn(canary, '\n'.join(self.c.db.iterdump()))
+        self.assertNotIn(canary, json.dumps(self.bus.replay(11)))
+        self.runtime.request.assert_not_awaited()
+
+    async def test_app_confirmation_decline_and_turn_end_never_grant_permission(self):
+        metadata = {**self.native, 'method': 'mcpServer/elicitation/request',
+                    'mode': 'form', 'serverName': 'example',
+                    'requestedSchema': {'type': 'object', 'properties': {}, 'required': None},
+                    '_meta': {'codex_approval_kind': 'mcp_tool_call'}}
+        for end_turn in (False, True):
+            self.c.active[11] = 'original-turn'
+            task = asyncio.create_task(self.c.requests.native(metadata)); self.tasks.append(task)
+            await asyncio.sleep(0)
+            identifier = next(iter(self.c.interactions.pending))
+            if end_turn:
+                self.c.active[11] = 'new-turn'
+            self.c.interactions.resolve(11, identifier, end_turn, 'approval')
+            self.assertEqual(await task, {'action': 'decline', 'content': None})
+        self.runtime.request.assert_not_awaited()
+
+    async def test_unrecognized_empty_forms_and_authentication_modes_do_not_ask_or_accept(self):
+        metadata = {**self.native, 'method': 'mcpServer/elicitation/request',
+                    'mode': 'form', 'serverName': 'example',
+                    'requestedSchema': {'type': 'object', 'properties': {}},
+                    '_meta': {'codex_approval_kind': 'mcp_tool_call'}}
+        variants = [{'_meta': {}}, {'mode': 'url'}, {'mode': 'openai/userVerification'},
+                    {'mode': 'openai/form'}, {'runtimeEpoch': 'previous-runtime'},
+                    {'requestedSchema': {'type': 'object', 'properties': {}, 'required': False}},
+                    {'requestedSchema': {'type': 'object', 'properties': {}, 'additionalProperties': True}}]
+        for variant in variants:
+            with self.subTest(variant=variant):
+                result = await asyncio.wait_for(self.c.requests.native({**metadata, **variant}), 1)
+                self.assertEqual(result, {'action': 'decline', 'content': None})
+        self.assertFalse(self.c.interactions.pending)
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM interactions').fetchone()[0], 0)
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM input_requests').fetchone()[0], 0)
+        self.assertTrue(all(row['event']['name'] == 'progress' for row in self.bus.replay(11)))
+        self.runtime.request.assert_not_awaited()
+
     async def test_cancel_empty_fields_and_submit_cancel_race_have_one_winner(self):
         task, identifier = await self.begin()
         results = await asyncio.gather(self.c.requests.decide(11, 11, identifier, self.payload('cancel', 'cancel')),
@@ -305,7 +380,11 @@ class InputRequestTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(result, [{'answers': {}}, {'action': 'decline', 'content': None}])
         self.assertEqual(self.c.db.execute('SELECT count(*) FROM input_requests').fetchone()[0], 0)
         self.assertNotIn(canary, '\n'.join(self.c.db.iterdump()))
-        self.assertEqual(self.bus.replay(11), [])
+        events = self.bus.replay(11)
+        self.assertEqual(len(events), 2)
+        self.assertTrue(all(row['event']['name'] == 'progress' for row in events))
+        self.assertNotIn(canary, json.dumps(events))
+        self.assertTrue(all('не відмова користувача' in row['event']['value']['message'] for row in events))
 
     async def test_http_owner_origin_conversation_and_exact_telegram_launch(self):
         gateway = WebGateway(self.c, self.bus, 'synthetic-token', [11, 22], {'public_url': 'https://oak.example.test'})
