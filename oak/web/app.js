@@ -12,6 +12,8 @@ let panelPoll = null, telegramTheme = null, telegramBridge = null, bridgeObserve
 const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
+let artifactsNext = null, artifactsGeneration = 0;
+const artifactAssets = new Map();
 let recoveryNext = null, recoveryGeneration = 0;
 const recoveryRetries = new Map();
 let taskCreateOperation = null;
@@ -535,7 +537,7 @@ async function api(path, data, {signal} = {}) {
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|recovery(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|artifacts|recovery(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -780,6 +782,56 @@ function renderPanel(value, live = false) {
   updateActions();
 }
 
+function clearArtifacts() {
+  for (const asset of artifactAssets.values()) { asset.controller.abort(); if (asset.url) URL.revokeObjectURL(asset.url); }
+  artifactAssets.clear();
+}
+async function loadArtifacts(before = null) {
+  const epoch = sessionEpoch, generation = ++artifactsGeneration;
+  if (before === null) { clearArtifacts(); $("artifacts-list").replaceChildren(); }
+  $("artifacts-more").disabled = true; message("artifacts-status", "Завантажуємо файли…");
+  try {
+    const value = await api("/api/artifacts" + (before === null ? "" : "?before=" + before));
+    if (epoch !== sessionEpoch || generation !== artifactsGeneration) return;
+    for (const file of value.items) {
+      const row = element("li", undefined, "item"), status = element("p", file.available ? ({image: "Зображення", video: "Відео", audio: "Аудіо", document: "Документ"}[file.kind] || "Файл") + (file.size_bytes !== null ? " · " + Math.ceil(file.size_bytes / 1024) + " КБ" : "") : "Файл більше недоступний", "hint");
+      row.append(element("h3", file.name), status);
+      if (file.available) {
+        const actions = element("div", undefined, "item-actions");
+        for (const preview of file.kind === "image" ? [true, false] : [false]) {
+          const button = element("button", preview ? "Переглянути" : "Завантажити", "quiet"); button.type = "button";
+          button.disabled = file.size_bytes > (preview ? 10 : 100) * 1024 * 1024;
+          if (button.disabled) status.textContent = preview ? "Перегляд доступний для зображень до 10 МБ." : "Файл більший за 100 МБ. Відкрий його в Telegram.";
+          button.addEventListener("click", async () => {
+            button.disabled = true;
+            const asset = artifactAssets.get(file.id) || {controller: new AbortController(), url: null}; artifactAssets.set(file.id, asset);
+            try {
+              if (!asset.url) {
+                if (!asset.loading) asset.loading = artifact(file.id, {signal: asset.controller.signal, limit: 100 * 1024 * 1024, types: [file.mime]}).finally(() => { asset.loading = null; });
+                const blob = await asset.loading;
+                if (epoch !== sessionEpoch || asset.controller.signal.aborted || !row.isConnected) return;
+                if (!asset.url) asset.url = URL.createObjectURL(blob);
+              }
+              if (epoch !== sessionEpoch || asset.controller.signal.aborted) return;
+              if (preview) { const image = element("img"); image.alt = file.name; image.src = asset.url; image.className = "artifact-preview"; row.append(image); button.hidden = true; }
+              else { const link = element("a"); link.href = asset.url; link.download = file.name; link.click(); }
+              status.textContent = "Файл готовий.";
+            } catch { if (epoch === sessionEpoch && !asset.controller.signal.aborted) status.textContent = "Файл не завантажено. Перевір доступ і онови список."; }
+            finally { if (epoch === sessionEpoch) button.disabled = false; }
+          });
+          actions.append(button);
+        }
+        row.append(actions);
+      }
+      $("artifacts-list").append(row);
+    }
+    artifactsNext = value.next_cursor; $("artifacts-more").hidden = artifactsNext === null;
+    message("artifacts-status", value.items.length || before !== null ? "" : "Файлів у цій розмові ще немає.");
+  } catch { if (epoch === sessionEpoch && generation === artifactsGeneration) message("artifacts-status", "Список файлів недоступний. Онови панель.", true); }
+  finally { if (epoch === sessionEpoch && generation === artifactsGeneration) $("artifacts-more").disabled = false; }
+}
+$("artifacts-more").addEventListener("click", () => { if (artifactsNext !== null) void loadArtifacts(artifactsNext); });
+
 async function loadRecovery(before = null) {
   const epoch = sessionEpoch, generation = ++recoveryGeneration;
   $("recovery-more").disabled = true; message("recovery-status", "Завантажуємо запити…");
@@ -830,6 +882,7 @@ async function loadRecovery(before = null) {
 $("recovery-more").addEventListener("click", () => { if (recoveryNext !== null) void loadRecovery(recoveryNext); });
 
 function resetMemory() {
+  clearArtifacts(); artifactsGeneration++; artifactsNext = null; $("artifacts-list").replaceChildren(); $("artifacts-more").hidden = true;
   recoveryGeneration++; recoveryNext = null; recoveryRetries.clear(); $("recovery-list").replaceChildren(); $("recovery-more").hidden = true;
   memoryGeneration++; memoryNext = null; memoryQuery = ""; memoryOperation = null; memoryDeletes.clear();
   $("memory-list").replaceChildren(); $("memory-more").hidden = true;
@@ -1343,20 +1396,20 @@ async function desktopPanel() {
   if (!$("view-desktop").hidden && !$("workspace").hidden) await panel?.refresh();
 }
 
-async function artifact(id, {signal} = {}) {
+async function artifact(id, {signal, limit = 10 * 1024 * 1024, types = ["image/png", "image/jpeg", "image/webp", "image/gif"]} = {}) {
   if (!/^[a-f0-9]{32}$/.test(id)) throw new Error("Зображення недоступне.");
-  const epoch = sessionEpoch, controller = new AbortController(), limit = 10 * 1024 * 1024;
+  const epoch = sessionEpoch, controller = new AbortController();
   const abort = () => controller.abort(), timeout = setTimeout(abort, 30000);
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   let reader;
   try {
-    const response = await fetch("/api/artifacts/" + encodeURIComponent(id), {credentials: "same-origin", signal: controller.signal,
+    const response = await fetch("/api/artifacts/" + encodeURIComponent(id) + "?conversation=" + encodeURIComponent(selectedSession), {credentials: "same-origin", signal: controller.signal,
       cache: "no-store", redirect: "error", headers: sessionToken ? {Authorization: "Bearer " + sessionToken} : {}});
     const type = (response.headers.get("Content-Type") || "").split(";", 1)[0].trim().toLowerCase();
     const length = Number(response.headers.get("Content-Length"));
     if (!response.ok || epoch !== sessionEpoch || controller.signal.aborted ||
-        !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(type) ||
+        !types.includes(type) ||
         !Number.isFinite(length) || length < 0 || length > limit || !response.body) throw new Error("Зображення недоступне.");
     reader = response.body.getReader();
     const chunks = []; let size = 0;
@@ -1416,6 +1469,7 @@ function showView(view, focus = true) {
 for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => {
   const view = button.dataset.view;
   showView(view);
+  if (view === "artifacts") void loadArtifacts();
   if (view === "recovery") void loadRecovery();
   if (view === "memory") void loadMemory();
   if (view === "desktop") void desktopPanel();
@@ -1423,13 +1477,13 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
 });
 $("create-session").addEventListener("submit", event => { event.preventDefault(); void changeTopic("create", null, $("topic-name").value); });
 $("topic-name").addEventListener("input", renderTopicCapability);
-$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-recovery").hidden) void loadRecovery(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
+$("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-artifacts").hidden) void loadArtifacts(); if (!$("view-recovery").hidden) void loadRecovery(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelPoll?.reset();
   else { void syncSessions(); panelPoll?.resume(); }
 });
-window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); telegramBridge?.destroy(); bridgeObserver?.disconnect(); });
+window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); telegramBridge?.destroy(); bridgeObserver?.disconnect(); clearArtifacts(); });
 window.addEventListener("pageshow", () => { telegramTheme?.connect(); telegramBridge?.connect(); bridgeObserver?.observe(document.body, {subtree: true, attributes: true, attributeFilter: ["open", "hidden"]}); panelPoll?.resume(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
