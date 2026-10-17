@@ -222,7 +222,7 @@ class ControlPanel:
         return preview if len(preview) <= 80 else preview[:79] + '…'
 
     def tasks(self, owner, task_id=None):
-        query = '''SELECT j.id,j.prompt,j.due,j.interval,j.mode,j.status,t.status AS turn_status,j.turn_id
+        query = '''SELECT j.id,j.prompt,j.due,j.interval,j.mode,j.status,j.revision,t.status AS turn_status,j.turn_id
                    FROM jobs j LEFT JOIN turns t ON t.turn_id=j.turn_id WHERE j.chat_id=?'''
         args = [owner]
         if task_id is not None:
@@ -230,7 +230,7 @@ class ControlPanel:
             args.append(task_id)
         query += " ORDER BY j.status IN ('pending','running','uncertain') DESC,j.due DESC LIMIT 100"
         rows = self.db.execute(query, args).fetchall()
-        tasks = [{k: row[k] for k in ('id', 'due', 'interval', 'mode', 'status')} |
+        tasks = [{k: row[k] for k in ('id', 'due', 'interval', 'mode', 'status', 'revision')} |
                  {'turn_status': self.turn_status(row['turn_status']),
                   'preview': self.task_preview(row['prompt'])} for row in rows]
         if task_id is None:

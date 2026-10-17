@@ -101,7 +101,7 @@ button:disabled { opacity: .42; cursor: default; box-shadow: none; }
 .login h1 { font-size: 28px; }
 .login > p { margin-top: 12px; color: var(--muted); }
 .login label { display: block; margin: 26px 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
-.login input, .topic-form input, .topic-form textarea, .a2ui-field select { display: block; width: 100%; min-width: 0; min-height: 50px; padding: 12px 16px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); color: var(--ink); background: rgba(0, 0, 0, .3); transition: border-color .18s, box-shadow .18s; }
+.login input, .topic-form input, .topic-form textarea, .topic-form select, .a2ui-field select { display: block; width: 100%; min-width: 0; min-height: 50px; padding: 12px 16px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); color: var(--ink); background: rgba(0, 0, 0, .3); transition: border-color .18s, box-shadow .18s; }
 .login input:focus, .topic-form input:focus, .topic-form textarea:focus { outline: none; border-color: rgba(61, 220, 151, .6); box-shadow: 0 0 0 4px rgba(61, 220, 151, .14); }
 .login input::placeholder, .topic-form input::placeholder { color: var(--faint); }
 .login button { width: 100%; margin-top: 14px; min-height: 50px; }
@@ -608,3 +608,7 @@ dialog.signin-host { width: min(calc(100% - 24px), 560px); max-height: calc(100d
 :root[data-theme="light"] .integration-icon { color: var(--accent-2); border-color: var(--line); }
 :root[data-theme="light"] .a2ui-tone-info { color: #215b99; }
 :root[data-theme="light"] oak-a2ui-surface { --a2ui-color-input: var(--glass); --a2ui-card-background: var(--bg-2); }
+
+.task-create { margin-bottom: 24px; padding: 20px 24px; }
+.task-create summary { cursor: pointer; min-height: 24px; font-weight: 600; }
+.task-create details { margin-top: 18px; }

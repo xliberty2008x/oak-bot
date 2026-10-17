@@ -61,6 +61,8 @@ class WebGateway:
             self.db.commit()
         from .panel import ControlPanel
         self.controls = ControlPanel(self)
+        from .job_controls import JobControls
+        self.job_controls = JobControls(controller)
         from .remote import RemoteDesktop
         self.remote = RemoteDesktop(self)
         self.signin = None
@@ -95,7 +97,7 @@ class WebGateway:
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
             web.get('/api/panel', self.panel),
             web.get('/api/memory', self.memory), web.post('/api/memory', self.change_memory),
-            web.post('/api/memory/{id}/delete', self.change_memory), web.get('/api/tasks', self.tasks),
+            web.post('/api/memory/{id}/delete', self.change_memory), web.get('/api/tasks', self.tasks), web.post('/api/tasks', self.create_task),
             web.get('/api/models', self.models), web.post('/api/models', self.set_model),
             web.get('/api/sessions', self.topic_sessions), web.post('/api/sessions', self.create_topic),
             web.post('/api/sessions/{id}/rename', self.rename_topic),
@@ -346,6 +348,19 @@ class WebGateway:
     async def tasks(self, request):
         owner = self.owner(request)
         return web.json_response(self.controls.tasks(self.conversation(request, owner)))
+
+    async def create_task(self, request):
+        owner = await self.confirmed_owner(request)
+        scope = self.conversation(request, owner)
+        data = await request.json()
+        try:
+            value = self.job_controls.create_owned(scope, data.get('operation_id'), data.get('prompt'),
+                data.get('at'), data.get('interval_seconds'), data.get('mode', 'remind'))
+        except LookupError:
+            raise web.HTTPNotFound(text='Сесію не знайдено.') from None
+        except RuntimeError:
+            raise web.HTTPConflict(text='Дія вже має інший результат.') from None
+        return web.json_response(value)
 
     async def task(self, request):
         owner = self.owner(request)

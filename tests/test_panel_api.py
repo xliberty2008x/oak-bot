@@ -137,6 +137,24 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         panel = await (await self.http.get('/api/panel', headers=self.headers)).json()
         self.assertNotIn('owner text', json.dumps(panel))
 
+    async def test_create_task_requires_confirmation_and_deduplicates_owned_operation(self):
+        self.c.sessions.resolve(11, 42)
+        payload = {'operation_id': 'a' * 32, 'confirmed': True, 'prompt': 'A scheduled task',
+                   'at': '2026-11-10T09:00:00+02:00', 'mode': 'run', 'interval_seconds': 3600}
+        url = '/api/tasks?conversation=topic:42'
+        self.assertEqual((await self.http.post(url, headers=self.headers, json=payload | {'confirmed': False})).status, 400)
+        first_response = await self.http.post(url, headers=self.headers, json=payload)
+        self.assertEqual(first_response.status, 200)
+        first = await first_response.json()
+        self.assertEqual(await (await self.http.post(url, headers=self.headers, json=payload)).json(), first)
+        self.assertEqual((await self.http.post(url, headers=self.headers, json=payload | {'prompt': 'Changed'})).status, 409)
+        tasks = await (await self.http.get(url, headers=self.headers)).json()
+        self.assertEqual(len(tasks['tasks']), 1)
+        self.assertEqual(tasks['tasks'][0]['revision'], 1)
+        self.assertEqual((await (await self.http.get('/api/tasks', headers=self.headers)).json())['tasks'], [])
+        self.assertEqual((await self.http.post('/api/tasks?conversation=topic:999', headers=self.headers, json=payload)).status, 404)
+        self.assertEqual((await self.http.post(url, headers=self.headers, json=payload | {'operation_id': 'b' * 32, 'at': '2026-10-25T03:30'})).status, 400)
+
 
 if __name__ == '__main__':
     unittest.main()
