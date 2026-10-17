@@ -70,3 +70,28 @@ class ReminderTests(unittest.IsolatedAsyncioTestCase):
             self.c.scheduler.reminders.decide(7, token, '600')
         self.assertEqual(self.c.db.execute('SELECT count(*) FROM jobs').fetchone()[0], 1)
         self.assertEqual(self.c.scheduler.reminders.snapshot(7, token)['state'], 'pending')
+
+    async def test_cancel_controls_reject_foreign_jobs_and_settle_without_replay(self):
+        job = self.c.scheduler.add(7, 'Own reminder', delay_seconds=60)
+        self.g._task_controls(7)
+        row = self.g.db.execute("SELECT * FROM deliveries WHERE id LIKE 'task-controls:%'").fetchone()
+        await self.g._render_delivery(row)
+        self.assertIn('недоступна', self.g._cancel_job(8, job))
+        self.assertIn('скасовано', self.g._cancel_job(7, job))
+        self.assertIn('вже', self.g._cancel_job(7, job))
+        await self.g._settle_task_controls(7, 10)
+        self.assertEqual(self.g._deliver.call_args.args[1]['reply_markup']['inline_keyboard'], [])
+        self.assertEqual(self.c.scheduler.list(7), [])
+
+    async def test_failure_notice_identifies_bounded_job_without_reexecution(self):
+        from unittest.mock import AsyncMock
+        job = self.c.scheduler.add(7, '[work](https://example.invalid)\n' + 'a' * 100, delay_seconds=0, mode='run')
+        self.c.db.execute("UPDATE jobs SET status='running' WHERE id=?", (job,))
+        self.c.db.commit()
+        self.c.notice = AsyncMock()
+        await self.c.scheduler.recover()
+        text = self.c.notice.call_args.args[1]
+        self.assertIn(job, text)
+        self.assertIn('\\[work\\]', text)
+        self.assertIn('…', text)
+        self.assertEqual(self.c.scheduler.list(7)[0]['status'], 'uncertain')
