@@ -216,8 +216,13 @@ class ControlPanel:
     def turn_status(status):
         return status if status in {'inProgress', 'completed', 'failed', 'interrupted', 'uncertain'} else None
 
+    @staticmethod
+    def task_preview(prompt):
+        preview = ' '.join(prompt.split())
+        return preview if len(preview) <= 80 else preview[:79] + '…'
+
     def tasks(self, owner, task_id=None):
-        query = '''SELECT j.id,j.due,j.interval,j.mode,j.status,t.status AS turn_status,j.turn_id
+        query = '''SELECT j.id,j.prompt,j.due,j.interval,j.mode,j.status,t.status AS turn_status,j.turn_id
                    FROM jobs j LEFT JOIN turns t ON t.turn_id=j.turn_id WHERE j.chat_id=?'''
         args = [owner]
         if task_id is not None:
@@ -226,7 +231,8 @@ class ControlPanel:
         query += " ORDER BY j.status IN ('pending','running','uncertain') DESC,j.due DESC LIMIT 100"
         rows = self.db.execute(query, args).fetchall()
         tasks = [{k: row[k] for k in ('id', 'due', 'interval', 'mode', 'status')} |
-                 {'turn_status': self.turn_status(row['turn_status'])} for row in rows]
+                 {'turn_status': self.turn_status(row['turn_status']),
+                  'preview': self.task_preview(row['prompt'])} for row in rows]
         if task_id is None:
             counts = self.db.execute("SELECT status,count(*) FROM jobs WHERE chat_id=? AND status IN ('pending','running','uncertain') GROUP BY status", (owner,)).fetchall()
             counts = dict(counts)
