@@ -73,6 +73,51 @@ class JobControlTests(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
         self.assertEqual(self.db.execute('SELECT count(*) FROM owner_job_operations').fetchone()[0], 0)
 
+    def test_reschedule_is_revision_bound_idempotent_and_preserves_other_fields(self):
+        created = self.create(mode='run', interval_seconds=3600)
+        identifier = created['id']
+        before = dict(self.db.execute('SELECT * FROM jobs WHERE id=?', (identifier,)).fetchone())
+        first = self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-19T09:00:00+03:00')
+        self.assertEqual((first['revision'], first['status']), (2, 'pending'))
+        second = JobControls(self.controller).reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-19T09:00:00+03:00')
+        self.assertEqual(first, second)
+        after = dict(self.db.execute('SELECT * FROM jobs WHERE id=?', (identifier,)).fetchone())
+        self.assertEqual({k: v for k, v in before.items() if k not in {'revision', 'due'}},
+                         {k: v for k, v in after.items() if k not in {'revision', 'due'}})
+        with self.assertRaises(RuntimeError):
+            self.controls.reschedule_owned(7, identifier, 'reschedule-operation-2', 1, '2026-10-20T09:00:00+03:00')
+        with self.assertRaises(RuntimeError):
+            self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-20T09:00:00+03:00')
+
+    def test_reschedule_rejects_foreign_stale_and_started_jobs_without_receipts(self):
+        identifier = self.create()['id']
+        with self.assertRaises(LookupError):
+            self.controls.reschedule_owned(8, identifier, 'reschedule-operation-1', 1, '2026-10-20')
+        for status in ('running', 'uncertain', 'done', 'cancelled'):
+            with self.db:
+                self.db.execute('UPDATE jobs SET status=? WHERE id=?', (status, identifier))
+            with self.subTest(status=status), self.assertRaises(RuntimeError):
+                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-20')
+            self.assertEqual(self.db.execute('SELECT status,revision FROM jobs WHERE id=?', (identifier,)).fetchone()[:], (status, 1))
+        self.assertEqual(self.db.execute('SELECT count(*) FROM owner_job_operations').fetchone()[0], 1)
+
+    def test_rescheduling_paused_job_does_not_resume_it_and_failed_receipt_rolls_back(self):
+        identifier = self.create()['id']
+        with self.db:
+            self.db.execute("UPDATE jobs SET status='paused' WHERE id=?", (identifier,))
+        first = self.controls.reschedule_owned(7, identifier, 'reschedule-operation-1', 1, '2026-10-19T09:00:00+03:00')
+        self.assertEqual(first['status'], 'paused')
+        with patch.object(self.controls, '_record', side_effect=RuntimeError('synthetic failure')):
+            with self.assertRaises(RuntimeError):
+                self.controls.reschedule_owned(7, identifier, 'reschedule-operation-2', 2, '2026-10-20')
+        self.assertEqual(dict(self.db.execute('SELECT id,revision,status,due FROM jobs WHERE id=?', (identifier,)).fetchone()), first)
+
+    def test_original_receipt_wins_after_timezone_configuration_changes(self):
+        self.controller.scheduler.timezone = ZoneInfo('UTC')
+        created = self.create(at='2026-10-25T03:30')
+        self.controller.scheduler.timezone = ZoneInfo('Europe/Kyiv')
+        self.assertEqual(self.create(at='2026-10-25T03:30'), created)
+
 
 if __name__ == '__main__':
     unittest.main()
