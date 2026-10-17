@@ -174,11 +174,17 @@ class TelegramGateway:
             CREATE TABLE IF NOT EXISTS intake (
                 update_id INTEGER PRIMARY KEY, chat_id INTEGER NOT NULL,
                 payload TEXT NOT NULL, status TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS telegram_albums (
+                chat_id INTEGER, group_id TEXT, deadline REAL, state TEXT NOT NULL,
+                PRIMARY KEY(chat_id,group_id));
+            CREATE TABLE IF NOT EXISTS telegram_album_members (
+                update_id INTEGER PRIMARY KEY, chat_id INTEGER, group_id TEXT);
         ''')
         os.chmod(self.state_dir / 'telegram-outbox.sqlite3', 0o600)
         with self.db:
             self.db.execute("UPDATE deliveries SET status='uncertain' WHERE status='sending'")
             self.db.execute("UPDATE intake SET status='uncertain' WHERE status='processing'")
+            self.db.execute("UPDATE telegram_albums SET state='uncertain' WHERE state='processing'")
             # Observe topic metadata from older accepted updates without moving
             # completed work. Only undispatched inputs can be safely rerouted.
             for row in self.db.execute("SELECT update_id,chat_id,payload,status FROM intake WHERE status IN ('pending','done') ORDER BY update_id").fetchall():
@@ -640,7 +646,7 @@ class TelegramGateway:
             self.db.execute("UPDATE deliveries SET status='cancelled' WHERE chat_id=? AND status IN ('pending','sending')", (chat_id,))
         self.events.put_nowait(None)
 
-    async def handle_update(self, update, *, queued=False):
+    async def handle_update(self, update, *, queued=False, album=None):
         update_id = update.get('update_id')
         if type(update_id) is not int or (not queued and update_id < self.offset):
             return
@@ -727,7 +733,17 @@ class TelegramGateway:
                 # acceptance propagate the failure without advancing the cursor.
                 try:
                     try:
-                        attachments = await self._attachments(message, update_id)
+                        attachments = []
+                        sources = album or [update]
+                        captions = []
+                        for source in sources:
+                            original = source.get('message') or {}
+                            attachments.extend(await self._attachments(original, source['update_id']))
+                            caption = original.get('text') or original.get('caption') or ''
+                            if caption.strip() and caption not in captions:
+                                captions.append(caption)
+                        if album:
+                            text = '\n\n'.join(captions)
                     except (ValueError, TelegramError) as exc:
                         if isinstance(exc, TelegramError) and exc.reason != 'file_too_big':
                             raise
@@ -746,6 +762,8 @@ class TelegramGateway:
                     else:
                         await self._notice(chat_id, 'Надішли текст, фото, голосове повідомлення або документ.')
                     self._bind_reaction(chat_id, update_id)
+                    for source in album or []:
+                        self._bind_reaction(chat_id, source['update_id'], accepted_update=update_id)
                 except (ValueError, ToolUnavailable):
                     await self._notice(chat_id, 'Не вдалося опрацювати вкладення. Перевір формат файлу та доступність обробки медіа.')
                     if queued:
@@ -783,7 +801,22 @@ class TelegramGateway:
             return
         # This durable handoff acknowledges receipt without waiting for file
         # download/transcription. Each chat still dispatches its inputs in order.
+        group = message.get('media_group_id')
+        if isinstance(group, str) and 0 < len(group) <= 128:
+            album = self.db.execute('SELECT deadline,state FROM telegram_albums WHERE chat_id=? AND group_id=?', (chat_id, group)).fetchone()
+            count = self.db.execute('SELECT count(*) FROM telegram_album_members WHERE chat_id=? AND group_id=?', (chat_id, group)).fetchone()[0]
+            if album and (album['state'] != 'collecting' or time.time() > album['deadline'] or count >= 10):
+                self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id,
+                    'text': 'Цей альбом уже прийнято. Надішли пізнє вкладення окремим повідомленням.'}, 'late-album:' + str(update_id))
+                self._checkpoint(update_id + 1)
+                self.events.put_nowait(None)
+                return
+        else:
+            group = None
         with self.db:
+            if group is not None:
+                self.db.execute("INSERT OR IGNORE INTO telegram_albums VALUES (?,?,?,'collecting')", (chat_id, group, time.time() + 0.75))
+                self.db.execute('INSERT OR IGNORE INTO telegram_album_members VALUES (?,?,?)', (update_id, chat_id, group))
             self.db.execute("INSERT OR IGNORE INTO intake VALUES (?,?,?,'pending')",
                             (update_id, chat_id, json.dumps(update)))
             config = getattr(self.controller, 'config', {})
@@ -805,9 +838,27 @@ class TelegramGateway:
                 self._intake_wake[chat_id].clear()
                 await self._intake_wake[chat_id].wait()
                 continue
+            member = self.db.execute('SELECT group_id FROM telegram_album_members WHERE update_id=?', (row['update_id'],)).fetchone()
+            rows = [row]
+            if member:
+                group = member['group_id']
+                album = self.db.execute('SELECT deadline,state FROM telegram_albums WHERE chat_id=? AND group_id=?', (chat_id, group)).fetchone()
+                if album['state'] == 'collecting':
+                    await asyncio.sleep(max(0, min(0.75, album['deadline'] - time.time())))
+                rows = self.db.execute("SELECT i.update_id,i.payload FROM intake i JOIN telegram_album_members m USING(update_id) "
+                                       "WHERE m.chat_id=? AND m.group_id=? AND i.status='pending' ORDER BY i.update_id", (chat_id, group)).fetchall()
+                if not rows:
+                    continue
+                if album['state'] != 'collecting':
+                    with self.db:
+                        self.db.executemany("UPDATE intake SET status='uncertain' WHERE update_id=?", [(item['update_id'],) for item in rows])
+                    continue
             with self.db:
-                self.db.execute("UPDATE intake SET status='processing' WHERE update_id=?", (row['update_id'],))
-            task = asyncio.create_task(self.handle_update(json.loads(row['payload']), queued=True))
+                self.db.executemany("UPDATE intake SET status='processing' WHERE update_id=?", [(item['update_id'],) for item in rows])
+                if member:
+                    self.db.execute("UPDATE telegram_albums SET state='processing' WHERE chat_id=? AND group_id=?", (chat_id, group))
+            updates = [json.loads(item['payload']) for item in rows]
+            task = asyncio.create_task(self.handle_update(updates[0], queued=True, album=updates if member else None))
             self._intake_tasks[chat_id] = task
             self._activity_add(chat_id, 'input:' + str(row['update_id']))
             try:
@@ -832,10 +883,13 @@ class TelegramGateway:
                     self._activity_add(chat_id, 'run:' + active[chat_id])
             finally:
                 self._intake_tasks.pop(chat_id, None)
-                await self._activity_remove(chat_id, 'input:' + str(row['update_id']))
+                for item in rows:
+                    await self._activity_remove(chat_id, 'input:' + str(item['update_id']))
             with self.db:
-                self.db.execute("UPDATE intake SET status=? WHERE update_id=? AND status='processing'",
-                                (status, row['update_id']))
+                self.db.executemany("UPDATE intake SET status=? WHERE update_id=? AND status='processing'",
+                                    [(status, item['update_id']) for item in rows])
+                if member:
+                    self.db.execute('UPDATE telegram_albums SET state=? WHERE chat_id=? AND group_id=?', (status, chat_id, group))
 
     async def _poll(self):
         while True:
@@ -853,13 +907,13 @@ class TelegramGateway:
             for update in updates:
                 await self._ingest(update)
 
-    def _bind_reaction(self, chat_id, update_id):
+    def _bind_reaction(self, chat_id, update_id, *, accepted_update=None):
         db = getattr(self.controller, 'db', None)
         if not isinstance(db, sqlite3.Connection) or not db.execute(
                 "SELECT 1 FROM sqlite_master WHERE name='input_runs'").fetchone():
             return
         row = db.execute('SELECT r.turn_id,t.status FROM input_runs r LEFT JOIN turns t ON t.turn_id=r.turn_id '
-                         'WHERE r.update_id=? AND r.chat_id=?', (update_id, chat_id)).fetchone()
+                         'WHERE r.update_id=? AND r.chat_id=?', (accepted_update if accepted_update is not None else update_id, chat_id)).fetchone()
         if row:
             with self.db:
                 self.db.execute("UPDATE input_reactions SET run_id=?,completed=? WHERE update_id=? AND completed='waiting'",

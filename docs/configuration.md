@@ -400,3 +400,10 @@ messages with 👀 and a normally completed bound run with 👍. This indicates
 processing completion, not independent verification of task success. Failed,
 interrupted and uncertain runs receive no completion reaction. Set the option to
 `false` to disable reactions; unavailable Telegram reactions never block input.
+
+Telegram albums use a fixed 750 ms collection window and at most ten messages,
+scoped to the selected conversation. Original update IDs and member order are
+stored before downloads. All members are prepared before one model submission;
+a member download failure submits none of the album. A late member is rejected
+with a request to send it separately. Undispatched albums resume after restart;
+interrupted dispatch stays uncertain and is never replayed automatically.
