@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -73,6 +73,53 @@ class PanelAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.http.post('/api/decision', headers=self.headers, json=payload | {'kind': 'anything'})).status, 400)
         self.approval('b' * 10, kind='input')
         self.assertEqual((await self.http.post('/api/decision', headers=self.headers, json=payload | {'id': 'b' * 10})).status, 404)
+
+    async def test_memory_pages_search_and_scope_are_bounded(self):
+        for number in range(25):
+            self.c.memory.remember(11, 'Shared word ' + str(number))
+        self.c.memory.remember(22, 'PRIVATE_OTHER')
+        topic = self.c.sessions.resolve(11, 42)
+        self.c.memory.remember(topic, 'TOPIC_ONLY')
+        first = await (await self.http.get('/api/memory', headers=self.headers)).json()
+        second = await (await self.http.get('/api/memory?offset=20', headers=self.headers)).json()
+        self.assertEqual([len(first['items']), len(second['items'])], [20, 5])
+        self.assertEqual(first['next_offset'], 20)
+        self.assertIsNone(second['next_offset'])
+        self.assertEqual(len({item['id'] for item in first['items'] + second['items']}), 25)
+        self.assertNotIn('PRIVATE_OTHER', json.dumps(first))
+        rows = await (await self.http.get('/api/memory?conversation=topic:42', headers=self.headers)).json()
+        self.assertEqual([item['text'] for item in rows['items']], ['TOPIC_ONLY'])
+        self.assertEqual((await self.http.get('/api/memory?offset=10001', headers=self.headers)).status, 400)
+        self.assertEqual((await self.http.get('/api/memory?q=%22%20OR%20*', headers=self.headers)).status, 200)
+
+    async def test_memory_operations_are_durable_idempotent_and_foreign_delete_fails(self):
+        payload = {'confirmed': True, 'operation_id': 'a' * 32, 'text': 'Remember this'}
+        first = await (await self.http.post('/api/memory', headers=self.headers, json=payload)).json()
+        repeated = await (await self.http.post('/api/memory', headers=self.headers, json=payload)).json()
+        self.assertEqual(first, repeated)
+        self.assertEqual(len(self.c.memory.search(11)), 1)
+        self.assertEqual((await self.http.post('/api/memory', headers=self.headers, json=payload | {'text': 'Changed'})).status, 400)
+        self.c.sessions.resolve(11, 42)
+        delete = {'confirmed': True, 'operation_id': 'b' * 32}
+        url = '/api/memory/' + first['id'] + '/delete'
+        self.assertEqual((await self.http.post(url + '?conversation=topic:42', headers=self.headers, json=delete)).status, 404)
+        self.assertEqual((await self.http.post(url, headers=self.headers, json=delete)).status, 200)
+        self.assertEqual((await self.http.post(url, headers=self.headers, json=delete)).status, 200)
+        self.assertEqual(self.c.memory.search(11, 'Remember'), [])
+        # A retry after deletion cannot resurrect a successfully added note.
+        self.assertEqual(await (await self.http.post('/api/memory', headers=self.headers, json=payload)).json(), first)
+        self.assertEqual(self.c.memory.search(11), [])
+
+    async def test_memory_write_and_receipt_rollback_together(self):
+        insert = self.c.memory._remember
+        def fail(*args):
+            insert(*args)
+            raise RuntimeError('synthetic interruption before receipt')
+        with patch.object(self.c.memory, '_remember', side_effect=fail):
+            with self.assertRaises(RuntimeError):
+                self.c.memory.change(11, 'a' * 32, 'add', 'Never committed')
+        self.assertEqual(self.c.memory.search(11), [])
+        self.assertEqual(self.c.db.execute('SELECT count(*) FROM web_memory_operations').fetchone()[0], 0)
 
 
 if __name__ == '__main__':
