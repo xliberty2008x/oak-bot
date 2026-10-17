@@ -93,7 +93,9 @@ class WebGateway:
             web.get('/form-controls.js', self.static),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
-            web.get('/api/panel', self.panel), web.get('/api/tasks', self.tasks),
+            web.get('/api/panel', self.panel),
+            web.get('/api/memory', self.memory), web.post('/api/memory', self.change_memory),
+            web.post('/api/memory/{id}/delete', self.change_memory), web.get('/api/tasks', self.tasks),
             web.get('/api/models', self.models), web.post('/api/models', self.set_model),
             web.get('/api/sessions', self.topic_sessions), web.post('/api/sessions', self.create_topic),
             web.post('/api/sessions/{id}/rename', self.rename_topic),
@@ -259,6 +261,28 @@ class WebGateway:
     async def panel(self, request):
         owner = self.owner(request)
         return web.json_response(self.controls.summary(self.conversation(request, owner)))
+
+    async def memory(self, request):
+        scope = self.conversation(request, self.owner(request))
+        query = request.query.get('q', '')
+        if len(query) > 500:
+            raise ValueError('Memory query is too long.')
+        offset = int(request.query.get('offset', '0'))
+        rows = self.controller.memory.search(scope, query, 21, offset)
+        return web.json_response({'items': rows[:20],
+                                  'next_offset': offset + 20 if len(rows) > 20 and offset + 20 <= 10000 else None})
+
+    async def change_memory(self, request):
+        owner = await self.confirmed_owner(request)
+        scope = self.conversation(request, owner)
+        data = await request.json()
+        action = 'delete' if 'id' in request.match_info else 'add'
+        value = request.match_info['id'] if action == 'delete' else data.get('text')
+        try:
+            result = self.controller.memory.change(scope, data.get('operation_id'), action, value)
+        except LookupError:
+            raise web.HTTPNotFound(text='Запис недоступний.') from None
+        return web.json_response(result)
 
     async def models(self, request):
         scope = self.conversation(request, self.owner(request))
