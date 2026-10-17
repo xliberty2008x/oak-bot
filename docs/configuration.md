@@ -394,3 +394,9 @@ the deadline in the configured timezone. One reminder is sent a minute before
 expiry; expiry declines the action and reports that result. Answering, cancelling
 or finishing the turn cancels the reminder. This setting does not extend ordinary
 contextual forms or private website leases. Restarted approvals stay expired.
+
+`telegram_reactions` defaults to `true`. Oak marks durably received Telegram
+messages with 👀 and a normally completed bound run with 👍. This indicates
+processing completion, not independent verification of task success. Failed,
+interrupted and uncertain runs receive no completion reaction. Set the option to
+`false` to disable reactions; unavailable Telegram reactions never block input.
