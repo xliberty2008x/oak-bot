@@ -106,7 +106,7 @@ class WebGateway:
             web.get('/api/remote', self.remote_status), web.post('/api/remote/start', self.remote.start),
             web.post('/api/remote/stop', self.remote.stop), web.post('/api/remote/type', self.remote.type),
             web.get('/api/remote/socket', self.remote.socket),
-            web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
+            web.get('/api/tasks/{id}', self.task), web.post('/api/tasks/{id}/reschedule', self.reschedule_task), web.post('/api/tasks/{id}/cancel', self.cancel_task),
             web.get('/api/integrations', self.integrations),
             web.post('/api/integrations/apps/{id}/manage', self.manage_app),
             web.post('/api/integrations/servers/{id}/oauth', self.oauth),
@@ -360,6 +360,19 @@ class WebGateway:
             raise web.HTTPNotFound(text='Сесію не знайдено.') from None
         except RuntimeError:
             raise web.HTTPConflict(text='Дія вже має інший результат.') from None
+        return web.json_response(value)
+
+    async def reschedule_task(self, request):
+        owner = await self.confirmed_owner(request)
+        scope = self.conversation(request, owner)
+        data = await request.json()
+        try:
+            value = self.job_controls.reschedule_owned(scope, request.match_info['id'], data.get('operation_id'),
+                data.get('expected_revision'), data.get('at'))
+        except LookupError:
+            raise web.HTTPNotFound(text='Задачу не знайдено.') from None
+        except RuntimeError:
+            raise web.HTTPConflict(text='Стан задачі змінився.') from None
         return web.json_response(value)
 
     async def task(self, request):

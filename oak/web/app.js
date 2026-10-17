@@ -13,6 +13,7 @@ const approvalBlocked = new Set();
 let memoryNext = null, memoryQuery = "", memoryGeneration = 0, memoryOperation = null;
 const memoryDeletes = new Map();
 let taskCreateOperation = null;
+const taskReschedules = new Map();
 let initialRequest = new URLSearchParams(location.search).get("request"), requestScopeResolved = false;
 if (initialRequest && !/^[a-f0-9]{32}$/.test(initialRequest)) initialRequest = null;
 let selectedSession = "telegram", sessionsData = null, syncingSessions = false;
@@ -831,7 +832,7 @@ $("memory-add").addEventListener("submit", event => { event.preventDefault(); vo
 
 const taskCreateFields = ["task-prompt", "task-mode", "task-at", "task-repeat", "task-offset"];
 function resetTaskCreate() {
-  taskCreateOperation = null;
+  taskCreateOperation = null; taskReschedules.clear();
   $("task-create-form").reset();
   for (const id of taskCreateFields) $(id).disabled = false;
   $("task-create-submit").textContent = "Створити"; message("task-create-status", "");
@@ -859,6 +860,40 @@ async function createTask() {
   });
 }
 $("task-create-form").addEventListener("submit", event => { event.preventDefault(); void createTask(); });
+
+function taskReschedule(task) {
+  const details = element("details", undefined, "task-history"), form = element("form", undefined, "topic-form");
+  details.append(element("summary", "Перенести запуск"), form);
+  const date = element("input"), offset = element("input"), button = element("button", "Зберегти новий час"), status = element("p", "Часовий пояс: " + timezone, "hint");
+  date.type = "datetime-local"; date.required = true; date.id = "task-time-" + task.id;
+  offset.placeholder = "+03:00"; offset.pattern = "[+-][0-9]{2}:[0-9]{2}"; offset.maxLength = 6; offset.id = "task-offset-" + task.id;
+  const dateLabel = element("label", "Нові дата й час"), offsetLabel = element("label", "UTC-зсув, якщо час неоднозначний");
+  dateLabel.htmlFor = date.id; offsetLabel.htmlFor = offset.id; button.type = "submit"; button.dataset.mutation = "task-reschedule";
+  status.setAttribute("role", "status");
+  const saved = taskReschedules.get(task.id);
+  if (saved) { date.value = saved.local; offset.value = saved.offset; date.disabled = offset.disabled = true; button.textContent = "Перевірити перенесення"; }
+  form.append(dateLabel, date, offsetLabel, offset, status, button);
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    void mutation("Перенести запуск?", "Зміниться час наступного запуску цієї задачі. Період повторення залишиться тим самим.", "Перенести", async epoch => {
+      if (!taskReschedules.has(task.id)) taskReschedules.set(task.id, {operation_id: crypto.randomUUID().replace(/-/g, ""), expected_revision: task.revision, at: date.value + offset.value, local: date.value, offset: offset.value});
+      date.disabled = offset.disabled = true;
+      const {operation_id, expected_revision, at} = taskReschedules.get(task.id);
+      try {
+        await api("/api/tasks/" + encodeURIComponent(task.id) + "/reschedule", {confirmed: true, operation_id, expected_revision, at});
+        if (epoch !== sessionEpoch) return;
+        taskReschedules.delete(task.id); message("notice", "Час запуску змінено."); await loadTasks(epoch);
+      } catch (error) {
+        if (epoch !== sessionEpoch) return;
+        if ([400, 403, 404, 409].includes(error.status)) {
+          taskReschedules.delete(task.id); date.disabled = offset.disabled = false;
+          status.textContent = error.status === 409 ? "Стан задачі змінився. Онови список перед перенесенням." : "Перевір час і доступ. Для неоднозначного часу вкажи UTC-зсув.";
+        } else { button.textContent = "Перевірити перенесення"; status.textContent = "Відповідь не отримано. Перевірка повторить лише той самий запит."; }
+      }
+    });
+  });
+  return details;
+}
 
 function taskHistory(task) {
   const details = element("details", undefined, "task-history"), content = element("div", "Завантажуємо історію…", "hint");
@@ -915,6 +950,7 @@ function renderTasks(value) {
       }, true));
       actions.append(button); item.append(actions);
     }
+    if (["pending", "paused"].includes(task.status)) item.append(taskReschedule(task));
     item.append(taskHistory(task));
     list.append(item);
   }
