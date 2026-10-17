@@ -1,5 +1,6 @@
 """Recovery views preserve uncertain evidence across review, scopes and restart."""
 
+import asyncio
 import json
 import sqlite3
 from types import SimpleNamespace
@@ -103,6 +104,116 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(LookupError):
             self.store.review(7, 7, identifier)
         self.assertEqual(self.store.inventory(7, 7)['items'], [])
+
+    async def test_retry_dispatches_fresh_owned_input_once_and_keeps_original(self):
+        self.uncertain_input()
+        original = tuple(self.db.execute('SELECT * FROM inputs').fetchone())
+        self.controller.threads[7] = 'thread'
+        self.controller.loaded.add('thread')
+        self.controller.client.request.return_value = {'turn': {'id': 'new-turn'}}
+        identifier = self.item()['id']
+        operation = 'operation-12345678'
+        first, repeated = await asyncio.gather(
+            self.store.retry(7, 7, identifier, operation, confirmed=True),
+            self.store.retry(7, 7, identifier, operation, confirmed=True))
+        self.assertEqual(first['input_id'], repeated['input_id'])
+        self.assertEqual(first['state'], 'accepted')
+        self.assertEqual(tuple(self.db.execute('SELECT * FROM inputs WHERE update_id=101').fetchone()), original)
+        fresh = self.db.execute('SELECT * FROM inputs WHERE update_id=?', (first['input_id'],)).fetchone()
+        self.assertEqual((fresh['chat_id'], fresh['status'], fresh['attachments']), (7, 'accepted', '[]'))
+        self.assertIn('Перевірити звіт', fresh['text'])
+        self.assertIn('не дублюй уже виконані зовнішні дії', fresh['text'])
+        self.controller.client.request.assert_awaited_once()
+        self.assertEqual(self.controller.client.request.await_args.args[0], 'turn/start')
+        self.assertFalse(self.item()['can_retry'])
+        with self.assertRaises(RuntimeError):
+            await self.store.retry(7, 7, identifier, 'another-operation-1', confirmed=True)
+
+    async def test_retry_requires_confirmation_scope_and_idle_work(self):
+        self.uncertain_input()
+        identifier = self.item()['id']
+        for confirmed in (False, 'true', 1):
+            with self.assertRaises(ValueError):
+                await self.store.retry(7, 7, identifier, 'operation-12345678', confirmed=confirmed)
+        with self.assertRaises(LookupError):
+            await self.store.retry(8, 7, identifier, 'operation-12345678', confirmed=True)
+        self.controller.active[7] = 'busy'
+        with self.assertRaises(RuntimeError):
+            await self.store.retry(7, 7, identifier, 'operation-12345678', confirmed=True)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM owner_retries').fetchone()[0], 0)
+        self.controller.client.request.assert_not_called()
+
+    async def test_attachment_and_outgoing_delivery_are_never_replayed(self):
+        self.uncertain_input(attachments='[{"path":"PRIVATE_PATH"}]')
+        with self.outbox:
+            self.outbox.execute("INSERT INTO deliveries VALUES ('delivery',7,'sendDocument','PRIVATE_PAYLOAD','uncertain',NULL)")
+        for item in self.store.inventory(7, 7)['items']:
+            self.assertFalse(item['can_retry'])
+            with self.assertRaises(RuntimeError):
+                await self.store.retry(7, 7, item['id'], 'operation-12345678', confirmed=True)
+        self.controller.client.request.assert_not_called()
+        self.assertEqual(self.outbox.execute('SELECT status FROM deliveries').fetchone()[0], 'uncertain')
+
+    async def test_restart_does_not_redispatch_a_reserved_retry(self):
+        self.uncertain_input()
+        identifier = self.item()['id']
+        with self.db:
+            self.db.execute("INSERT INTO owner_retries VALUES (7,'operation-12345678',?,-909,'dispatching',0)", (identifier,))
+        self.store = RecoveryStore(self.controller)
+        result = await self.store.retry(7, 7, identifier, 'operation-12345678', confirmed=True)
+        self.assertEqual(result['state'], 'uncertain')
+        self.assertEqual(result['input_id'], '-909')
+        self.assertEqual(self.db.execute('SELECT count(*) FROM inputs').fetchone()[0], 1)
+        self.controller.client.request.assert_not_called()
+
+    async def test_submit_race_or_uncertain_failure_does_not_replay(self):
+        self.uncertain_input()
+        identifier = self.item()['id']
+        self.controller.submit = AsyncMock(return_value=False)
+        first = await self.store.retry(7, 7, identifier, 'operation-12345678', confirmed=True)
+        self.assertEqual(first['state'], 'not_started')
+        self.assertTrue(self.controller.submit.await_args.kwargs['idle_only'])
+        again = await self.store.retry(7, 7, identifier, 'operation-12345678', confirmed=True)
+        self.assertEqual(first, again)
+        self.controller.submit.assert_awaited_once()
+        self.uncertain_input(102)
+        other = next(item for item in self.store.inventory(7, 7)['items'] if item['id'] != identifier)
+        self.controller.submit = AsyncMock(side_effect=ConnectionError('PRIVATE_ERROR'))
+        result = await self.store.retry(7, 7, other['id'], 'second-operation-1', confirmed=True)
+        self.assertEqual(result['state'], 'uncertain')
+        self.assertNotIn('PRIVATE_ERROR', json.dumps(result))
+        await self.store.retry(7, 7, other['id'], 'second-operation-1', confirmed=True)
+        self.controller.submit.assert_awaited_once()
+
+    async def test_operation_binding_and_deleted_topic_survive_retry_receipts(self):
+        topic = self.controller.sessions.resolve(7, 42)
+        self.uncertain_input(101, topic)
+        self.uncertain_input(102, topic)
+        items = self.store.inventory(7, topic)['items']
+        self.controller.submit = AsyncMock(return_value=True)
+        await self.store.retry(7, topic, items[0]['id'], 'operation-12345678', confirmed=True)
+        with self.assertRaises(RuntimeError):
+            await self.store.retry(7, topic, items[1]['id'], 'operation-12345678', confirmed=True)
+        self.controller.sessions.delete(topic)
+        with self.assertRaises(LookupError):
+            await self.store.retry(7, topic, items[0]['id'], 'operation-12345678', confirmed=True)
+        self.controller.submit.assert_awaited_once()
+
+    async def test_scheduled_run_retry_preserves_quarantined_job_and_recurrence(self):
+        run = self.controller.scheduler.add(7, 'Перевірити задачу', delay_seconds=60, interval_seconds=300, mode='run')
+        reminder = self.controller.scheduler.add(7, 'Нагадати', delay_seconds=60)
+        with self.db:
+            self.db.execute("UPDATE jobs SET status='uncertain'")
+        snapshot = [tuple(row) for row in self.db.execute('SELECT * FROM jobs')]
+        items = self.store.inventory(7, 7)['items']
+        self.controller.submit = AsyncMock(return_value=True)
+        task = next(item for item in items if item['can_retry'])
+        await self.store.retry(7, 7, task['id'], 'operation-12345678', confirmed=True)
+        self.assertIn('Перевірити задачу', self.controller.submit.await_args.args[1])
+        self.assertEqual([tuple(row) for row in self.db.execute('SELECT * FROM jobs')], snapshot)
+        note = next(item for item in items if not item['can_retry'])
+        with self.assertRaises(RuntimeError):
+            await self.store.retry(7, 7, note['id'], 'second-operation-1', confirmed=True)
 
 
 if __name__ == '__main__':
