@@ -660,7 +660,11 @@ class TelegramGateway:
                 outcome = 'Запит недоступний.'
                 stop = re.fullmatch(r'stop:([a-f0-9]{16})', data)
                 reminder = re.fullmatch(r'remind:([a-f0-9]{16}):(600|3600|done)', data)
-                if reminder and not self.sessions.deleted(scope):
+                cancel_job = re.fullmatch(r'cancel-job:([a-f0-9]{12})', data)
+                if cancel_job and not self.sessions.deleted(scope):
+                    outcome = self._cancel_job(scope, cancel_job[1])
+                    await self._settle_task_controls(scope, message.get('message_id'))
+                elif reminder and not self.sessions.deleted(scope):
                     try:
                         result = self.controller.scheduler.reminders.decide(scope, reminder[1], reminder[2])
                         outcome = 'Нагадаю пізніше.' if result['state'] == 'snoozed' else 'Нагадування завершено.'
@@ -736,6 +740,10 @@ class TelegramGateway:
                     result = 'Не вдалося виконати команду. Перевір її аргументи; /help — список команд.'
                 if isinstance(result, str) and result:
                     await self._notice(chat_id, result)
+                if command == '/tasks':
+                    self._task_controls(chat_id)
+                elif command == '/cancel':
+                    await self._settle_task_controls(chat_id)
             else:
                 # submit checkpoints input before it returns. On uncertain
                 # acceptance propagate the failure without advancing the cursor.
@@ -1432,6 +1440,61 @@ class TelegramGateway:
             with self.db:
                 self.db.execute('UPDATE deliveries SET receipt=? WHERE id=?', (json.dumps(receipt), row['id']))
 
+    def _task_controls(self, chat_id):
+        scheduler = getattr(self.controller, 'scheduler', None)
+        if not callable(getattr(type(scheduler), 'list', None)):
+            return
+        jobs = scheduler.list(chat_id)
+        if not jobs:
+            return
+        rows = [[{'text': 'Скасувати: ' + scheduler.label(job['prompt'])[:40],
+                  'callback_data': 'cancel-job:' + job['id']}] for job in jobs[:20]]
+        self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id,
+            'text': 'Керування розкладом' + (' · перші 20 задач; решта доступна через /cancel ID.' if len(jobs) > 20 else ''),
+            'reply_markup': {'inline_keyboard': rows}}, 'task-controls:' + uuid.uuid4().hex)
+        self.events.put_nowait(None)
+
+    def _cancel_job(self, chat_id, identifier):
+        row = self.controller.db.execute('SELECT status FROM jobs WHERE id=? AND chat_id=?', (identifier, chat_id)).fetchone()
+        if row is None:
+            return 'Задача недоступна.'
+        if row[0] == 'cancelled':
+            return 'Задачу вже скасовано.'
+        if not self.controller.scheduler.cancel(chat_id, identifier):
+            return 'Ця задача вже завершилася.'
+        return ('Наступні запуски скасовано. Поточне виконання зупини через /stop.'
+                if row[0] == 'running' else 'Задачу скасовано.')
+
+    def _task_payload(self, row, payload):
+        if not row['id'].startswith('task-controls:'):
+            return payload
+        rows = []
+        for buttons in payload.get('reply_markup', {}).get('inline_keyboard', []):
+            if not buttons:
+                continue
+            identifier = buttons[0].get('callback_data', '').removeprefix('cancel-job:')
+            job = self.controller.db.execute('SELECT 1 FROM jobs WHERE id=? AND chat_id=? '
+                "AND status IN ('pending','paused','running','uncertain')", (identifier, row['chat_id'])).fetchone()
+            if job:
+                rows.append(buttons)
+        return {**payload, 'text': payload['text'] if rows else 'Немає задач для скасування.',
+                'reply_markup': {'inline_keyboard': rows}}
+
+    async def _settle_task_controls(self, chat_id, message_id=None):
+        rows = self.db.execute("SELECT * FROM deliveries WHERE chat_id=? AND id LIKE 'task-controls:%' "
+            "AND status='delivered' ORDER BY rowid DESC LIMIT 20", (chat_id,)).fetchall()
+        for row in rows:
+            receipt = json.loads(row['receipt'] or '{}')
+            target = receipt.get('message_id')
+            if type(target) is not int or (message_id is not None and message_id != target):
+                continue
+            payload = self._task_payload(row, json.loads(row['payload']))
+            try:
+                await self._deliver('editMessageText', {**payload, 'message_id': target})
+            except TelegramError:
+                pass
+            break
+
     def _reminder_payload(self, row, payload):
         prefix = str(row['chat_id']) + ':reminder:'
         if not row['id'].startswith(prefix):
@@ -1472,6 +1535,7 @@ class TelegramGateway:
             return await self._render_card(row)
         payload, approval_state = self._approval_payload(row, json.loads(row['payload']))
         payload, reminder_state = self._reminder_payload(row, payload)
+        payload = self._task_payload(row, payload)
         files = getattr(getattr(self.controller, 'tools', None), 'files', None)
         if files and '_upload' in payload and not files.stored(payload['_upload']['path']):
             payload['_upload']['path'] = str(await files.snapshot(payload['_upload']['path']))
