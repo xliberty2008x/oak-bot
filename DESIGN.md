@@ -471,6 +471,10 @@ operation receipt. The owner sees the configured timezone; ambiguous or missing
 DST wall times are rejected, with an optional explicit UTC offset. A lost
 response locks the draft and can be checked using the same operation identity.
 
+Rescheduling uses the selected job revision and a durable operation receipt.
+Only pending/paused jobs can move; stale, running or uncertain jobs are rejected.
+The date editor retains an ambiguous request identity and never changes recurrence.
+
 Task list/detail responses include one explicit owner-facing `preview`: at most
 80 whitespace-normalized characters from the selected conversation’s task text.
 It renders as literal text. Raw prompts remain absent from task responses, panel
