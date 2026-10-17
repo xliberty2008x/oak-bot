@@ -132,7 +132,7 @@ sessionEpoch=3;assert.equal(text('tasks.status.pending','Fallback'),'Fallback');
 const assert=require('node:assert/strict');
 class Node { constructor(){this.children=[];this.events={};this.isConnected=true;} append(...nodes){this.children.push(...nodes);} replaceChildren(){this.children=[];} addEventListener(type,fn){this.events[type]=fn;} click(){} }
 const nodes=new Map(),$=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
-const element=()=>new Node(),message=()=>{},text=(key,fallback)=>fallback;let sessionEpoch=1,artifactsGeneration=0,artifactsNext=null;
+const element=tag=>Object.assign(new Node(),{tag}),message=()=>{},text=(key,fallback)=>fallback;let sessionEpoch=1,artifactsGeneration=0,artifactsNext=null;
 const artifactAssets=new Map(),created=[],revoked=[],reads=[];
 const URL={createObjectURL:blob=>{const url='blob:'+created.length;created.push(url);return url;},revokeObjectURL:url=>revoked.push(url)};
 const api=async()=>({items:[{id:'a'.repeat(32),name:'image.png',kind:'image',mime:'image/png',size_bytes:5,available:true}],next_cursor:null});
@@ -141,10 +141,16 @@ const artifact=(id,options)=>new Promise(resolve=>reads.push({resolve,options}))
 (async()=>{
 await loadArtifacts();const actions=$('artifacts-list').children[0].children[2];
 const preview=actions.children[0].events.click(),download=actions.children[1].events.click();
-assert.equal(reads.length,1);reads[0].resolve(new Blob(['image']));await Promise.all([preview,download]);assert.equal(created.length,1);
+assert.equal(reads.length,1);assert.equal(reads[0].options.limit,10*1024*1024);reads[0].resolve(new Blob(['image']));await Promise.all([preview,download]);assert.equal(created.length,1);
 clearArtifacts();assert.deepEqual(revoked,created);assert.equal(reads[0].options.signal.aborted,true);
 await loadArtifacts();const pending=$('artifacts-list').children[0].children[2].children[0].events.click();sessionEpoch++;clearArtifacts();
 reads[1].resolve(new Blob(['late']));await pending;assert.equal(created.length,1);assert.equal(artifactAssets.size,0);
+await loadArtifacts();const largeRow=$('artifacts-list').children[0],largeActions=largeRow.children[2];
+const largeDownload=largeActions.children[1].events.click();assert.equal(reads[2].options.limit,100*1024*1024);
+const simultaneousPreview=largeActions.children[0].events.click();reads[2].resolve({size:80*1024*1024});await Promise.all([largeDownload,simultaneousPreview]);
+assert.equal(created.length,2);assert.equal(largeRow.children.filter(node=>node.tag==='img').length,0);
+await largeActions.children[0].events.click();assert.equal(reads.length,3);assert.equal(largeRow.children.filter(node=>node.tag==='img').length,0);
+assert.match(largeRow.children[1].textContent,/до 10 МБ/);clearArtifacts();assert.equal(revoked.length,2);
 })().catch(e=>{console.error(e);process.exit(1)});
 """
         result = subprocess.run([NODE, '-e', script], capture_output=True, text=True)

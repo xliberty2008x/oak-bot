@@ -814,3 +814,7 @@ unchanged actions. Removed controls cannot remain actionable. Failed task reads
 mark cached rows stale without erasing drafts; owner logout or conversation
 switch clears them. Creating a task only clears its own creation form, keeping
 any pending receipt for another task's mutation.
+
+Artifact preview limits are checked against the streamed response and actual Blob
+size, including a previously downloaded or concurrently shared file; a stale
+small size in the gallery cannot turn a large download into an image preview.
