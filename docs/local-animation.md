@@ -36,6 +36,11 @@ motion, preserved appearance/clothing, coherent lid texture, correct occlusion
 and a usable loop. Numeric pixel differences prove neither semantics nor craft.
 The existing review gate must return `pass` for the exact immutable candidate;
 `revise` and `unverified` must not deliver it. Generation alone never sends a file.
+Generated candidates retain a durable conversation-scoped binding to the source
+path, original SHA-256 and fixed acceptance criteria. A later turn or gateway
+restart cannot erase that requirement, and producer-supplied review arguments
+cannot replace it. A changed/missing source requires restoration or a new
+candidate. Disabling quality review prevents delivery of these bound candidates.
 
 Focused tests use an explicitly authored synthetic illustrated character. They
 check exact outside-region pixels, distinct open/intermediate/closed states,
