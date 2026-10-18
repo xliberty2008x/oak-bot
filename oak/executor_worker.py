@@ -357,6 +357,9 @@ OPERATIONS = {
     'file.close': (('handle',), ()), 'file.open_write': (('path',), ()),
     'file.write_chunk': (('handle', 'data'), ()), 'file.finish_write': (('handle',), ()),
     'quality.inspect': (('path', 'sha256'), ()),
+    'spaces.search': (('query',), ('limit',)), 'spaces.inspect': (('space_id',), ()),
+    'animation.render': (('image_path', 'closed_eyes_path', 'image_sha256', 'closed_eyes_sha256',
+                          'eye_regions', 'hair_polygons'), ('seconds', 'fps', 'amplitude')),
     'remote.start': ((), ()), 'remote.read': (('id',), ()), 'remote.write': (('id', 'data'), ()), 'remote.close': (('id',), ()),
     'remote.type': (('id', 'text'), ()), 'remote.key': (('id', 'key'), ()),
 }
@@ -509,6 +512,12 @@ class Worker:
             result = await asyncio.to_thread(probe_local, self.profile, args)
             return await result if inspect.isawaitable(result) else result
         group, method = op.split('.')
+        if group == 'spaces':
+            from oak.hf_spaces import Spaces
+            return await asyncio.to_thread(getattr(Spaces(), method), **args)
+        if group == 'animation':
+            from oak.animation_tools import render
+            return await asyncio.to_thread(render, self.files, **args)
         if group == 'quality':
             from oak.quality_media import inspect_media
             return await asyncio.to_thread(inspect_media, self.files, **args)
