@@ -96,6 +96,7 @@ class WebGateway:
             web.get('/a2ui.js', self.static), web.get('/a2ui-catalog.json', self.static),
             web.get('/a2ui-theme.css', self.static), web.get('/vendor/a2ui/runtime.js', self.static),
             web.get('/requests.js', self.static), web.get('/panel-poll.js', self.static), web.get('/telegram-theme.js', self.static), web.get('/telegram-bridge.js', self.static),
+            web.get('/messages.js', self.static),
             web.get('/form-controls.js', self.static), web.get('/locale.js', self.static), web.get('/api/locale', self.locale),
             web.get('/telegram-web-app.js', self.sdk),
             web.post('/api/session', self.session), web.get('/api/bootstrap', self.bootstrap),
@@ -193,7 +194,7 @@ class WebGateway:
 
     async def static(self, request):
         name = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/remote.js': 'remote.js',
-                '/locale.js': 'locale.js', '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/panel-poll.js': 'panel-poll.js', '/telegram-theme.js': 'telegram-theme.js', '/telegram-bridge.js': 'telegram-bridge.js', '/form-controls.js': 'form-controls.js',
+                '/locale.js': 'locale.js', '/a2ui.js': 'a2ui.js', '/requests.js': 'requests.js', '/messages.js': 'messages.js', '/panel-poll.js': 'panel-poll.js', '/telegram-theme.js': 'telegram-theme.js', '/telegram-bridge.js': 'telegram-bridge.js', '/form-controls.js': 'form-controls.js',
                 '/a2ui-catalog.json': 'a2ui-catalog.json', '/a2ui-theme.css': 'a2ui-theme.css',
                 '/vendor/a2ui/runtime.js': 'vendor/a2ui/runtime.js'}[request.path]
         return web.FileResponse(Path(__file__).parent / 'web' / name)
@@ -646,9 +647,10 @@ class WebGateway:
     async def messages(self, request):
         from .messages import message_events
         scope = self.conversation(request, self.owner(request))
-        return web.json_response(message_events(self.db, scope,
+        value = message_events(self.db, scope,
             after=int(request.query['after']) if 'after' in request.query else None,
-            before=int(request.query['before']) if 'before' in request.query else None))
+            before=int(request.query['before']) if 'before' in request.query else None)
+        return web.json_response({**value, 'runtime_epoch': self.controller.requests.epoch})
 
     async def activity(self, request):
         owner = self.owner(request)
