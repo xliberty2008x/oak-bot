@@ -93,6 +93,21 @@ class CLIBroker:
         self.human.add_routes([web.post(PATH+'api/attach', self.attach), web.post(PATH+'api/form', self.form),
             web.post(PATH+'api/submit', self.submit), web.post(PATH+'api/cancel', self.cancel_human),
             web.post(PATH+'api/detach', self.detach)])
+        self.human.add_routes([web.get(PATH, self.page), web.get(PATH+'cli.js', self.script),
+                              web.get(PATH+'cli.css', self.style)])
+
+    async def page(self, request):
+        import html
+        source = (Path(__file__).parent/'cli_web/index.html').read_text()
+        return web.Response(text=source.replace('PARENT_ORIGIN', html.escape(self.parent, quote=True)), content_type='text/html')
+
+    async def script(self, request):
+        return web.FileResponse(Path(__file__).parent/'cli_web/cli.js')
+
+    async def style(self, request):
+        # Shared visual primitives only; no website renderer or private stores.
+        source = (Path(__file__).parent/'login_web/login.css').read_text()
+        return web.Response(text=source+'\na { color: #8ff5c9; text-underline-offset: 3px; }\n', content_type='text/css')
 
     def boundary(self):
         if self.boundary_check is None or self.boundary_check() is not True:
@@ -180,6 +195,7 @@ class CLIBroker:
 
     async def create(self, request):
         binding = self.binding(await request.json())
+        self.boundary()
         if self.factory is None or len(self.leases) >= 16:
             raise ValueError('CLI unavailable.')
         ticket = secrets.token_urlsafe(32)
@@ -200,6 +216,7 @@ class CLIBroker:
         if lease is None:
             raise ValueError
         async with lease.lock:
+            self.boundary()
             if (lease.state != 'waiting' or self.expired(lease) or time.time() >= lease.ticket_expires
                     or not hmac.compare_digest(digest(value['ticket']), lease.ticket)):
                 raise ValueError
@@ -231,6 +248,7 @@ class CLIBroker:
     async def form(self, request):
         lease, _ = await self.human_lease(request, set())
         async with lease.lock:
+            self.boundary()
             await self.refresh(lease)
             if lease.state == 'active':
                 lease.human_deadline = time.time()+45
@@ -242,6 +260,7 @@ class CLIBroker:
         lease, value = await self.human_lease(request, {'revision', 'action_id', 'code'})
         try:
             async with lease.lock:
+                self.boundary()
                 await self.refresh(lease)
                 if (not identifier(value['action_id']) or value['revision'] != lease.revision
                         or not isinstance(value['code'], str) or len(value['code']) > 4096):
@@ -280,6 +299,7 @@ class CLIBroker:
     async def control_status(self, request):
         lease = await self.lookup(request)
         async with lease.lock:
+            self.boundary()
             await self.refresh(lease)
             if lease.state not in TERMINAL:
                 lease.heartbeat = time.time()+45
@@ -288,6 +308,7 @@ class CLIBroker:
     async def use(self, request):
         lease = await self.lookup(request)
         async with lease.lock:
+            self.boundary()
             await self.refresh(lease)
             if lease.state != 'authenticated' or lease.process is None or lease.process.result is None:
                 raise ValueError
