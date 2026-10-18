@@ -65,6 +65,14 @@ class CreativeDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.gate.reviewer.review.assert_not_awaited()
         self.controller.emit.assert_not_awaited()
 
+    async def test_candidate_change_before_gateway_snapshot_prevents_binding_and_review(self):
+        self.tools.executor.call = AsyncMock(return_value={'path': str(self.output), 'sha256': 'a' * 64})
+        with self.assertRaisesRegex(ValueError, 'candidate changed'):
+            await self.tools.execute(7, 'oak_animate_illustration', self.args)
+        self.gate.reviewer.review.assert_not_awaited()
+        self.assertEqual(self.db.execute('SELECT count(*) FROM quality_sources').fetchone()[0], 0)
+        self.controller.emit.assert_not_awaited()
+
     async def test_public_discovery_tool_uses_fixed_worker_operation(self):
         self.tools.executor.call = AsyncMock(return_value={'status': 'observed', 'generation_available': 'unknown'})
         result = await self.tools.execute(7, 'oak_hf_spaces', {'action': 'search', 'query': 'image to video', 'limit': 2})
