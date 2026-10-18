@@ -18,8 +18,14 @@ polygons and excessive displacement.
 Inputs are opaque single-frame images with even dimensions, 64–1024 pixels per
 side. Eye bounds are `[left, top, right, bottom]`, with exclusive right/bottom.
 Hair polygons contain integer `[x, y]` vertices. Images/geometry are snapshotted
-in memory before rendering. Eye closure reveals the supplied closed artwork
-from top and bottom; hair uses a small periodic local warp. The source outside
+in memory before rendering. Blinking uses the complete authored open and closed
+poses with a short closed hold (100 ms rounded to whole frames, 71–133 ms across
+the supported rates; 83 ms at the default 24 fps), then restores the open
+pose. It does not infer smooth intermediate eyelids from two rectangles; partial
+rectangular slices can truncate eye outlines and are not used. This discrete
+pose animation may be unsuitable when the request needs more natural or smooth
+movement; independent review must still judge the original requirements.
+Hair uses a small periodic local warp. The source outside
 the selected regions remains pixel-identical in every rendered frame. There is
 no camera transform. First and final rendered frames exactly equal the source.
 
@@ -57,8 +63,9 @@ returns its candidate path and review result, and never delivers automatically.
 Only a subsequent successful `oak_send_file` may send the reviewed snapshot.
 
 Focused tests use an explicitly authored synthetic illustrated character. They
-check exact outside-region pixels, distinct open/intermediate/closed states,
-local hair movement and loop endpoints, plus an actual FFmpeg encode/decode with
+check exact outside-region pixels, complete authored open/closed poses,
+local hair movement and loop endpoints, plus actual FFmpeg encode/decode checks
+of blink timing and complete contours with
 fixture-specific codec tolerances. These checks do not prove suitability for the
 unavailable original child attachment or for arbitrary photographs. Unsupported
 geometry or failed visual review requires repair or an honest limitation.
