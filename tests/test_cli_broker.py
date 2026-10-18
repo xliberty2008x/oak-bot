@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -9,7 +10,7 @@ import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from oak.cli_broker import CLIBroker
+from oak.cli_broker import CLIBroker, cleanup_orphan_caches
 from oak.cli_process import PrivateProcess
 from tests.test_cli_process import CANARY, CHALLENGE, VERIFY
 
@@ -160,3 +161,44 @@ class CLIBrokerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await response.json())['state'], 'cancelled')
         self.assertIsNotNone(process.process.returncode)
         self.assertIsNone(process.directory)
+
+    async def test_cleanup_failure_is_retained_and_sweeper_retries(self):
+        await self.attach()
+        process = self.lease.process
+        close = process.close
+        attempts = []
+        async def flaky():
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise OSError('synthetic-private-cleanup-detail')
+            await close()
+        process.close = flaky
+        self.lease.heartbeat = time.time()-1
+        self.broker.sweeper = asyncio.create_task(self.broker.sweep())
+        async with asyncio.timeout(5):
+            while self.lease.cleanup != 'confirmed':
+                await asyncio.sleep(.01)
+        self.assertFalse(self.broker.sweeper.done())
+        self.assertGreaterEqual(len(attempts), 3)
+        self.assertIsNone(self.lease.process)
+
+    def test_startup_only_removes_owned_cache_directories_without_following_links(self):
+        cache = self.root/'cache'
+        cache.mkdir(mode=0o700)
+        owned = cache/'cli-old'
+        owned.mkdir()
+        (owned/'token').write_text(CANARY)
+        unrelated = cache/'keep'
+        unrelated.mkdir()
+        outside = self.root/'outside'
+        outside.mkdir()
+        (outside/'marker').write_text('fixture')
+        (owned/'nested-link').symlink_to(outside, target_is_directory=True)
+        cleanup_orphan_caches(cache)
+        self.assertFalse(owned.exists())
+        self.assertTrue(unrelated.is_dir())
+        self.assertTrue((outside/'marker').exists())
+        (cache/'cli-linked').symlink_to(outside, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            cleanup_orphan_caches(cache)
+        self.assertTrue((outside/'marker').exists())

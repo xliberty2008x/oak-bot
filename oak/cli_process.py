@@ -123,11 +123,11 @@ class PrivateProcess:
     async def _reap(self):
         if self.process is None or self.reaped:
             return
-        self.reaped = True
         # Reap the exact group created by this process; never caller-supplied PIDs.
         with contextlib.suppress(ProcessLookupError):
             os.killpg(self.process.pid, signal.SIGKILL)
         await self.process.wait()
+        self.reaped = True
 
     async def close(self):
         self.closed = True

@@ -5,6 +5,10 @@ from dataclasses import dataclass, field
 import hashlib
 import hmac
 import json
+import os
+from pathlib import Path
+import shutil
+import stat
 import secrets
 import socket
 import sqlite3
@@ -19,6 +23,29 @@ from .signin_broker import origin
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def cleanup_orphan_caches(cache_root):
+    """Startup only, after systemd has reaped the previous service's whole group.
+
+    Never read cache contents, follow symlinks or delete unrelated directories.
+    The configured root is dedicated, private and must belong to this broker UID.
+    """
+    root = Path(cache_root)
+    info = root.lstat()
+    if (not root.is_absolute() or not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+        raise ValueError('Private CLI cache root unavailable.')
+    entries = list(root.iterdir())
+    if len(entries) > 1024:
+        raise ValueError('Private CLI cache cleanup requires review.')
+    for entry in entries:
+        if not entry.name.startswith('cli-'):
+            continue
+        info = entry.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid():
+            raise ValueError('Private CLI cache ownership changed.')
+        shutil.rmtree(entry)  # fd-based stdlib implementation does not follow symlinks.
 
 
 @dataclass
@@ -308,8 +335,13 @@ class CLIBroker:
                     try:
                         self.boundary()
                         await self.refresh(lease)
+                        if lease.state in TERMINAL and lease.cleanup != 'confirmed':
+                            await self.finish(lease, lease.state)
                     except Exception:
-                        await self.finish(lease, 'uncertain')
+                        try:
+                            await self.finish(lease, 'uncertain')
+                        except Exception:
+                            pass  # Retain ownership/receipt and retry bounded cleanup next sweep.
                     if lease.state in TERMINAL and lease.cleanup == 'confirmed':
                         self.leases.pop(lease.binding['request_id'], None)
 
@@ -317,6 +349,14 @@ class CLIBroker:
         if self.sweeper:
             self.sweeper.cancel()
             await asyncio.gather(self.sweeper, return_exceptions=True)
-        for lease in self.leases.values():
-            await self.finish(lease, 'cancelled')
-        self.db.close()
+        failed = False
+        try:
+            for lease in self.leases.values():
+                try:
+                    await self.finish(lease, 'cancelled')
+                except Exception:
+                    failed = True
+        finally:
+            self.db.close()
+        if failed:
+            raise ValueError('Private CLI cleanup unconfirmed.')
