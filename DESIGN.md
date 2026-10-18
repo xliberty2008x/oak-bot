@@ -475,6 +475,19 @@ excluded. Initial/older windows and forward cursors contain at most 80 events an
 truncation flag; source Markdown remains unchanged in the event log. Final text
 snapshots supersede accumulated deltas. This API is separate from panel status.
 
+The **Повідомлення Oak** view is read-only; composing messages remains in Telegram.
+It polls that assistant-only projection while visible, deduplicates sequence IDs
+and keys messages by thread/run/message. Partial text renders literally; completed
+snapshots use the shared `/api/render` AST via allowlisted DOM nodes and textContent.
+HTML, remote image sources and unsafe URLs never become active content. Unknown,
+oversized or unavailable formatting keeps the literal text. Tables and code scroll
+inside keyboard-focusable regions. The browser retains at most 500 projected events,
+1,000,000 text units and 80 messages, with explicit partial/truncated notices and
+bounded earlier-history navigation. Conversation changes, logout and hiding abort
+reads/formatting; generation, epoch and message revision reject late responses.
+The projection's runtime epoch resets the window and aborts formatting when the
+runtime changes; durable history is then read again through a fresh cursor.
+
 Creating a task in the panel uses the selected conversation and an atomic
 operation receipt. The owner sees the configured timezone; ambiguous or missing
 DST wall times are rejected, with an optional explicit UTC offset. A lost
