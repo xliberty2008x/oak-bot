@@ -77,6 +77,10 @@ class WebGateway:
         if config.get('website_login'):
             from .login import WebsiteLogin
             self.website_login = WebsiteLogin(self, config['website_login'])
+        self.cli_login = None
+        if config.get('cli_login'):
+            from .cli_login import CLILogin
+            self.cli_login = CLILogin(self, config['cli_login'])
         self.keys_file = Path(config.get('access_key_file') or Path(controller.config['state_dir']) / 'web-access-keys.json').expanduser().resolve()
         if not self.keys_file.exists():
             self.keys_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -158,7 +162,7 @@ class WebGateway:
                 socket_sources.extend(('ws://' + authority, 'wss://' + authority))
         response.headers['Content-Security-Policy'] = ("default-src 'self'; script-src 'self' https://telegram.org; "
             "connect-src 'self' " + ' '.join(socket_sources) + "; img-src 'self' data: blob:; media-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
-        frames = [channel.origin for channel in (self.signin, self.website_login) if channel]
+        frames = [channel.origin for channel in (self.signin, self.website_login, self.cli_login) if channel]
         response.headers['Content-Security-Policy'] += '; frame-src ' + (' '.join(frames) if frames else "'none'")
         return response
 
@@ -699,6 +703,8 @@ class WebGateway:
     async def close(self):
         if self.website_login:
             await self.website_login.close()
+        if self.cli_login:
+            await self.cli_login.close()
         if self.signin:
             await self.signin.close()
         if self.runner:
