@@ -94,6 +94,10 @@ class BootstrapFeatureTests(unittest.TestCase):
                    'owner_views.py', 'recovery.py', 'reminders.py', 'schedule.py', 'status.py',
                    'strings.py', 'time_input.py', 'web/locale.js', 'web/panel-poll.js',
                    'web/telegram-theme.js', 'web/telegram-bridge.js')
+        helpers += ('messages.py', 'rendering.py', 'media.py', 'hf_spaces.py', 'animation.py',
+                    'animation_tools.py', 'cli_contract.py', 'cli_process.py', 'cli_broker.py',
+                    'cli_login.py', 'cli_provider.py', 'cli_server.py', 'colab_auth.py',
+                    'cli_web/index.html', 'cli_web/cli.js', 'web/messages.js')
         for helper in helpers:
             target = REPO / 'oak' / helper
 
