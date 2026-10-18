@@ -6,6 +6,8 @@ import json
 import uuid
 from pathlib import Path
 
+from .animation_tools import SPECS as CREATIVE_SPECS
+
 
 def _spec(name, description, properties, required=()):
     return {'type': 'function', 'name': name, 'description': description,
@@ -16,6 +18,7 @@ def _spec(name, description, properties, required=()):
 STRING = {'type': 'string'}
 NUMBER = {'type': 'number'}
 SPECS = [
+    *CREATIVE_SPECS,
     _spec('oak_website_task', 'Delegate a website task to the private Jev browser agent. '
           'Supply the public HTTPS homepage and a short generic goal describing the current task. '
           'Omitting goal preserves existing-account sign-in. Never put user values, credentials, email addresses '
@@ -194,7 +197,7 @@ class WorkerComputer:
 
 class Tools:
     specs = SPECS
-    version = 'oak-v17-quality-learning'
+    version = 'oak-v18-creative-media'
 
     def __init__(self, controller, config, *, desktop=None):
         from .media import MediaTools
@@ -444,6 +447,9 @@ class Tools:
         c = self.controller
         if getattr(c, 'sessions', None) is not None and c.sessions.deleted(chat_id):
             raise ValueError('Цю сесію видалено.')
+        if name in {'oak_hf_spaces', 'oak_animate_illustration'}:
+            from .animation_tools import execute
+            return await execute(self, chat_id, name, args)
         if name == 'oak_request_input':
             if not isinstance(args, dict) or set(args) != {'template'}:
                 raise ValueError('Only the server-owned template can be supplied.')
