@@ -70,6 +70,16 @@ async def managed_browser():
             raise asyncio.CancelledError
 
 
+async def wait_for_cleanup(read_result, *, timeout=10, interval=0.1):
+    """Observe both fixture leases closing without replaying any action."""
+    async with asyncio.timeout(timeout):
+        while True:
+            result = await read_result()
+            if len(result['broker']) == 2 and all(row['cleanup'] == 'confirmed' for row in result['broker']):
+                return result
+            await asyncio.sleep(interval)
+
+
 async def verify(port, output=None):
     base = f'http://127.0.0.1:{port}'
     if output is not None:
@@ -150,7 +160,12 @@ async def verify(port, output=None):
         await expect(page.locator('#input-request-status')).to_contain_text('Запит скасовано',timeout=15000)
         await expect(page.locator('#input-request-status')).to_contain_text('Надіслано',timeout=15000)
 
-        result = await (await page.request.get(base+'/demo/result')).json()
+        async def read_result():
+            return await (await page.request.get(base+'/demo/result')).json()
+
+        # Native cancellation can be delivered before asynchronous broker close.
+        # Only observe that existing cleanup; never resubmit a request or action.
+        result = await wait_for_cleanup(read_result)
         rows = {row['id']:row for row in result['requests']}
         assert rows[submitted]['outcome'] == 'submitted'
         assert rows[form_cancelled]['outcome'] == 'cancelled'
