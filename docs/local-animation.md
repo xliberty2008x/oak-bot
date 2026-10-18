@@ -42,6 +42,15 @@ restart cannot erase that requirement, and producer-supplied review arguments
 cannot replace it. A changed/missing source requires restoration or a new
 candidate. Disabling quality review prevents delivery of these bound candidates.
 
+The native `oak_animate_illustration` tool takes `image_path`,
+`closed_eyes_path`, `eye_regions`, `hair_polygons` and optional `seconds`, `fps`,
+`amplitude`. It requires the configured execution worker and `quality_review`.
+The worker reads held regular-file descriptors and verifies gateway snapshot
+digests before decoding. Native generated artwork is staged through the existing
+image transfer namespace. The result is independently reviewed immediately,
+returns its candidate path and review result, and never delivers automatically.
+Only a subsequent successful `oak_send_file` may send the reviewed snapshot.
+
 Focused tests use an explicitly authored synthetic illustrated character. They
 check exact outside-region pixels, distinct open/intermediate/closed states,
 local hair movement and loop endpoints, plus an actual FFmpeg encode/decode with
