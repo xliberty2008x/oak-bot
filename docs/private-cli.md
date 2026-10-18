@@ -96,9 +96,76 @@ group, `UMask=0077`, `KillMode=control-group`, `NoNewPrivileges=yes`,
 `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes` and
 `ProtectProc=invisible`. Use `StateDirectory=oak-cli` with mode 0700 and
 `RuntimeDirectory=oak-cli` with mode 0750; allow writes only to those two
-directories. Order startup after `oak-executor-attest.service`. Preserve the
-existing gateway, executor and website-broker units. Reap the entire old service
-group before restart; then orphan-cache cleanup can safely remove secret state.
+directories. Order startup after `oak-executor-attest.service`. Reap the entire
+old service group before restart; then orphan-cache cleanup can safely remove
+secret state.
+
+### Stable reciprocal filesystem masks
+
+When the CLI and website brokers share a host, mask each broker's configuration,
+state and control socket inside the other's mount namespace. Both runtime
+directories must exist **before either service starts**. An optional
+`InaccessiblePaths=-/run/...` silently skips an absent directory; creating that
+directory later can expose the peer's control socket to the existing namespace.
+
+Install the following root-owned, non-writable-by-others file as
+`/etc/tmpfiles.d/oak-private-brokers.conf`. Replace `BROKER_USER` and
+`GATEWAY_GROUP` with the installed units' approved `User` and `Group`; use each
+broker's own user if they differ. The final `-` sets no age-based cleanup.
+
+```text
+d /run/oak-cli 0750 BROKER_USER GATEWAY_GROUP -
+d /run/oak-website-forms 0750 BROKER_USER GATEWAY_GROUP -
+```
+
+Add this drop-in to **both** `oak-cli.service` and `oak-website-forms.service`,
+keeping each unit's existing `RuntimeDirectory` and `RuntimeDirectoryMode`:
+
+```ini
+[Unit]
+After=systemd-tmpfiles-setup.service
+
+[Service]
+RuntimeDirectoryPreserve=yes
+```
+
+The CLI unit must include:
+
+```ini
+[Service]
+InaccessiblePaths=-/etc/oak-website-forms -/var/lib/oak-website-forms /run/oak-website-forms
+```
+
+The website unit must include:
+
+```ini
+[Service]
+InaccessiblePaths=-/etc/oak-cli -/var/lib/oak-cli /run/oak-cli -/opt/oak-private-cli
+```
+
+The reciprocal `/run` entries deliberately have **no `-` prefix**: a missing peer
+root must prevent startup. Keep other existing restrictions. `yes` preserves
+directory identities across both explicit stops and restarts; `restart` does
+not cover stop followed by start. Reboot clears `/run`, and tmpfiles recreates
+both roots before either namespace is assembled. These are the documented
+[systemd directory-lifecycle semantics](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectoryPreserve=).
+
+For installation or repair, stop the gateway and both brokers after checking
+that work and private leases are idle. Install the reviewed files, run
+`systemd-tmpfiles --create /etc/tmpfiles.d/oak-private-brokers.conf`, reload the
+units and verify their syntax before starting either broker. Confirm both roots
+are canonical directories with the expected owner, group and mode. Do not remove
+or clean either runtime root while a peer namespace remains active.
+
+Before restarting the gateway, enter each broker's actual mount namespace as
+its service UID and confirm the peer directories cannot be opened. Stop and
+start each broker separately while the other stays running; verify the runtime
+directory inode is preserved and both directions still deny access. Then check
+the status-only CLI health route and static assets without creating a lease.
+Provider-process, cache and authentication-receipt counts must remain zero for
+an unused installation. If these checks fail, keep the optional CLI service
+inactive while recovering the gateway and website service; do not restore a
+known incomplete mask as an enabled CLI capability.
 
 On the existing private HTTPS origin, proxy `/cli/` to its loopback port while
 preserving the prefix. Disable access logs and request/response buffering for
