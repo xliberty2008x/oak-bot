@@ -312,6 +312,67 @@ class BootstrapFeatureTests(unittest.TestCase):
             run.assert_not_called()
 
 
+class BrowserCleanupObservationTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.client = script('verify-signin-demo')
+
+    @staticmethod
+    def result(cleanup):
+        return {'broker': [{'phase': 'authenticated', 'cleanup': 'confirmed'},
+                           {'phase': 'cancelled', 'cleanup': cleanup}],
+                'native_attempts': 4, 'new_turn_starts': 0}
+
+    async def test_delayed_cleanup_is_observed_without_changing_native_counts(self):
+        closed = asyncio.Event()
+
+        async def close():
+            await asyncio.sleep(0.02)
+            closed.set()
+
+        async def read():
+            return self.result('confirmed' if closed.is_set() else 'attempted')
+
+        read_result = AsyncMock(side_effect=read)
+        closing = asyncio.create_task(close())
+        try:
+            result = await self.client.wait_for_cleanup(read_result, timeout=1, interval=0.001)
+        finally:
+            await closing
+        self.assertGreater(read_result.await_count, 1)
+        self.assertEqual(result, self.result('confirmed'))
+        self.assertEqual(result['native_attempts'], 4)
+        self.assertEqual(result['new_turn_starts'], 0)
+
+    async def test_confirmed_cleanup_needs_only_one_read(self):
+        read = AsyncMock(return_value=self.result('confirmed'))
+        self.assertEqual(await self.client.wait_for_cleanup(read), self.result('confirmed'))
+        read.assert_awaited_once_with()
+
+    async def test_unconfirmed_or_missing_leases_fail_closed(self):
+        for state in ('attempted', 'waiting', 'uncertain', 'missing'):
+            with self.subTest(state=state):
+                result = self.result(state)
+                if state == 'missing':
+                    result['broker'] = result['broker'][:1]
+                read = AsyncMock(return_value=result)
+                with self.assertRaises(TimeoutError):
+                    await self.client.wait_for_cleanup(read, timeout=0.02, interval=0.001)
+                self.assertGreater(read.await_count, 1)
+
+    async def test_observation_timeout_also_bounds_a_stalled_read(self):
+        cancelled = asyncio.Event()
+
+        async def stalled_read():
+            try:
+                await asyncio.Future()
+            finally:
+                cancelled.set()
+
+        with self.assertRaises(TimeoutError):
+            await self.client.wait_for_cleanup(stalled_read, timeout=0.02)
+        self.assertTrue(cancelled.is_set())
+
+
 class FixtureLifecycleTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.demo = script('input-request-demo')
