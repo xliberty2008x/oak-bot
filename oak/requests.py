@@ -71,6 +71,7 @@ class InputRequests:
         self.website_workspaces = set()
         self.broker = None
         self.website_login = None
+        self.cli_login = None
         self.db.executescript('''
             CREATE TABLE IF NOT EXISTS input_requests (
                 id TEXT PRIMARY KEY, owner INTEGER NOT NULL, chat_id INTEGER NOT NULL,
@@ -129,6 +130,10 @@ class InputRequests:
                         'content': values if outcome == 'submitted' else None}
         else:
             response = {'outcome': outcome, 'values': values or {}}
+            if row['kind'] == 'cli_auth':
+                return self.cli_login.response(row['id'], outcome) if self.cli_login else {
+                    'outcome': outcome, 'provider': 'colab', 'authenticated': False,
+                    'reason': 'private_cli_unavailable', 'session_available': False}
             if row['kind'] == 'sign_in':
                 provider = json.loads(row['form']).get('provider', 'instagram')
                 simulated = provider == 'oak_synthetic'
@@ -149,6 +154,8 @@ class InputRequests:
         return response
 
     def broker_for(self, row):
+        if row['kind'] == 'cli_auth':
+            return self.cli_login
         provider = json.loads(row['form']).get('provider') if row['kind'] == 'sign_in' else None
         return self.broker if provider == 'oak_synthetic' else self.website_login if provider in {'google', 'instagram', 'website'} else None
 
@@ -189,7 +196,7 @@ class InputRequests:
         try:
             await self.controller.emit(chat, {'type': 'CUSTOM', 'name': 'input_request',
                                               'value': {'id': identifier, 'kind': kind,
-                                                        'summary': 'Oak потребує уточнення.' if kind == 'ordinary' else
+                                                        'summary': 'Приватний вхід у Colab CLI потребує твоєї дії.' if kind == 'cli_auth' else 'Oak потребує уточнення.' if kind == 'ordinary' else
                                                                    ('Тестовий запит входу Oak.' if presentation.get('simulated') else
                                                                     'Потрібна дія на сайті ' + presentation.get('destination', '') + '.')}})
             try:
@@ -207,6 +214,14 @@ class InputRequests:
             broker = self.broker_for(self.row(owner, chat, identifier))
             if broker:
                 broker.revoke(identifier)
+
+    async def cli_auth(self, metadata):
+        from .cli_contract import capability
+        ready = bool(self.cli_login and await self.cli_login.available())
+        if not ready:
+            return {**capability(), 'outcome': 'unsupported', 'authenticated': False}
+        return await self._ask(metadata, 'tool', {'provider': 'colab', 'capability': True,
+            'simulated': False, 'destination': 'https://accounts.google.com'}, 'cli_auth')
 
     async def website(self, metadata, url):
         from .login_broker import website_target
@@ -395,7 +410,7 @@ class InputRequests:
             raise ValueError('Invalid action ID.')
         async with self.controller._lock(chat):
             row = self.row(owner, chat, identifier)
-            if row['kind'] == 'sign_in' and data['decision'] != 'cancel':
+            if row['kind'] in {'sign_in', 'cli_auth'} and data['decision'] != 'cancel':
                 raise ValueError('Use the separate human login channel, never ordinary form values.')
             values = data.get('values')
             if data['decision'] == 'submit':
@@ -455,5 +470,7 @@ class InputRequests:
                 self.broker.revoke(row['id'])
         if self.website_login:
             self.website_login.end_turn(thread, turn)
+        if self.cli_login:
+            self.cli_login.end_turn(thread, turn)
         self.website_workspaces.difference_update(row['id'] for row in self.db.execute(
             'SELECT id FROM input_requests WHERE thread_id=? AND turn_id=?', (thread, turn)))

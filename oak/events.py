@@ -128,7 +128,7 @@ def validate_event(event):
             raise ValueError(f'Unsupported custom event: {name}')
         if name == 'model_choices':
             validate_model_choices(value)
-        if name == 'input_request' and value.get('kind') not in {'ordinary', 'sign_in'}:
+        if name == 'input_request' and value.get('kind') not in {'ordinary', 'sign_in', 'cli_auth'}:
             raise ValueError('Invalid input request kind.')
         if name == 'a2ui':
             from .a2ui import validate_messages
