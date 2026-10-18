@@ -60,3 +60,59 @@ The adapter follows the pinned official OAuth2/cache functions, replacing only
 their human prompt with the private broker protocol. A successful read-only
 Colab account metadata request establishes authentication; its private response
 is discarded. Native CLI processes never receive the broker's token cache.
+
+## Standalone private service
+
+Use the same immutable release as the current execution profile. The standalone
+entry point is `python -I /opt/oak-executor/releases/REVIEWED_RELEASE/oak/cli_server.py
+--config /etc/oak-cli/broker.json`. Run it as the dedicated private broker UID,
+never as root, the gateway UID or the executor UID. A root-owned configuration
+contains only reviewed deployment paths and origins:
+
+```json
+{
+  "origin": "https://private.example.com",
+  "parent_origin": "https://oak.example.com",
+  "gateway_uid": 1000,
+  "broker_uid": 1901,
+  "socket": "/run/oak-cli/control.sock",
+  "port": 18767,
+  "execution": {"profile": "/etc/oak-executor/profile.json"},
+  "state_dir": "/var/lib/oak-cli",
+  "provider_manifest": "/etc/oak-cli/provider.json"
+}
+```
+
+The state directory is broker-owned mode 0700; the socket directory is
+broker-owned mode 0750 with the gateway's group. The socket itself is 0660 and
+also verifies the connecting gateway UID. Keep configuration, state, socket and
+provider installation outside every executor mount. Paths must be canonical.
+The service listens only on loopback, disables HTTP access logs, locks its
+dedicated state, removes owned orphan caches and invalidates old session receipts.
+Neither startup nor a capability check starts a provider process.
+
+Provision a systemd unit with `User` set to that broker, `Group` set to the gateway
+group, `UMask=0077`, `KillMode=control-group`, `NoNewPrivileges=yes`,
+`ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes` and
+`ProtectProc=invisible`. Use `StateDirectory=oak-cli` with mode 0700 and
+`RuntimeDirectory=oak-cli` with mode 0750; allow writes only to those two
+directories. Order startup after `oak-executor-attest.service`. Preserve the
+existing gateway, executor and website-broker units. Reap the entire old service
+group before restart; then orphan-cache cleanup can safely remove secret state.
+
+On the existing private HTTPS origin, proxy `/cli/` to its loopback port while
+preserving the prefix. Disable access logs and request/response buffering for
+that location, and set a 32 KiB request/body-buffer bound. The private page's
+frame-ancestor policy permits only the configured parent origin. The main
+gateway's existing `web` configuration adds only:
+
+```json
+"cli_login": {"socket": "/run/oak-cli/control.sock", "origin": "https://private.example.com"}
+```
+
+Validate the unit, nginx configuration, immutable provider manifest and
+current-boot execution attestation before restarting the selected gateway.
+Rollback code/configuration while retaining current durable action receipts.
+`oak_cli_auth` requires an owner-requested connection and an explicit owner click
+in the private form. Its verification session grants no generic authenticated
+shell; cache cleanup follows task/session revocation and has a 15-minute maximum.
