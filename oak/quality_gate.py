@@ -17,16 +17,31 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def required_source(db, chat_id, path):
+def has_bound_bytes(db):
+    return bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='quality_source_hashes'").fetchone()
+                and db.execute('SELECT 1 FROM quality_source_hashes LIMIT 1').fetchone())
+
+
+def required_source(db, chat_id, path, sha256=None):
     """A generated candidate keeps its review requirement across turns/config changes."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='quality_sources'").fetchone():
         return None
-    row = db.execute('SELECT chat_id,source,source_sha256,criteria FROM quality_sources WHERE path=?',
-                     (str(path),)).fetchone()
-    if row is None:
+    rows = [db.execute('SELECT chat_id,source,source_sha256,criteria FROM quality_sources WHERE path=?',
+                       (str(path),)).fetchone()]
+    if sha256 is not None and has_bound_bytes(db):
+        owned = db.execute('SELECT chat_id,source,source_sha256,criteria FROM quality_source_hashes WHERE sha256=? AND chat_id=?',
+                           (sha256, chat_id)).fetchone()
+        if owned is None and db.execute('SELECT 1 FROM quality_source_hashes WHERE sha256=?', (sha256,)).fetchone():
+            raise ValueError('This review candidate belongs to another conversation.')
+        rows.append(owned)
+    rows = [tuple(row) for row in rows if row is not None]
+    if not rows:
         return None
-    if row[0] != chat_id:
+    if any(row[0] != chat_id for row in rows):
         raise ValueError('This review candidate belongs to another conversation.')
+    if len({(row[0], row[2], row[3]) for row in rows}) != 1:
+        raise ValueError('Artifact path and bytes have conflicting required sources.')
+    row = rows[0]
     return {'path': row[1], 'sha256': row[2], 'criteria': row[3]}
 
 
@@ -46,12 +61,28 @@ class QualityGate:
         self.db.execute('''CREATE TABLE IF NOT EXISTS quality_sources (
             path TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, source TEXT NOT NULL,
             source_sha256 TEXT NOT NULL, criteria TEXT NOT NULL)''')
+        schema = '''CREATE TABLE IF NOT EXISTS quality_source_hashes (
+            sha256 TEXT NOT NULL, chat_id INTEGER NOT NULL, source TEXT NOT NULL,
+            source_sha256 TEXT NOT NULL, criteria TEXT NOT NULL, PRIMARY KEY(sha256,chat_id))'''
+        primary = [row[1] for row in self.db.execute('PRAGMA table_info(quality_source_hashes)') if row[5]]
+        if primary == ['sha256']:
+            # Atomic additive migration; preserve every existing owner/source receipt.
+            with self.db:
+                self.db.execute('SAVEPOINT quality_hash_scope')
+                self.db.execute('ALTER TABLE quality_source_hashes RENAME TO quality_source_hashes_legacy')
+                self.db.execute(schema)
+                self.db.execute('INSERT INTO quality_source_hashes SELECT * FROM quality_source_hashes_legacy')
+                self.db.execute('DROP TABLE quality_source_hashes_legacy')
+                self.db.execute('RELEASE quality_hash_scope')
+        else:
+            self.db.execute(schema)
         self.db.commit()
 
-    def require_source(self, chat_id, path, source, source_sha256, criteria):
+    def require_source(self, chat_id, path, source, source_sha256, criteria, *, artifact_sha256):
         """Bind trusted generation evidence once; producer review args cannot replace it."""
         path, source = str(self.tools.file(path)), str(self.tools.file(source))
-        if (path == source or not isinstance(source_sha256, str) or not re.fullmatch('[0-9a-f]{64}', source_sha256)
+        if (path == source or not all(isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value)
+                                     for value in (source_sha256, artifact_sha256))
                 or not isinstance(criteria, str) or not 1 <= len(criteria) <= 2000):
             raise ValueError('Invalid required artifact source.')
         existing = required_source(self.db, chat_id, path)
@@ -59,10 +90,17 @@ class QualityGate:
         if existing is not None:
             if existing != desired:
                 raise ValueError('Required artifact source and criteria cannot be replaced.')
-            return
+        existing_hash = self.db.execute('SELECT source_sha256,criteria FROM quality_source_hashes WHERE sha256=? AND chat_id=?',
+                                        (artifact_sha256, chat_id)).fetchone()
+        if existing_hash and tuple(existing_hash) != (source_sha256, criteria):
+            raise ValueError('Required artifact source and criteria cannot be replaced.')
         with self.db:
-            self.db.execute('INSERT INTO quality_sources VALUES (?,?,?,?,?)',
+            self.db.execute('INSERT OR IGNORE INTO quality_sources VALUES (?,?,?,?,?)',
                             (path, chat_id, source, source_sha256, criteria))
+            # Only trusted generation can register this scope. Review/delivery only reads.
+            self.db.execute('''INSERT INTO quality_source_hashes VALUES (?,?,?,?,?)
+                ON CONFLICT(sha256,chat_id) DO UPDATE SET source=excluded.source''',
+                            (artifact_sha256, chat_id, source, source_sha256, criteria))
 
     def receipt(self, chat_id, review_id):
         row = self.db.execute('SELECT id,sha256,verdict FROM quality_reviews WHERE id=? AND chat_id=?',
@@ -96,11 +134,7 @@ class QualityGate:
             raise ValueError('Review requirements must be a short description of the requested result.')
         if not isinstance(reference_paths, (list, tuple)) or len(reference_paths) > 3:
             raise ValueError('Use at most three actual source/reference files.')
-        required = required_source(self.db, chat_id, key[2])
-        if required:
-            reference_paths = list(dict.fromkeys([required['path'], *(str(self.tools.file(p)) for p in reference_paths)]))
-            if len(reference_paths) > 3:
-                raise ValueError('Use at most three references including the required original source.')
+        required_source(self.db, chat_id, key[2])
         if not turn:
             raise ValueError('Review requires an active task.')
         self.specifications = {k: v for k, v in self.specifications.items() if c.active.get(k[0]) == k[1]}
@@ -110,11 +144,16 @@ class QualityGate:
             if c.active.get(chat_id) != turn or c.sessions.deleted(chat_id):
                 raise ValueError('Task stopped during review; nothing was delivered.')
             owner_brief = getattr(c, 'task_briefs', {}).get(chat_id, '')[-16000:]
+            snapshot, inspected = await self.inspect(path, snapshot)
+            sha = inspected['sha256']
+            required = required_source(self.db, chat_id, key[2], sha)
+            if required:
+                reference_paths = list(dict.fromkeys([required['path'], *(str(self.tools.file(p)) for p in reference_paths)]))
+                if len(reference_paths) > 3:
+                    raise ValueError('Use at most three references including the required original source.')
             brief = ('Owner task (authoritative):\n' + owner_brief +
                      ('\nRequired artifact checks (fixed at generation):\n' + required['criteria'] if required else '') +
                      '\nProducer description of requirements (check against owner task):\n' + requirements)
-            snapshot, inspected = await self.inspect(path, snapshot)
-            sha = inspected['sha256']
             references = []
             evidence = [{'label': 'OUTPUT: ' + item['label'], 'image_url': item['image_url']}
                         for item in inspected.pop('evidence', [])]
