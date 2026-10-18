@@ -119,6 +119,7 @@ class WebGateway:
             web.post('/api/integrations/servers/{id}/oauth', self.oauth),
             web.get('/api/conversations', self.conversations), web.post('/api/conversations', self.conversations),
             web.get('/api/events', self.events), web.get('/api/stream', self.stream),
+            web.get('/api/messages', self.messages),
             web.post('/api/input', self.input), web.post('/api/stop', self.stop),
             web.post('/api/decision', self.decision), web.post('/api/render', self.render),
             web.get('/api/a2ui', self.a2ui_snapshot), web.post('/api/a2ui/action', self.a2ui_action),
@@ -641,6 +642,13 @@ class WebGateway:
         if not isinstance(data.get('text'), str):
             raise ValueError('Text is required.')
         return web.json_response(parse_markdown(data['text']))
+
+    async def messages(self, request):
+        from .messages import message_events
+        scope = self.conversation(request, self.owner(request))
+        return web.json_response(message_events(self.db, scope,
+            after=int(request.query['after']) if 'after' in request.query else None,
+            before=int(request.query['before']) if 'before' in request.query else None))
 
     async def activity(self, request):
         owner = self.owner(request)
