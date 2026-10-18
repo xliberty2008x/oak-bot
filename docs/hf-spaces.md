@@ -35,6 +35,9 @@ The [Gradio client documentation](https://www.gradio.app/main/docs/python-client
 distinguishes published API inspection from submitting a job and then observing
 its queue status. No generation API is called by this module.
 
-This module is initially a read model. Native tool/executor integration and any
-generation route are separate changes; the existing browser upload and artifact
-quality review contracts remain in force.
+The native `oak_hf_spaces` tool exposes `action: search` with `query`/optional
+`limit`, or `action: inspect` with `space_id`. Configured deployments execute the
+fixed `spaces.search`/`spaces.inspect` operations in the worker; local mode uses
+the same read-only module. Neither route accepts tokens, arbitrary URLs or
+generation arguments. Existing browser upload and artifact quality contracts
+remain in force.
