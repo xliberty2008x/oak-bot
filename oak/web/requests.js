@@ -6,10 +6,11 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
   const labels = {submitted: 'Відповідь збережено.', cancelled: 'Запит скасовано.', expired: 'Час очікування минув.',
     authenticated: 'Синтетичний вхід перевірено.', owner_confirmed: 'Ти підтвердив завершення форми. Oak може продовжити цю задачу.', failed: 'Вхід завершився помилкою.'};
   function resultLabel(value) {
-    const real = value.kind === 'sign_in' && value.form?.simulated === false;
+    const real = ['sign_in', 'cli_auth'].includes(value.kind) && value.form?.simulated === false;
     const prefix = value.outcome === 'authenticated' && real ? 'Вхід підтверджено для поточної задачі.' : labels[value.outcome] || 'Запит недоступний.';
-    const cleanup = value.broker?.cleanup === 'uncertain' ? ' Закриття браузера не підтверджено.' :
-      value.broker?.cleanup === 'attempted' ? ' Очікуємо закриття браузера.' : '';
+    const resource = value.kind === 'cli_auth' ? 'приватного процесу' : 'браузера';
+    const cleanup = value.broker?.cleanup === 'uncertain' ? ' Закриття ' + resource + ' не підтверджено.' :
+      value.broker?.cleanup === 'attempted' ? ' Очікуємо закриття ' + resource + '.' : '';
     if (value.delivery === 'ready') return prefix + ' Очікуємо передавання до початкової задачі.' + cleanup;
     if (value.delivery === 'uncertain') return prefix + ' Передавання не підтверджено. Перевір задачу в Telegram; автоматичного повтору немає.' + cleanup;
     if (value.delivery === 'sent') return prefix + ' Надіслано початковому запиту; продовження задачі перевір у Telegram.' + cleanup;
@@ -55,12 +56,15 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
     }, {once: true});
   }
   function website(value, startEpoch, startGeneration) {
+    const cli = value.kind === 'cli_auth';
     const generic = value.form.provider === 'website';
-    const name = value.form.provider === 'google' ? 'Google' : generic ? value.form.destination : 'Instagram';
+    const name = cli ? 'Colab CLI' : value.form.provider === 'google' ? 'Google' : generic ? value.form.destination : 'Instagram';
     $('input-request-title').textContent = generic ? 'Вхід до ' + new URL(value.form.destination).hostname : 'Вхід у ' + name;
-    $('input-request-description').textContent = 'Введи дані в окремій формі. Доступ Oak до цієї задачі діє до 15 хвилин.';
+    $('input-request-description').textContent = cli
+      ? 'Дозволь окремий вхід у Colab для цієї задачі. Код вводиться лише у приватній формі. Перевірка не запускає GPU.'
+      : 'Введи дані в окремій формі. Доступ Oak до цієї задачі діє до 15 хвилин.';
     $('input-request-destination').textContent = value.form.destination;
-    const start = document.createElement('button'); start.type = 'button'; start.textContent = 'Продовжити вхід';
+    const start = document.createElement('button'); start.type = 'button'; start.textContent = cli ? 'Відкрити приватний вхід у Colab' : 'Продовжити вхід';
     fields.append(start); readValues = null;
     if (value.broker?.phase !== 'available') { start.disabled = true; status('Вхід уже розпочато. Автоматичного повтору немає.'); return; }
     status('Пароль і коди вводяться лише в окремій формі входу.');
@@ -75,24 +79,26 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
           return;
         }
         if (launch.provider !== value.form.provider || launch.simulated !== false || launch.request_id !== value.id || !/^[A-Za-z0-9_-]{43}$/.test(launch.ticket)) throw new Error('Invalid channel');
+        if (cli && launch.path !== '/cli/') throw new Error('Invalid private path');
         const target = new URL(launch.origin);
         if (target.origin !== launch.origin || target.protocol !== 'https:' || target.origin === location.origin) throw new Error('Invalid origin');
         const frame = document.createElement('iframe'); frame.title = 'Вхід у ' + name;
         frame.referrerPolicy = 'no-referrer'; frame.className = 'signin-broker';
-        frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        frame.setAttribute('sandbox', cli ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts allow-same-origin');
+        const channel = cli ? 'oak-cli' : 'oak-login';
         let attached = false, laidOut = false;
         const receive = message => {
           if (generation !== startGeneration || epoch() !== startEpoch || message.source !== frame.contentWindow || message.origin !== launch.origin) return;
           const data = message.data;
-          if (attached && data?.type === 'oak-login-layout' && Object.keys(data).length === 2
+          if (attached && data?.type === channel + '-layout' && Object.keys(data).length === 2
               && Number.isInteger(data.height) && data.height >= 1 && data.height <= 4096) {
             frame.style.height = Math.max(240, data.height) + 'px';
             laidOut = true;
             clearTimeout(handshake);
             dialog.classList.remove('signin-loading');
-          } else if (!attached && data?.type === 'oak-login-ready') {
+          } else if (!attached && data?.type === channel + '-ready' && Object.keys(data).length === 1) {
             attached = true;
-            frame.contentWindow.postMessage({type: 'oak-login-attach', request_id: launch.request_id, ticket: launch.ticket}, launch.origin);
+            frame.contentWindow.postMessage({type: channel + '-attach', request_id: launch.request_id, ticket: launch.ticket}, launch.origin);
             launch.ticket = null;
           }
         };
@@ -104,7 +110,7 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
         releaseFrame();
         removeFrameListeners = () => { clearTimeout(handshake); window.removeEventListener('message', receive); launch.ticket = null; };
         window.addEventListener('message', receive);
-        frame.src = launch.origin + '/'; fields.replaceChildren(frame); dialog.classList.add('signin-host', 'signin-loading'); status('Відкриваємо захищену форму…');
+        frame.src = launch.origin + (cli ? '/cli/' : '/'); fields.replaceChildren(frame); dialog.classList.add('signin-host', 'signin-loading'); status('Відкриваємо захищену форму…');
       } catch {
         if (generation === startGeneration && epoch() === startEpoch && !submitting
             && current?.id === value.id && current?.outcome === 'pending') {
@@ -113,7 +119,7 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
       }
     };
     start.addEventListener('click', launchWebsite, {once: true});
-    return launchWebsite;
+    return cli ? null : launchWebsite; // CLI requires its explicit owner button.
   }
   function watch(id, startEpoch, startGeneration) {
     clearInterval(poll);
@@ -147,9 +153,11 @@ export function createInputRequests({api, epoch, scope, available, changed}) {
       const value = await inspect(id, startEpoch, startGeneration); if (!value) return;
       current = value; controls(false); $('input-request-cancel').textContent = 'Скасувати';
       let launchWebsite = null;
-      $('input-request-destination').hidden = value.kind !== 'sign_in';
-      $('input-request-submit').hidden = value.kind === 'sign_in';
-      if (value.kind === 'sign_in') {
+      $('input-request-destination').hidden = !['sign_in', 'cli_auth'].includes(value.kind);
+      $('input-request-submit').hidden = ['sign_in', 'cli_auth'].includes(value.kind);
+      if (value.kind === 'cli_auth' && value.form.provider === 'colab' && value.form.capability === true) {
+        website(value, startEpoch, startGeneration);
+      } else if (value.kind === 'sign_in') {
         if (value.form.provider === 'oak_synthetic' && value.form.simulated === true && value.form.capability === true) {
           synthetic(value, startEpoch, startGeneration);
         } else if (['google', 'instagram', 'website'].includes(value.form.provider) && value.form.simulated === false && value.form.capability === true) {
