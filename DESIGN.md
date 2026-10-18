@@ -466,6 +466,15 @@ logout and page hiding abort old reads; late responses cannot update another
 conversation. Live updates preserve settings drafts, contextual form fields and
 unchanged request controls. Raw AG-UI content is not used for panel status.
 
+The authenticated `/api/messages` read projection uses that same durable event
+log, scoped to the selected owner/conversation, without a second transcript store.
+It includes assistant text only after checking its scoped `TEXT_MESSAGE_START`
+role, even outside the requested window; tool/custom payloads and raw errors are
+excluded. Initial/older windows and forward cursors contain at most 80 events and
+1 MiB. Individual text fields are capped at 200,000 characters with an explicit
+truncation flag; source Markdown remains unchanged in the event log. Final text
+snapshots supersede accumulated deltas. This API is separate from panel status.
+
 Creating a task in the panel uses the selected conversation and an atomic
 operation receipt. The owner sees the configured timezone; ambiguous or missing
 DST wall times are rejected, with an optional explicit UTC offset. A lost
