@@ -337,6 +337,9 @@ class Tools:
 
     async def artifact(self, chat_id, path, caption=''):
         path = await self._artifact_file(path)
+        from .quality_gate import required_source
+        if required_source(self.controller.db, chat_id, path) and self.quality is None:
+            raise ValueError('This candidate requires independent source/video review before delivery.')
         name = path.name
         review = None
         turn = getattr(self.controller, 'active', {}).get(chat_id)

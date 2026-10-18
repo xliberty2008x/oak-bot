@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 import uuid
 from pathlib import Path
@@ -14,6 +15,19 @@ VISUAL_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.mp4', '.m
 def digest(path):
     with Path(path).open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def required_source(db, chat_id, path):
+    """A generated candidate keeps its review requirement across turns/config changes."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='quality_sources'").fetchone():
+        return None
+    row = db.execute('SELECT chat_id,source,source_sha256,criteria FROM quality_sources WHERE path=?',
+                     (str(path),)).fetchone()
+    if row is None:
+        return None
+    if row[0] != chat_id:
+        raise ValueError('This review candidate belongs to another conversation.')
+    return {'path': row[1], 'sha256': row[2], 'criteria': row[3]}
 
 
 class QualityGate:
@@ -29,7 +43,26 @@ class QualityGate:
             id TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, turn_id TEXT NOT NULL,
             fingerprint TEXT NOT NULL, sha256 TEXT NOT NULL, snapshot TEXT NOT NULL,
             verdict TEXT NOT NULL, report TEXT NOT NULL, created REAL NOT NULL)''')
+        self.db.execute('''CREATE TABLE IF NOT EXISTS quality_sources (
+            path TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, source TEXT NOT NULL,
+            source_sha256 TEXT NOT NULL, criteria TEXT NOT NULL)''')
         self.db.commit()
+
+    def require_source(self, chat_id, path, source, source_sha256, criteria):
+        """Bind trusted generation evidence once; producer review args cannot replace it."""
+        path, source = str(self.tools.file(path)), str(self.tools.file(source))
+        if (path == source or not isinstance(source_sha256, str) or not re.fullmatch('[0-9a-f]{64}', source_sha256)
+                or not isinstance(criteria, str) or not 1 <= len(criteria) <= 2000):
+            raise ValueError('Invalid required artifact source.')
+        existing = required_source(self.db, chat_id, path)
+        desired = {'path': source, 'sha256': source_sha256, 'criteria': criteria}
+        if existing is not None:
+            if existing != desired:
+                raise ValueError('Required artifact source and criteria cannot be replaced.')
+            return
+        with self.db:
+            self.db.execute('INSERT INTO quality_sources VALUES (?,?,?,?,?)',
+                            (path, chat_id, source, source_sha256, criteria))
 
     def receipt(self, chat_id, review_id):
         row = self.db.execute('SELECT id,sha256,verdict FROM quality_reviews WHERE id=? AND chat_id=?',
@@ -63,6 +96,11 @@ class QualityGate:
             raise ValueError('Review requirements must be a short description of the requested result.')
         if not isinstance(reference_paths, (list, tuple)) or len(reference_paths) > 3:
             raise ValueError('Use at most three actual source/reference files.')
+        required = required_source(self.db, chat_id, key[2])
+        if required:
+            reference_paths = list(dict.fromkeys([required['path'], *(str(self.tools.file(p)) for p in reference_paths)]))
+            if len(reference_paths) > 3:
+                raise ValueError('Use at most three references including the required original source.')
         if not turn:
             raise ValueError('Review requires an active task.')
         self.specifications = {k: v for k, v in self.specifications.items() if c.active.get(k[0]) == k[1]}
@@ -73,6 +111,7 @@ class QualityGate:
                 raise ValueError('Task stopped during review; nothing was delivered.')
             owner_brief = getattr(c, 'task_briefs', {}).get(chat_id, '')[-16000:]
             brief = ('Owner task (authoritative):\n' + owner_brief +
+                     ('\nRequired artifact checks (fixed at generation):\n' + required['criteria'] if required else '') +
                      '\nProducer description of requirements (check against owner task):\n' + requirements)
             snapshot, inspected = await self.inspect(path, snapshot)
             sha = inspected['sha256']
@@ -83,6 +122,8 @@ class QualityGate:
             references_valid = True
             for reference in reference_paths:
                 _, data = await self.inspect(reference)
+                if required and str(reference) == required['path'] and data.get('sha256') != required['sha256']:
+                    raise ValueError('Required original source changed; restore it or create a new candidate.')
                 references.append({key: value for key, value in data.items() if key != 'evidence'})
                 references_valid = references_valid and data.get('decode_status') == 'complete' and bool(data.get('evidence'))
                 # A reference is context, never a replacement for output evidence.
