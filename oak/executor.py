@@ -29,6 +29,7 @@ OPERATIONS = frozenset({
     'computer.type', 'computer.key', 'computer.status', 'remote.start',
     'remote.read', 'remote.write', 'remote.close', 'remote.type', 'remote.key',
     'quality.inspect',
+    'spaces.search', 'spaces.inspect', 'animation.render',
 })
 
 
