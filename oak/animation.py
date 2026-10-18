@@ -129,16 +129,13 @@ class Animation:
                         mesh.append(((left, top, right, bottom), quad))
                 moving = patch.transform(patch.size, Image.Transform.MESH, mesh, Image.Resampling.BICUBIC)
                 frame.paste(Image.composite(moving, patch, mask), bounds)
-        center, half_blink = (self.count-1)//2, max(2, round(self.fps * .16))
-        distance = abs(index-center)
-        amount = .5 + .5*math.cos(math.pi*distance/half_blink) if distance < half_blink else 0
-        if amount:
+        # Two supplied poses do not define the contours of intermediate eyelids.
+        # Keep their complete authored linework instead of slicing an open eye.
+        closed_frames = max(1, round(self.fps * .1))
+        first_closed = (self.count - closed_frames)//2
+        if first_closed <= index < first_closed + closed_frames:
             for left, top, right, bottom in self.eyes:
                 frame.paste(self.closed.crop((left, top, right, bottom)), (left, top))
-                opening = round((bottom-top) * (1-amount))
-                if opening:
-                    y = top + (bottom-top-opening)//2
-                    frame.paste(self.source.crop((left, y, right, y+opening)), (left, y))
         return frame
 
     def encode(self, output):
@@ -163,5 +160,7 @@ class Animation:
         return {'path': str(output), 'method': 'procedural_2d', 'frames': self.count, 'fps': self.fps,
                 'duration': self.count/self.fps, 'review_required': True,
                 'limitations': ['Geometry and closed-eye artwork were supplied by the native agent.',
+                                'The blink uses discrete complete open/closed poses, without inferred intermediate eyelids.',
+                                'The closed-pose hold targets 100 ms, rounded to whole frames at the selected frame rate.',
                                 'Pixels outside masks are unchanged before lossy H.264 encoding.',
                                 'Independent source/video review is required; motion metrics do not prove quality.']}

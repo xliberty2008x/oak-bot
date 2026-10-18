@@ -65,6 +65,30 @@ class AnimationTests(unittest.TestCase):
         expected, _ = illustrated_character()
         self.assertEqual(self.animation.frame(0).tobytes(), expected.tobytes())
 
+    def test_every_blink_pose_keeps_complete_authored_contours_at_all_supported_rates(self):
+        for fps in range(12, 31):
+            with self.subTest(fps=fps):
+                animation = Animation(self.source, self.closed, EYES, HAIR, seconds=1, fps=fps)
+                closed_indices = []
+                for index in range(animation.count):
+                    frame = animation.frame(index)
+                    states = []
+                    for bounds in EYES:
+                        eye = frame.crop(bounds).tobytes()
+                        opened, closed = self.source.crop(bounds).tobytes(), self.closed.crop(bounds).tobytes()
+                        # A clipped iris or missing lower outline matches neither authored pose.
+                        self.assertIn(eye, (opened, closed))
+                        states.append(eye == closed)
+                    self.assertEqual(len(set(states)), 1)
+                    if states[0]:
+                        closed_indices.append(index)
+                self.assertTrue(closed_indices)
+                self.assertGreater(closed_indices[0], 0)
+                self.assertLess(closed_indices[-1], animation.count-1)
+                self.assertEqual(closed_indices, list(range(closed_indices[0], closed_indices[-1]+1)))
+                # 100 ms has to be quantized to whole frames at the selected rate.
+                self.assertLessEqual(abs(len(closed_indices)/fps - .1), .5/fps + 1e-10)
+
     def test_misaligned_or_unedited_closed_eyes_are_rejected(self):
         with self.assertRaisesRegex(ValueError, 'aligned'):
             Animation(self.source, self.closed.resize((128, 128)), EYES, HAIR)
@@ -142,6 +166,22 @@ class AnimationTests(unittest.TestCase):
             frames = [Image.frombytes('RGB', (256, 256), data[i:i+size]) for i in range(0, len(data), size)]
             self.assertEqual(len(frames), self.animation.count)
             center = (self.animation.count-1)//2
+            closed_indices = []
+            for index, frame in enumerate(frames):
+                states = []
+                for bounds in EYES:
+                    errors = [max(ImageStat.Stat(ImageChops.difference(frame.crop(bounds), pose.crop(bounds))).mean)
+                              for pose in (frames[0], frames[center])]
+                    # Fixture codec error stays below 6; old clipped transitions exceed 10.
+                    self.assertLess(min(errors), 6, (index, errors))
+                    states.append(errors[1] < errors[0])
+                self.assertEqual(len(set(states)), 1)
+                if states[0]:
+                    closed_indices.append(index)
+            self.assertEqual(len(closed_indices), 2)
+            self.assertEqual(closed_indices[1], closed_indices[0]+1)
+            self.assertGreater(closed_indices[0], 0)
+            self.assertLess(closed_indices[-1], len(frames)-1)
             self.assertGreater(sum(ImageStat.Stat(ImageChops.difference(frames[0].crop(EYES[0]), frames[center].crop(EYES[0]))).mean), 20)
             bounds = self.animation.hair[0][0]
             self.assertGreater(sum(ImageStat.Stat(ImageChops.difference(frames[0].crop(bounds), frames[18].crop(bounds))).mean), 5)

@@ -12,8 +12,10 @@ import uuid
 
 CRITERIA = ('Verify actual eye closing/reopening and local hair movement against the original source; '
             'preserve the character, appearance, clothes and background. Reject global camera motion or a slideshow '
-            'as substitutes. Check open/intermediate/closed eyelid texture, linework, shading and occlusion, '
-            'hair coherence, visible defects and the loop seam. This is procedural 2D animation, not generative video.')
+            'as substitutes. Check every visible eye pose and transition for coherent texture, linework, shading, '
+            'occlusion and blink timing, plus hair coherence, visible defects and the loop seam. '
+            'This is procedural 2D animation with discrete authored open/closed eye poses, not generative video. '
+            'Judge whether that motion satisfies the original request; method limitations do not relax its requirements.')
 INTEGER = {'type': 'integer'}
 POINT = {'type': 'array', 'items': INTEGER, 'minItems': 2, 'maxItems': 2}
 SPECS = [
@@ -32,7 +34,8 @@ SPECS = [
                     'the selected eye rectangles. Use existing image editing to make that artwork; never invent flat '
                     'eyelid patches or ask the child to choose technical regions. Eye bounds are exclusive right/bottom; '
                     'hair polygons must be simple, disjoint and fit the image. Supports opaque even-sized 64–1024px '
-                    'illustrations only; do not promise arbitrary photo animation. Requires the execution worker and '
+                    'illustrations with discrete open/closed eye poses; no smooth intermediate eyelids are inferred. '
+                    'Do not promise arbitrary photo animation. Requires the execution worker and '
                     'independent quality review. Repair revise/unverified results before oak_send_file; label as procedural.',
      'inputSchema': {'type': 'object', 'additionalProperties': False,
                      'required': ['image_path', 'closed_eyes_path', 'eye_regions', 'hair_polygons'], 'properties': {
