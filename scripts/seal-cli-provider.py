@@ -23,6 +23,9 @@ def main():
     value = manifest(args.python)
     descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
     with os.fdopen(descriptor, 'w') as stream:
+        # Root's restrictive umask must not hide this non-secret inventory from
+        # the unprivileged broker that validates it before any authentication.
+        os.fchmod(stream.fileno(), 0o644)
         json.dump(value, stream, sort_keys=True)
         stream.write('\n')
         stream.flush()
