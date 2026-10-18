@@ -8,6 +8,7 @@ let computerChanging = false;
 let remotePanel = null, remoteLoading = null;
 let a2uiPanel = null, a2uiLoading = null;
 let inputRequestsPanel = null, inputRequestsLoading = null;
+let messageHistory = null, messageHistoryLoading = null;
 let panelPoll = null, telegramTheme = null, telegramBridge = null, bridgeObserver = null, confirmationPending = false;
 let productLocale = null, localeEpoch = -1;
 const approvalBlocked = new Set();
@@ -433,6 +434,7 @@ async function selectSession(id) {
   await refresh();
 }
 function resetSessionView() {
+  messageHistory?.reset();
   resetMemory();
   resetTaskCreate(); taskReschedules.clear(); taskPauses.clear();
   a2uiPanel?.reset();
@@ -527,6 +529,7 @@ async function deleteTopic(session) {
 }
 
 function requireLogin(text = "Сеанс завершився. Відкрий Oak у Telegram або увійди за приватним ключем.") {
+  messageHistory?.reset();
   panelPoll?.reset();
   resetMemory();
   resetTaskCreate(); taskReschedules.clear(); taskPauses.clear();
@@ -574,7 +577,7 @@ async function api(path, data, {signal} = {}) {
   if (signal?.aborted) abort();
   else signal?.addEventListener("abort", abort, {once: true});
   const endpoint = path.split("?")[0];
-  if (/^\/api\/(?:panel|models|tasks(?:\/.*)?|memory(?:\/.*)?|activity|artifacts|recovery(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
+  if (/^\/api\/(?:panel|messages|models|tasks(?:\/.*)?|memory(?:\/.*)?|activity|artifacts|recovery(?:\/.*)?|integrations(?:\/.*)?|decision|a2ui(?:\/.*)?|stop)$/.test(endpoint)) {
     const url = new URL(path, location.origin);
     url.searchParams.set("conversation", selectedSession);
     path = url.pathname + url.search;
@@ -1464,6 +1467,7 @@ async function refresh() {
       refreshing = false;
       $("workspace").removeAttribute("aria-busy");
       if (authenticated) panelPoll?.start();
+      if (authenticated && !$('view-messages').hidden) void loadMessageHistory();
     }
     updateActions();
   }
@@ -1538,7 +1542,18 @@ async function dynamicPanel() {
   await panel?.refresh();
 }
 
+async function loadMessageHistory() {
+  if (!messageHistoryLoading) messageHistoryLoading = import('/messages.js').then(module => {
+    messageHistory = module.createMessageHistory({api, epoch: () => sessionEpoch,
+      available: () => authenticated && !$('workspace').hidden && !$('view-messages').hidden && !document.hidden,
+      list: $('messages-list'), status: $('messages-status'), older: $('messages-older')});
+    return messageHistory;
+  }).catch(() => { messageHistoryLoading = null; message('messages-status', 'Перегляд недоступний. Натисни «Оновити».', true); });
+  (await messageHistoryLoading)?.refresh();
+}
+
 function showView(view, focus = true) {
+  if (view !== "messages") messageHistory?.pause();
   if (view !== "desktop") remotePanel?.leave();
   for (const navButton of document.querySelectorAll("[data-view]")) {
     if (navButton.dataset.view === view) navButton.setAttribute("aria-current", "page");
@@ -1556,6 +1571,7 @@ for (const button of document.querySelectorAll("[data-view]")) button.addEventLi
   const view = button.dataset.view;
   showView(view);
   if (view === "activity") void loadActivity();
+  if (view === "messages") void loadMessageHistory();
   if (view === "artifacts") void loadArtifacts();
   if (view === "recovery") void loadRecovery();
   if (view === "memory") void loadMemory();
@@ -1567,11 +1583,15 @@ $("topic-name").addEventListener("input", renderTopicCapability);
 $("refresh").addEventListener("click", () => { message("notice", ""); void refresh(); void dynamicPanel(); if (!$("view-activity").hidden) void loadActivity(); if (!$("view-artifacts").hidden) void loadArtifacts(); if (!$("view-recovery").hidden) void loadRecovery(); if (!$("view-memory").hidden) void loadMemory(); if (!$("view-desktop").hidden) void desktopPanel(); });
 setInterval(() => { void syncSessions(); }, 15000);
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden) messageHistory?.pause();
+  else if (!$('view-messages').hidden) void loadMessageHistory();
   if (document.hidden) panelPoll?.reset();
   else { void syncSessions(); panelPoll?.resume(); }
 });
 window.addEventListener("pagehide", () => { panelPoll?.reset(); telegramTheme?.destroy(); telegramBridge?.destroy(); bridgeObserver?.disconnect(); clearArtifacts(); });
 window.addEventListener("pageshow", () => { telegramTheme?.connect(); telegramBridge?.connect(); bridgeObserver?.observe(document.body, {subtree: true, attributes: true, attributeFilter: ["open", "hidden"]}); panelPoll?.resume(); });
+window.addEventListener("pagehide", () => messageHistory?.pause());
+window.addEventListener("pageshow", () => { if (!$('view-messages').hidden) void loadMessageHistory(); });
 $("return-telegram").addEventListener("click", () => { if (telegramLaunch) window.Telegram?.WebApp?.close(); });
 $("computer-switch").addEventListener("click", () => { void toggleComputer(); });
 $("model-form").addEventListener("submit", event => { event.preventDefault(); void changeModel(); });
