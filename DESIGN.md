@@ -849,3 +849,21 @@ Ordinary-question launchers also reuse their keyed button when another request
 appears or completes. A pending-to-delivery-attention change updates that
 request's own control and keeps focus on its replacement; the question dialog
 and its private/native authority are unchanged.
+
+### Private CLI authentication
+
+`cli_auth` is a status-only InputRequest backed by `cli_login.py` and a separate
+`cli_broker.py` process service. The owner explicitly opens `/cli/` on the trusted
+private origin. The iframe reuses the existing private form CSS and parent
+handshake/epoch guards; only ready and bounded layout height cross back to the
+parent. Its password-style input has no reveal, ordinary form callback, storage,
+telemetry or screenshot path. OAuth URLs remain inside the human origin, and the
+Google link opens only after a human click with no referrer/opener.
+
+The broker starts its own fixed, reviewed adapter with private stdin/stdout/cache.
+Native PTY/PID adoption, arbitrary argv/env/cwd and X11 bypass are unsupported.
+Owner/chat/thread/turn/runtime and panel-session bindings, single-use tickets,
+durable launch receipts and uncertain outcomes prevent automatic replay. Model
+results contain scoped status and allowlisted verification metadata only. Supported
+GPU types are an inventory; availability remains unknown and no GPU is allocated.
+See `docs/private-cli.md` for provisioning and evidence boundaries.
