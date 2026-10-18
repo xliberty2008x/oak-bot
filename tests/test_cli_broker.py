@@ -125,6 +125,27 @@ class CLIBrokerTests(unittest.IsolatedAsyncioTestCase):
             setattr(self, attribute, True)
         self.assertEqual(self.created_processes, [])
 
+    async def test_revoked_boundary_rejects_input_already_waiting_for_lease_lock(self):
+        await self.attach()
+        parsed = asyncio.Event()
+        original = self.broker.human_lease
+        async def observed(request, fields):
+            result = await original(request, fields)
+            parsed.set()
+            return result
+        self.broker.human_lease = observed
+        await self.lease.lock.acquire()
+        pending = asyncio.create_task(self.submit())
+        try:
+            await asyncio.wait_for(parsed.wait(), 2)
+            self.boundary = False
+        finally:
+            self.lease.lock.release()
+        response = await pending
+        self.assertEqual(response.status, 409)
+        self.assertFalse(self.lease.process.submitted)
+        self.assertEqual(self.lease.action, '')
+
     async def test_expired_session_cannot_be_revived_or_queried(self):
         await self.attach()
         self.lease.heartbeat = time.time()-1
