@@ -11,6 +11,7 @@
 - [UX implementation roadmap](ux-roadmap.md): reconciled audit, small PR sequence and handoff ledger.
 - [UX behavior specification](ux-spec.md): implemented behavior, scope, acceptance criteria and recovery constraints.
 - [UX completion record](ux-completion.md): merged PRs, exact verification sources, deployed release and remaining verification limits.
+- [Open issue resolution ledger](open-issues-2026-10-18.md): current issue scope, small implementation units and verification boundaries.
 - [UI/UX concept and mockups](ui-redesign-concept.md): futuristic control panel design system, bento layout and mockups.
 - [Telegram sessions](session-switching-research.md): native topics and message-history limits.
 - [Remote desktop](remote-desktop.md): manual browser login and phone/desktop controls.
