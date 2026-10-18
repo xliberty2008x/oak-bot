@@ -70,6 +70,13 @@ SPECS = [
           {'action': {'type': 'string', 'enum': ['begin', 'observe', 'act', 'present', 'wait']},
            'url': STRING, 'request_id': STRING, 'revision': STRING, 'action_ref': STRING,
            'plan_json': STRING, 'event_seq': {'type': 'integer', 'minimum': 0}}, ['action']),
+    _spec('oak_cli_auth', 'Ask the owner to authorize Colab through a provisioned private CLI channel for this task. '
+          'Only use for an owner-requested connection. The owner opens the private form and enters the code there. '
+          'Never start OAuth through exec_command, request a code in chat, adopt a PTY/session/PID, or export credentials. '
+          'Returns verified authentication and supported GPU types with availability unknown; no GPU is allocated. '
+          'Credentials stay in the private broker; native CLI commands do not use this session. '
+          'If unsupported, report that the private CLI channel is unavailable; do not promise a terminal.',
+          {'provider': {'type': 'string', 'enum': ['colab']}}, ['provider']),
     _spec('oak_request_input', 'Pause this native tool request and open a bounded form in the existing Oak Mini App. '
           'Use server-owned templates for ordinary non-secret data. Never send passwords, OTP, tokens or cookies. '
           'google_sign_in and instagram_sign_in open a separate human login form when provisioned. '
@@ -197,7 +204,7 @@ class WorkerComputer:
 
 class Tools:
     specs = SPECS
-    version = 'oak-v18-creative-media'
+    version = 'oak-v19-private-cli-creative-media'
 
     def __init__(self, controller, config, *, desktop=None):
         from .media import MediaTools
@@ -462,6 +469,10 @@ class Tools:
         if name in {'oak_hf_spaces', 'oak_animate_illustration'}:
             from .animation_tools import execute
             return await execute(self, chat_id, name, args)
+        if name == 'oak_cli_auth':
+            if args != {'provider': 'colab'}:
+                raise ValueError('Only the fixed Colab provider is supported.')
+            return await c.requests.cli_auth(metadata or {})
         if name == 'oak_request_input':
             if not isinstance(args, dict) or set(args) != {'template'}:
                 raise ValueError('Only the server-owned template can be supplied.')
