@@ -60,7 +60,7 @@ or deployed conversation has been verified end to end.
   rich rejection versus uncertain delivery, rate limits and typing cleanup.
 - A native Telegram table with bordered, striped and compact presentation was
   delivered. The owner confirmed that it looked better.
-- The real HTTPS web interface rendered in desktop and mobile layouts. Two
+- The earlier chat-style HTTPS web interface rendered in desktop and mobile layouts. Two
   independent conversations produced separate model sessions and actual text
   deltas. Browser checks also passed with delayed Telegram SDK loading and
   blocked cookies. Detailed evidence remains in private deployment records.
@@ -212,10 +212,20 @@ content; unavailable server-side memory has not been reconstructed or assumed
 empty.
 
 The runtime streams actual assistant text deltas; it is not merely a completed
-response wrapped in one event. Telegram renders coalesced sends and edits, while
-web uses SSE or polling of the same durable events. `sendRichMessageDraft` is not
-implemented or claimed as verified. Group topics and every optional AG-UI event
-family are outside the current private-conversation interface.
+response wrapped in one event. Telegram renders coalesced sends and edits. The
+current panel uses redacted status snapshots; its read-only message view polls a
+bounded assistant-only projection of the same durable events and formats completed
+text with the shared AST. The earlier web-chat checks above do not verify this new
+view. The raw event API retains SSE/poll support for independent consumers.
+`sendRichMessageDraft` and every optional AG-UI event family remain unimplemented
+or unverified. Current conversation routing includes private-chat topics.
+
+The read-only message view has separate local Chromium fixtures against the real
+WebGateway with synthetic sessions and a fake runtime: literal partial deltas,
+final snapshot replacement, safe AST rendering, mobile table scrolling, topic
+changes and runtime-epoch changes with deliberately delayed formatting. These
+checks block external network requests and do not verify Telegram or a provider.
+The Node assembly fixture covers interleaved runs, duplicate cursors and bounds.
 
 ## Reproduce
 
@@ -223,6 +233,7 @@ family are outside the current private-conversation interface.
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -m oak doctor --config config.local.json
 .venv/bin/python -m oak smoke --config config.local.json
+OAK_PROVIDER_BROWSER_TESTS=1 .venv/bin/python -m unittest tests.test_messages_ui
 ```
 
 The smoke command uses the existing subscription login and makes real model

@@ -13,7 +13,7 @@
   --line-strong: rgba(255, 255, 255, .16);
   --ink: #ecf5f0;
   --muted: #8fa59c;
-  --faint: #5f746b;
+  --faint: var(--muted);
   --accent: #3ddc97;
   --accent-2: #8ff5c9;
   --accent-ink: #03140d;
@@ -61,6 +61,26 @@ code { padding: 2px 6px; border-radius: 6px; background: rgba(61, 220, 151, .1);
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 h1:focus { outline: none; }
 ::selection { background: rgba(61, 220, 151, .35); }
+
+/* Read-only assistant history shares the panel's typography and theme tokens. */
+.messages-list { min-width: 0; }
+.message-entry { min-width: 0; padding: 28px 0; border-bottom: 1px solid var(--line-strong); }
+.message-entry > .hint { margin: 6px 0 14px; }
+.message-body { min-width: 0; max-width: 72ch; overflow-wrap: anywhere; }
+.message-literal { white-space: pre-wrap; }
+.message-body h2, .message-body h3, .message-body h4, .message-body h5, .message-body h6 { margin: 24px 0 10px; }
+.message-body p, .message-body ul, .message-body ol, .message-body blockquote { margin: 12px 0; }
+.message-body ul, .message-body ol { padding-inline-start: 24px; }
+.message-body blockquote { padding: 8px 16px; border-inline-start: 1px solid var(--line-strong); color: var(--muted); }
+.message-body code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; }
+.message-body pre { max-width: 100%; overflow: auto; padding: 16px; background: var(--glass-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.message-body a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
+.message-table { max-width: 100%; overflow-x: auto; margin: 16px 0; scrollbar-color: var(--muted) transparent; }
+.message-table table { border-collapse: collapse; min-width: 100%; }
+.message-table th, .message-table td { border: 1px solid var(--line-strong); padding: 9px 12px; text-align: left; min-width: 7rem; vertical-align: top; }
+.message-table th { background: var(--glass-2); font-weight: 650; }
+.message-table .message-align-center { text-align: center; }
+.message-table .message-align-right { text-align: right; }
 
 /* Buttons */
 button, input, select { font: inherit; }
