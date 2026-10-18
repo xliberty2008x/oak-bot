@@ -115,6 +115,13 @@ async def execute(tools, chat_id, name, args):
     if c.active.get(chat_id) != turn or c.sessions.deleted(chat_id):
         raise ValueError('Task stopped during local animation rendering; nothing was delivered.')
     path = tools.file(candidate['path'])
-    tools.quality.require_source(chat_id, path, values['image_path'], values['image_sha256'], CRITERIA)
-    report, _ = await tools.quality.review(chat_id, path)
+    snapshot = await tools.files.snapshot(path, limit=8 * 1024 * 1024)
+    sha = await asyncio.to_thread(digest, snapshot)
+    if sha != candidate.get('sha256'):
+        raise ValueError('Animation candidate changed before review; nothing was delivered.')
+    if c.active.get(chat_id) != turn or c.sessions.deleted(chat_id):
+        raise ValueError('Task stopped before local animation review; nothing was delivered.')
+    tools.quality.require_source(chat_id, path, values['image_path'], values['image_sha256'], CRITERIA,
+                                 artifact_sha256=sha)
+    report, _ = await tools.quality.review(chat_id, path, snapshot=snapshot)
     return {**candidate, **report, 'path': str(path), 'method': 'procedural_2d', 'review_required': True}
