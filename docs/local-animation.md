@@ -36,11 +36,16 @@ motion, preserved appearance/clothing, coherent lid texture, correct occlusion
 and a usable loop. Numeric pixel differences prove neither semantics nor craft.
 The existing review gate must return `pass` for the exact immutable candidate;
 `revise` and `unverified` must not deliver it. Generation alone never sends a file.
-Generated candidates retain a durable conversation-scoped binding to the source
-path, original SHA-256 and fixed acceptance criteria. A later turn or gateway
+Generated candidates retain a durable conversation-scoped binding from both
+candidate path and exact output SHA-256 to the source path, original SHA-256 and
+fixed acceptance criteria. A later turn or gateway
 restart cannot erase that requirement, and producer-supplied review arguments
 cannot replace it. A changed/missing source requires restoration or a new
 candidate. Disabling quality review prevents delivery of these bound candidates.
+Identical copied/renamed bytes retain the binding, including under a different
+extension; output identity is checked on an immutable gateway snapshot before
+delivery. This is exact-byte identity, not a watermark: edited/re-encoded copies
+still rely on the general independent review against the owner's task.
 
 The native `oak_animate_illustration` tool takes `image_path`,
 `closed_eyes_path`, `eye_regions`, `hair_polygons` and optional `seconds`, `fps`,

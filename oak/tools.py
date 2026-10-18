@@ -339,30 +339,42 @@ class Tools:
         return self.file(value)
 
     async def artifact(self, chat_id, path, caption=''):
+        turn = getattr(self.controller, 'active', {}).get(chat_id)
         path = await self._artifact_file(path)
-        from .quality_gate import required_source
-        if required_source(self.controller.db, chat_id, path) and self.quality is None:
+        from .quality_gate import digest, has_bound_bytes, required_source
+        bound = required_source(self.controller.db, chat_id, path)
+        if bound and self.quality is None:
             raise ValueError('This candidate requires independent source/video review before delivery.')
+        delivery_path = None
+        if has_bound_bytes(self.controller.db):
+            if self.files is None:
+                raise ValueError('Artifact identity checks require the configured execution worker.')
+            delivery_path = await self.files.snapshot(path)
+            sha = await asyncio.to_thread(digest, delivery_path)
+            bound = required_source(self.controller.db, chat_id, path, sha)
+            if bound and self.quality is None:
+                raise ValueError('This candidate requires independent source/video review before delivery.')
+        if turn is not None and self.controller.active.get(chat_id) != turn:
+            raise ValueError('Task stopped before artifact review or delivery.')
         name = path.name
         review = None
-        turn = getattr(self.controller, 'active', {}).get(chat_id)
         if self.quality:
             from .quality_gate import VISUAL_SUFFIXES
             from .quality_media import _kind
             if self.files:
-                delivery_path = await self.files.snapshot(path)
+                delivery_path = delivery_path or await self.files.snapshot(path)
             else:
                 raise ValueError('Independent visual review requires the configured execution worker.')
             with delivery_path.open('rb') as stream:
                 header = stream.read(32)
-            if path.suffix.lower() in VISUAL_SUFFIXES or _kind(header) != 'unsupported':
+            if bound or path.suffix.lower() in VISUAL_SUFFIXES or _kind(header) != 'unsupported':
                 review, snapshot = await self.quality.review(chat_id, path, snapshot=delivery_path)
                 if review.get('verdict') != 'pass':
                     return {**review, 'queued_for_delivery': False, 'path': str(path)}
                 delivery_path = snapshot
         else:
-            delivery_path = path
-        if review and self.controller.active.get(chat_id) != turn:
+            delivery_path = delivery_path or path
+        if turn is not None and self.controller.active.get(chat_id) != turn:
             raise ValueError('Task stopped before delivery.')
         await self.controller.emit(chat_id, {'type': 'CUSTOM', 'name': 'artifact',
                                            'value': {'path': str(delivery_path), 'name': name, 'caption': caption}})
