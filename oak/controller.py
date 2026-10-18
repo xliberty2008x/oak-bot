@@ -896,55 +896,90 @@ class Controller:
             await self.submit(row['chat_id'], row['text'], row['update_id'], json.loads(row['attachments']))
 
     async def run_events(self):
-        while True:
-            msg = await self.client.events.get()
-            params = msg.get('params', {})
-            if msg.get('method') == 'client/disconnected':
-                for chat_id in tuple(self.active):
-                    await self.emit(chat_id, {'type': 'RUN_ERROR', 'message':
-                        'Зв’язок із рушієм втрачено. Стан задачі збережений для перевірки.'})
-                raise RuntimeError('Agent runtime disconnected.')
-            thread_id = params.get('threadId')
-            chat_id = self.chat_for_thread(thread_id)
-            if chat_id is None:
-                continue
-            async with self._lock(chat_id):
-                if msg.get('method') == 'turn/completed':
-                    turn = params['turn']
-                    if self.active.get(chat_id) == turn['id']:
-                        self.active.pop(chat_id, None)
-                    self.interactions.cancel_turn(thread_id, turn['id'])
-                    self.requests.invalidate_turn(thread_id, turn['id'])
-                    if turn['status'] in {'interrupted', 'failed'}:
-                        self.a2ui.invalidate(chat_id, turn['id'])
-                    with self.db:
-                        self.db.execute('UPDATE turns SET status=? WHERE turn_id=?',
-                                        (turn['status'], turn['id']))
-                events = self.mapper.feed(msg)
-            for event in events:
-                await self.emit(chat_id, event)
-            item = params.get('item', {})
-            if msg.get('method') == 'item/completed' and item.get('type') == 'imageGeneration' and item.get('savedPath') and self.tools:
-                if getattr(self.tools, 'quality', None) is not None:
-                    # The producer receives savedPath from its native tool and
-                    # explicitly reviews/sends it. Never discard a failed review
-                    # in this event pump or auto-deliver a candidate first.
-                    continue
-                files = getattr(self.tools, 'files', None)
-                if files is not None:
-                    source = Path(item['savedPath'])
-                    snapshot = await files.snapshot(source, namespace='generated_images')
-                    target = Path(self.cwd) / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + snapshot.suffix)
-                    await files.write_trusted(snapshot, target)
-                    await self.tools.artifact(chat_id, target, 'Зображення')
-                    continue
-                source = Path(item['savedPath']).resolve()
-                image_root = self.client.home / 'generated_images'
-                if source.is_file() and source.is_relative_to(image_root.resolve()):
-                    target = Path(self.cwd) / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + source.suffix)
-                    target.parent.mkdir(exist_ok=True)
-                    await asyncio.to_thread(shutil.copyfile, source, target)
-                    await self.tools.artifact(chat_id, target, 'Зображення')
+        """Keep each conversation ordered without waiting on another's RPC lock."""
+        queues = {}
+
+        async def consume(chat_id, queue):
+            try:
+                while not queue.empty():
+                    await self._run_event(chat_id, queue.get_nowait())
+            finally:
+                queues.pop(chat_id, None)
+
+        try:
+            async with asyncio.TaskGroup() as workers:
+                while True:
+                    msg = await self.client.events.get()
+                    if msg.get('method') == 'client/disconnected':
+                        # Finish notifications already received before declaring
+                        # the remaining turns uncertain. Runtime disconnect also
+                        # releases pending RPCs and therefore their routing locks.
+                        break
+                    chat_id = self.chat_for_thread(msg.get('params', {}).get('threadId'))
+                    if chat_id is None:
+                        continue
+                    if chat_id not in queues:
+                        queues[chat_id] = asyncio.Queue(maxsize=512)
+                        workers.create_task(consume(chat_id, queues[chat_id]))
+                    try:
+                        queues[chat_id].put_nowait(msg)
+                    except asyncio.QueueFull:
+                        # Fail closed; do not silently lose lifecycle/delta events
+                        # or replay a possibly accepted native operation.
+                        raise RuntimeError('Conversation event backlog exceeded.') from None
+                    await asyncio.sleep(0)  # Let ready workers consume a burst.
+            for chat_id, run_id in tuple(self.active.items()):
+                await self.emit(chat_id, {'type': 'RUN_ERROR', 'runId': run_id,
+                    'threadId': self.threads[chat_id], 'message':
+                    'Зв’язок із рушієм втрачено. Стан задачі збережений для перевірки.'})
+            raise RuntimeError('Agent runtime disconnected.')
+        finally:
+            # TaskGroup awaits every worker on cancellation/error; a new pump
+            # must not inherit partial assembly from a disconnected runtime.
+            self.mapper = EventMapper()
+
+    async def _run_event(self, chat_id, msg):
+        params = msg.get('params', {})
+        thread_id = params.get('threadId')
+        async with self._lock(chat_id):
+            if self.threads.get(chat_id) != thread_id:
+                return  # A queued old thread cannot update its replacement.
+            if msg.get('method') == 'turn/completed':
+                turn = params['turn']
+                if self.active.get(chat_id) == turn['id']:
+                    self.active.pop(chat_id, None)
+                self.interactions.cancel_turn(thread_id, turn['id'])
+                self.requests.invalidate_turn(thread_id, turn['id'])
+                if turn['status'] in {'interrupted', 'failed'}:
+                    self.a2ui.invalidate(chat_id, turn['id'])
+                with self.db:
+                    self.db.execute('UPDATE turns SET status=? WHERE turn_id=?',
+                                    (turn['status'], turn['id']))
+            events = self.mapper.feed(msg)
+        for event in events:
+            await self.emit(chat_id, event)
+        item = params.get('item', {})
+        if msg.get('method') == 'item/completed' and item.get('type') == 'imageGeneration' and item.get('savedPath') and self.tools:
+            if getattr(self.tools, 'quality', None) is not None:
+                # The producer receives savedPath from its native tool and
+                # explicitly reviews/sends it. Never discard a failed review
+                # in this event pump or auto-deliver a candidate first.
+                return
+            files = getattr(self.tools, 'files', None)
+            if files is not None:
+                source = Path(item['savedPath'])
+                snapshot = await files.snapshot(source, namespace='generated_images')
+                target = Path(self.cwd) / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + snapshot.suffix)
+                await files.write_trusted(snapshot, target)
+                await self.tools.artifact(chat_id, target, 'Зображення')
+                return
+            source = Path(item['savedPath']).resolve()
+            image_root = self.client.home / 'generated_images'
+            if source.is_file() and source.is_relative_to(image_root.resolve()):
+                target = Path(self.cwd) / 'artifacts' / ('image-' + uuid.uuid4().hex[:12] + source.suffix)
+                target.parent.mkdir(exist_ok=True)
+                await asyncio.to_thread(shutil.copyfile, source, target)
+                await self.tools.artifact(chat_id, target, 'Зображення')
 
     def close(self):
         self.db.close()
