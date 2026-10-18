@@ -74,7 +74,7 @@
             </article>
             <aside class="telegram-note"><h2>Продовжуй у Telegram</h2><p>Пиши Oak і додавай уточнення в розмові з ботом. Підтверджувати дії можна тут або в Telegram.</p><p><code>/new</code> починає нову розмову, <code>/memory</code> показує пам’ять поточної розмови.</p></aside>
           </div>
-          <div class="item-actions"><button type="button" class="quiet" data-view="artifacts" aria-controls="view-artifacts">Файли розмови</button><button type="button" class="quiet" data-view="activity" aria-controls="view-activity">Історія активності</button></div>
+          <div class="item-actions"><button type="button" class="quiet" data-view="messages" aria-controls="view-messages">Повідомлення Oak</button><button type="button" class="quiet" data-view="artifacts" aria-controls="view-artifacts">Файли розмови</button><button type="button" class="quiet" data-view="activity" aria-controls="view-activity">Історія активності</button></div>
           <section id="approvals-panel" hidden aria-labelledby="approvals-heading">
             <h2 id="approvals-heading">Підтвердження дій</h2>
             <ul id="approvals-list" class="item-list" aria-label="Запити підтвердження"></ul>
@@ -119,6 +119,12 @@
           <p id="tasks-status" class="section-message" role="status">Завантажуємо задачі…</p>
           <ul id="tasks-list" class="item-list task-list" aria-label="Заплановані задачі"></ul>
           <p class="hint section-footnote">Задачі можна також створити в Telegram. Скасування розкладу не зупиняє роботу, яка вже почалась.</p>
+        </section>
+        <section id="view-messages" class="view" aria-labelledby="messages-heading" hidden>
+          <div class="view-heading"><h1 id="messages-heading" tabindex="-1">Повідомлення Oak</h1><p>Відповіді вибраної сесії, лише для читання. Продовжуй розмову в Telegram.</p></div>
+          <p id="messages-status" class="hint" role="status">Повідомлення ще не завантажено.</p>
+          <button id="messages-older" class="quiet" type="button" hidden>Завантажити раніші повідомлення</button>
+          <div id="messages-list" class="messages-list"></div>
         </section>
         <section id="view-activity" class="view" aria-labelledby="activity-heading" hidden>
           <div class="view-heading"><h1 id="activity-heading" data-i18n="activity.title" tabindex="-1">Історія активності</h1><p>Стан виконання, тривалість і види дій у вибраній сесії</p></div>
