@@ -1,10 +1,11 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from oak.cli_provider import Provider, immutable, manifest
+from oak.cli_provider import ADAPTER_MODULES, Provider, immutable, manifest
 from oak.colab_auth import UPSTREAM_COMMIT
 
 
@@ -23,7 +24,8 @@ class PrivateProviderTests(unittest.TestCase):
         self.direct.write_text(json.dumps({'vcs_info': {'commit_id': UPSTREAM_COMMIT}}))
         self.source = self.root/'release/oak/colab_auth.py'
         self.source.parent.mkdir(parents=True)
-        self.source.write_text('# synthetic adapter')
+        for name in ADAPTER_MODULES:
+            (self.source.parent/(name + '.py')).write_text('# synthetic adapter import')
         # Synthetic temporary trees deliberately are not trusted root installs.
         # Ownership enforcement has its own fail-closed check below.
         self.trust = patch('oak.cli_provider.immutable', side_effect=lambda p, **kw: Path(p))
@@ -78,9 +80,70 @@ class PrivateProviderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.provider()
 
+    def test_global_site_setting_is_a_single_explicit_false_value(self):
+        config = self.prefix/'pyvenv.cfg'
+        for text in ('# include-system-site-packages = false\ninclude-system-site-packages = true\n',
+                     'include-system-site-packages = false\ninclude-system-site-packages = true\n',
+                     'include-system-site-packages = false\ninclude-system-site-packages = false\n',
+                     '# include-system-site-packages = false\n',
+                     'home = /synthetic/python\n'):
+            with self.subTest(config=text):
+                config.write_text(text)
+                with self.assertRaises(ValueError):
+                    manifest(self.python)
+        config.write_text('# comment\n Include-System-Site-Packages = FALSE \n')
+        self.assertTrue(manifest(self.python)['files'])
+
     def test_actual_untrusted_temporary_tree_cannot_be_approved(self):
         with self.assertRaises(ValueError):
             immutable(self.python)
+
+    def test_each_adapter_import_mutation_revokes_readiness(self):
+        for name in ADAPTER_MODULES:
+            with self.subTest(module=name):
+                provider = self.provider()
+                (self.source.parent/(name + '.py')).write_text('# changed existing import')
+                self.assertFalse(provider.ready())
+
+    def test_adapter_import_permissions_and_symlinks_are_checked(self):
+        original_stat = Path.lstat
+        for name in ADAPTER_MODULES:
+            source = self.source.parent/(name + '.py')
+            for mutation in ('writable', 'owner', 'symlink'):
+                with self.subTest(module=name, mutation=mutation):
+                    def root_stat(path):
+                        fields = list(original_stat(path))
+                        # A synthetic root-owned tree; only this import is unsafe.
+                        fields[4] = 0
+                        fields[0] &= ~0o022
+                        if path == source:
+                            if mutation == 'writable':
+                                fields[0] |= 0o020
+                            elif mutation == 'owner':
+                                fields[4] = 1000
+                            else:
+                                fields[0] = 0o120777
+                        return os.stat_result(fields)
+                    with patch('oak.cli_provider.immutable', wraps=immutable), \
+                            patch.object(Path, 'lstat', autospec=True, side_effect=root_stat):
+                        with self.assertRaises(ValueError):
+                            self.provider()
+
+    def test_existing_and_later_bytecode_or_import_shadow_are_rejected(self):
+        for relative in ('__pycache__/cli_contract.cpython-312.pyc',
+                         'cli_process.pyc', 'nested/cache.pyo',
+                         'cli_contract/__init__.py'):
+            with self.subTest(path=relative):
+                target = self.source.parent/relative
+                provider = self.provider()
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b'not approved')
+                self.assertFalse(provider.ready())
+                with self.assertRaises(ValueError):
+                    self.provider()
+                target.unlink()
+                if target.parent != self.source.parent:
+                    target.parent.rmdir()
 
 
 if __name__ == '__main__':
