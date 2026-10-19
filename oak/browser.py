@@ -23,6 +23,15 @@ class BrowserFailure(Exception):
         super().__init__(message)
 
 
+class UploadTooLarge(ValueError):
+    """Curated local preflight evidence, safe to return through the worker."""
+
+    def __init__(self, observed_bytes):
+        self.observed_bytes = observed_bytes
+        self.max_bytes = MAX_UPLOAD
+        super().__init__('Upload payload exceeds the local browser upload limit.')
+
+
 def _safe_url(value):
     """Navigation state must not echo authorization query strings or fragments."""
     try:
@@ -278,8 +287,10 @@ class BrowserTools:
                     directory = child
                 descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=directory)
                 before = os.fstat(descriptor)
-                if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > MAX_UPLOAD - total:
-                    raise ValueError('Upload requires regular files totalling at most 128 MiB.')
+                if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+                    raise ValueError('Upload requires regular workspace files without hardlinks.')
+                if before.st_size > MAX_UPLOAD - total:
+                    raise UploadTooLarge(total + before.st_size)
                 chunks, size = [], 0
                 while True:
                     chunk = os.read(descriptor, min(1024 * 1024, MAX_UPLOAD - total - size + 1))
@@ -287,7 +298,7 @@ class BrowserTools:
                         break
                     size += len(chunk)
                     if size > MAX_UPLOAD - total:
-                        raise ValueError('Upload files exceed 128 MiB.')
+                        raise UploadTooLarge(total + size)
                     chunks.append(chunk)
                 after = os.fstat(descriptor)
                 identity = lambda item: (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
@@ -344,7 +355,35 @@ class BrowserTools:
                   files=None, timeout_ms=None, tab=None):
         self._validate(action, url, selector, text, frame, files, timeout_ms, tab)
         # Before any page side effect, take immutable upload payloads.
-        payloads = await asyncio.to_thread(self._upload_payloads, files) if action == 'upload' else None
+        try:
+            payloads = await asyncio.to_thread(self._upload_payloads, files) if action == 'upload' else None
+        except ValueError as exc:
+            # Expected local validation must travel as a result. Raising through
+            # the execution worker would retain only the exception class, losing
+            # the size/stage needed to recover without handing the task back.
+            error = {'code': 'upload_source_invalid', 'stage': 'upload_preflight',
+                     'message': 'The upload source could not be safely prepared.',
+                     'recovery': 'Inspect the workspace source and use a stable regular file; preserve the original.'}
+            if isinstance(exc, UploadTooLarge):
+                error.update(code='payload_too_large', message=str(exc),
+                             observed_bytes=exc.observed_bytes, max_bytes=exc.max_bytes,
+                             recovery='The payload was not sent to the site. Inspect an existing valid prepared copy, '
+                                      'or prepare a separate smaller copy within the authorized quality and content choices; '
+                                      'preserve the original. If exact original bytes are required, use an already authorized '
+                                      'supported upload route with a sufficient limit.')
+            else:
+                # Only these source-owned messages are safe. Never return an
+                # arbitrary exception, path, entered value or transport detail.
+                curated = {
+                    'Upload files must be inside the Oak workspace.',
+                    'Private service files cannot be uploaded.',
+                    'Upload requires regular workspace files without hardlinks.',
+                    'Upload source changed while reading; create a stable copy and retry.',
+                    'Upload source is missing or unsafe; use a regular workspace file without symlinks.',
+                }
+                if str(exc) in curated:
+                    error['message'] = str(exc)
+            return {'ok': False, 'action': action, 'outcome': 'not_attempted', 'error': error}
         timeout = timeout_ms or (30000 if action in {'open', 'download'} else 15000)
         if action == 'type' and text:
             self._redactions = [item for item in self._redactions if item != text][-63:] + [text]
