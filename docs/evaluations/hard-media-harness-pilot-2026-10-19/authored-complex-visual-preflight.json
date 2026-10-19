@@ -1,0 +1,145 @@
+{
+  "disposition": "Excluded DEV authored visual preflight; no producer or held-out feedback.",
+  "runs": [
+    {
+      "task_id": "dev-create-folio301-perspective",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "effort": "low",
+      "review": {
+        "verdict": "pass",
+        "summary": "The restored area matches the donor detail while retaining the target’s perspective and surrounding artwork. No material repair defects are visible.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Donor alignment and target perspective",
+            "status": "pass",
+            "evidence": "Landmarks A–D retain their target positions, and the repaired stems, lettering and rule follow the target’s existing perspective."
+          },
+          {
+            "criterion": "Restored detail and coherent execution",
+            "status": "pass",
+            "evidence": "The formerly stained region contains continuous fine stems and branches, matching paper texture, and restored lettering. No visible seams, doubled edges or localized blur appear in the supplied crops."
+          },
+          {
+            "criterion": "Repair confined to the authorization area",
+            "status": "pass",
+            "evidence": "Visible changes correspond to the guided damage region; surrounding plants, border, title and landmarks appear unchanged."
+          },
+          {
+            "criterion": "Clean final image",
+            "status": "pass",
+            "evidence": "No purple stain or cyan authorization marks remain. Small lettering, diacritics and the horizontal rule remain visually coherent."
+          }
+        ],
+        "limitations": [
+          "Visual comparison supports preservation outside the guide but does not establish exact pixel identity or the producer’s alignment procedure."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 13.765,
+        "sha256": "a4bdebeca10d962ac178b22505465ed43b8f7bb2dae91fb0428fba7a19b67465",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "1c4d712cf294de74533484e217b8964f7782a4c8a5fd43b7f08a4e7727c13ad6",
+      "visual_requirements_sha256": "208a4e4a2f13de9bd881d667e4d9b8cf7f0244804dbc40995662ad5dc17b3261",
+      "mechanical_requirements_sha256": "938746f47e8834a72220b2066093ca6ae1fbd98d072ad2db9274feaff0d8cd8c"
+    },
+    {
+      "task_id": "dev-create-vines303-depth",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "effort": "low",
+      "review": {
+        "verdict": "pass",
+        "summary": "The supplied frames support the requested crossing choreography, preserved actor artwork and correct veil depth order, with no material visible defects.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Both original patterned actors move past one another while retaining their appearance.",
+            "status": "pass",
+            "evidence": "The purple actor travels left to right and the gold actor right to left. Their patterns, colors, proportions and silhouettes remain consistent with the atlas."
+          },
+          {
+            "criterion": "Correct actor/actor and actor/veil occlusion.",
+            "status": "pass",
+            "evidence": "The purple actor passes behind veil I; the gold actor crosses in front of it. Both are partially hidden by veil II. At their central crossing, the gold actor appears in front of the purple actor."
+          },
+          {
+            "criterion": "Continuous movement with clean partial visibility and sprite edges.",
+            "status": "pass",
+            "evidence": "Sampled beginning, crossing and ending states show progressive travel. Detail crops show intact patterns and clean plant intersections without visible opaque padding or detached patches."
+          },
+          {
+            "criterion": "Plants, mural, lettering, border, paper and camera remain stationary.",
+            "status": "pass",
+            "evidence": "These elements retain their positions and appearance across the supplied sequence and match the stationary scene reference."
+          }
+        ],
+        "limitations": [
+          "Review is based on supplied timestamped frames and detail crops, not continuous playback; unsupplied frames cannot be individually assessed."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 9.034,
+        "sha256": "0921b8e405557102bcd245c9f595cfc25c63333ded0ca476bad3f9a56485d86c",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "5ad78cb084ac84f508f5c8d7395923a0fde2de2fd86c2203c8138db2e31e5db8",
+      "visual_requirements_sha256": "a7c0954fb6bffaeacea50cc15843fa52efdaa40875088f7da11dcdbd403d118f",
+      "mechanical_requirements_sha256": "1e7d6122ad0114c5d4e70ad0334c98bccbf3a5e33441890bdd888c38ffbd094e"
+    },
+    {
+      "task_id": "dev-create-linkage305-motion",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "effort": "low",
+      "review": {
+        "verdict": "pass",
+        "summary": "The sampled animation satisfies the assembly, rigid-link motion and below-line elbow requirements without visible material defects.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Preserve the stationary base and align the cyan ground pivot.",
+            "status": "pass",
+            "evidence": "The background remains unchanged, and the cyan link pivot stays aligned with the source ground marker."
+          },
+          {
+            "criterion": "Keep both complete source links recognizable and rigid.",
+            "status": "pass",
+            "evidence": "The links retain their source proportions, patterned linework and markers across the supplied poses; no visible stretching, repainting or missing sections appears."
+          },
+          {
+            "criterion": "Keep the orange hinge connected and the magenta tip on the endpoint loop.",
+            "status": "pass",
+            "evidence": "Detail crops show a joined orange hinge, while the sampled magenta positions trace the visible dotted loop."
+          },
+          {
+            "criterion": "Maintain the elbow below the ground-to-tip line without branch flips.",
+            "status": "pass",
+            "evidence": "Beginning, intermediate and ending samples consistently show the elbow below that line, with gradual pose changes and no observed branch switch."
+          }
+        ],
+        "limitations": [
+          "Review covers the supplied timestamped frames and detail crops, not every frame at full resolution."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 13.448,
+        "sha256": "57d0e2dcf4a27a0e6998ee17501039a8f54bcfbbfab9c20abc78d31b2a329242",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "bab05d3688103cd75a21d08ec1fa569e5432f949d3fb8e9f67d59b57d684bd8c",
+      "visual_requirements_sha256": "287fd2ee88cedfe0ee20f51b378bb624b92494ffd00f90b913e5e30f2d359ba0",
+      "mechanical_requirements_sha256": "df2e3ebc2bec6b7be297075c822c2f75024c62a5b223b9f3f4fd76de7fa32610"
+    }
+  ],
+  "stage": "authored-complex-visual-preflight",
+  "excluded_from_main_comparison": true,
+  "source_commit": "4fa96e99e5e3a8934f11357574976faa604638c4",
+  "effort": "low",
+  "model": "gpt-6.1-sol"
+}

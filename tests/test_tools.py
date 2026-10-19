@@ -144,6 +144,26 @@ class BrowserDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(response['success'])
         self.assertEqual(json.loads(response['contentItems'][0]['text']), failure)
 
+    async def test_real_upload_preflight_remains_failed_and_actionable_in_native_tool_response(self):
+        from oak.browser import MAX_UPLOAD
+        tools = Tools(self.controller, {'browser_action_approval': 'never'})
+        source = Path(self.folder.name) / 'private-file-canary.mp4'
+        with source.open('wb') as stream:
+            stream.truncate(MAX_UPLOAD + 1)
+        tools.browser._start = AsyncMock(side_effect=AssertionError('Must not start browser'))
+        response = await tools.handle(dict(self.metadata, tool='oak_browser', arguments={
+            'action': 'upload', 'selector': '#file', 'files': [str(source)]}))
+        self.assertFalse(response['success'])
+        result = json.loads(response['contentItems'][0]['text'])
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.assertEqual(result['error']['code'], 'payload_too_large')
+        self.assertEqual(result['error']['observed_bytes'], MAX_UPLOAD + 1)
+        self.assertEqual(result['error']['max_bytes'], MAX_UPLOAD)
+        self.assertEqual(result['error']['stage'], 'upload_preflight')
+        self.assertNotIn(source.name, response['contentItems'][0]['text'])
+        tools.browser._start.assert_not_awaited()
+        self.controller.emit.assert_not_awaited()
+
     async def test_shared_browser_and_computer_hold_one_turn_owner_and_respect_takeover(self):
         tools = self.tools('never', shared=True)
         await tools.execute(7, 'oak_browser', {'action': 'read'}, self.metadata)
