@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from oak.harness2_activation_demo import run_demo
-from oak.harness2_pipeline import BudgetStopped, PipelineStore
+from oak.harness2_pipeline import BudgetStopped, PipelineStore, file_sha, schedule_next
 from oak.harness_versions import HarnessVersions
 
 
@@ -111,6 +111,73 @@ class ControlledActivationDemoTests(unittest.TestCase):
             with self.subTest(changed=changed), self.assertRaises(ValueError):
                 run_demo(self.root, runner=self.runner, **changed)
         self.assertEqual(self.calls, [])
+
+    def test_terminal_monitoring_cases_are_scoped_private_unapproved_and_survive_reopen(self):
+        report = run_demo(self.root, timeout=30, runner=self.runner)
+        store = PipelineStore(self.root, 'harness2-demo', 1, 'media-depth')
+        try:
+            cases = store.cases()
+            self.assertEqual(len(cases), 2)
+            self.assertEqual(store.cases(approved_only=True), [])
+            self.assertEqual({row['id'] for row in cases},
+                             {row['monitoring_case_id'] for row in report['followups']})
+            for case in cases:
+                payload = case['payload']
+                self.assertEqual(payload['source'], 'activation-demo-native-followup')
+                self.assertEqual(payload['visibility'], 'public_fixture')
+                self.assertEqual(payload['execution_mode'], 'local-fixture')
+                self.assertFalse(payload['model_backed'])
+                self.assertFalse(payload['quality_gain_claim'])
+                self.assertNotIn('descriptor', payload)
+                self.assertNotIn('reviews', payload)
+                self.assertEqual(payload['result']['status'], 'unverified')
+                self.assertFalse(payload['result']['delivered'])
+                self.assertFalse(payload['result']['visual_passed'])
+                self.assertEqual(payload['result']['mechanical_evaluation'], 'not_run_in_activation_followup')
+                self.assertIn('delivery_missing', payload['failure_reason'])
+                self.assertEqual(file_sha(payload['artifact_reference']), payload['receipt_reference_sha256'])
+            queue = store.db.execute('SELECT state,priority FROM queue WHERE scope=?', (store.key,)).fetchone()
+            self.assertEqual(tuple(queue), ('pending', 100))
+            # Monitoring metadata raises priority, but does not silently grant
+            # consent or create a new optimizer task from the receipt.
+            self.assertIsNone(schedule_next(store))
+        finally:
+            store.close()
+        reopened = PipelineStore(self.root, 'harness2-demo', 1, 'media-depth')
+        foreign = PipelineStore(self.root, 'harness2-demo', 2, 'media-depth')
+        try:
+            self.assertEqual(len(reopened.cases()), 2)
+            self.assertEqual(foreign.cases(), [])
+        finally:
+            reopened.close()
+            foreign.close()
+
+    def test_cached_terminal_followup_monitoring_is_deduplicated_after_worker_restart(self):
+        attempts = []
+
+        def interrupt_second(*args, **kwargs):
+            attempts.append(True)
+            if len(attempts) == 2:
+                raise ConnectionError('Controlled interruption during the second follow-up.')
+            return self.runner(*args, **kwargs)
+
+        with self.assertRaises(ConnectionError):
+            run_demo(self.root, timeout=30, runner=interrupt_second)
+        store = PipelineStore(self.root, 'harness2-demo', 1, 'media-depth')
+        first_case = store.cases()[0]['id']
+        self.assertEqual(len(store.cases()), 1)
+        store.close()
+        report = run_demo(self.root, timeout=30, runner=interrupt_second)
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(report['followups'][0]['monitoring_case_id'], first_case)
+        store = PipelineStore(self.root, 'harness2-demo', 1, 'media-depth')
+        try:
+            self.assertEqual(len(store.cases()), 2)
+            self.assertEqual(len(store.cases(approved_only=True)), 0)
+        finally:
+            store.close()
+        self.assertEqual(run_demo(self.root, timeout=30, runner=interrupt_second), report)
+        self.assertEqual(len(attempts), 3)
 
 
 if __name__ == '__main__':

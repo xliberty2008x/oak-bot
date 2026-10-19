@@ -56,7 +56,7 @@ class _Evidence:
             raise ValueError('Evidence links are forbidden.')
         return path
 
-    def bytes(self, value, *, maximum=64 * 1024 * 1024):
+    def bytes(self, value, *, maximum=64 * 1024 * 1024, remember=True):
         path = self._path(value)
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
         with os.fdopen(descriptor, 'rb') as stream:
@@ -69,7 +69,8 @@ class _Evidence:
             if (len(data) != before.st_size or before.st_size != after.st_size
                     or before.st_mtime_ns != after.st_mtime_ns):
                 raise ValueError('Evidence changed while being exported.')
-        self.index[path.relative_to(self.root).as_posix()] = hashlib.sha256(data).hexdigest()
+        if remember:
+            self.index[path.relative_to(self.root).as_posix()] = hashlib.sha256(data).hexdigest()
         return data
 
     def json(self, path):
@@ -204,6 +205,63 @@ def _producer_costs(producers):
             for (phase, arm), rows in sorted(groups.items())]
 
 
+def _construction_controls(cycle, evidence):
+    """Export only the exact preflight selected before this cycle's models."""
+    expected = cycle['config'].get('construction_controls_sha256')
+    if expected is None:
+        return None
+    if not isinstance(expected, str) or not re.fullmatch('[a-f0-9]{64}', expected):
+        raise ValueError('Cycle construction-control commitment is invalid.')
+    selected = []
+    for path in sorted((evidence.scope_root / 'construction-controls').rglob('preflight.json')):
+        raw = evidence.bytes(path, remember=False)
+        record = json.loads(raw)
+        if _digest(record) == expected:
+            selected.append((path, raw, record))
+    if len(selected) != 1:
+        raise ValueError('The exact selected authored construction receipt is missing or ambiguous.')
+    path, raw, record = selected[0]
+    if record.get('status') != 'pass' or not record.get('cases'):
+        raise ValueError('The selected authored construction controls did not pass.')
+    evidence.index[path.relative_to(evidence.root).as_posix()] = hashlib.sha256(raw).hexdigest()
+    descriptor_map = {_digest(row['descriptor']): row for rows in cycle['manifest'].values() for row in rows}
+    bindings = []
+    for case in record['cases']:
+        descriptor = descriptor_map.get(case.get('descriptor_sha256'))
+        if descriptor is None or case.get('source_commitment') != descriptor['commitment']:
+            raise ValueError('Authored controls do not match this cycle\'s sealed source inputs.')
+        if case.get('status') != 'pass' or set(case.get('controls', {})) != {'positive', 'negative'}:
+            raise ValueError('Authored positive and negative construction evidence is incomplete.')
+        controls = case['controls']
+        if (controls['positive'].get('mechanical', {}).get('status') != 'pass'
+                or controls['negative'].get('mechanical', {}).get('status') != 'fail'
+                or controls['negative'].get('mechanical', {}).get('structural_status') != 'pass'):
+            raise ValueError('Authored control grades differ from the sealed positive/negative protocol.')
+        files = []
+        for control in controls.values():
+            if not isinstance(control.get('files'), dict) or not control['files']:
+                raise ValueError('Authored control file bindings are missing.')
+            if control.get('artifact_sha256') not in control['files'].values():
+                raise ValueError('Authored control artifact is absent from its bound files.')
+            for relative, sha in control['files'].items():
+                if (not isinstance(relative, str) or '\\' in relative or Path(relative).is_absolute()
+                        or '..' in Path(relative).parts or not relative
+                        or not isinstance(sha, str) or not re.fullmatch('[a-f0-9]{64}', sha)):
+                    raise ValueError('Authored control file escaped its bound preflight directory.')
+                files.append(evidence.hash_file(path.parent / relative, expected=sha))
+        sources = []
+        for name, sha in case['source_commitment']['inputs'].items():
+            if Path(name).name != name or '\\' in name or name in {'.', '..'}:
+                raise ValueError('Authored source file escaped its bound input directory.')
+            source = path.parent / descriptor['descriptor']['id'] / 'workspace/inputs' / name
+            sources.append(evidence.hash_file(source, expected=sha))
+        bindings.append({'task_id': descriptor['descriptor']['id'], 'files': files, 'source_files': sources})
+    return {'path': path.relative_to(evidence.root).as_posix(), 'record': record,
+            'selected_receipt_sha256': expected, 'raw_receipt_sha256': hashlib.sha256(raw).hexdigest(),
+            'verified_bindings': bindings,
+            'evidence_class': 'local_authored_construction_controls_no_models_no_visual_aesthetic_verdict'}
+
+
 def _version_state(root, scope):
     path = root / 'versions.sqlite3'
     if not path.exists():
@@ -272,6 +330,18 @@ def export_report(root, project, chat, *, domain='media-depth'):
             files = {}
             for name in ('parent.json', 'upstream-result.json', 'freeze.json', 'evaluation.json', 'decision.json'):
                 files[name] = evidence.json(directory / name)
+            approved_path = directory / 'approved-development-evidence.json'
+            approved_bytes = evidence.bytes(approved_path) if approved_path.exists() else None
+            if approved_bytes is not None:
+                files['approved-development-evidence.json'] = json.loads(approved_bytes)
+            attempt_history = files.get('approved-development-evidence.json', {}).get('attempt_history', {})
+            history_usage = {'adapter_extension': bool(attempt_history),
+                'prior_attempts_in_context': len(attempt_history.get('attempts', [])),
+                'context_sha256': hashlib.sha256(approved_bytes).hexdigest() if approved_bytes is not None else None,
+                'upstream_library_entries_before': row['search'].get('provenance', {}).get('library_entries_before', []),
+                'upstream_library_entries_after': row['search'].get('provenance', {}).get('library_entries_after', []),
+                'verified_context_copies': [], 'recorded_file_read_requests': [],
+                'limitation': 'A recorded file-read request is evidence of requesting the copied context, not full page coverage or model comprehension. NO_ENTRY does not become an upstream Library entry.'}
             if (files['freeze.json'] != row['frozen'] or files['decision.json'] != row['decision']
                     or files['upstream-result.json'] != row['search']):
                 raise ValueError('Cycle files differ from the durable journal.')
@@ -292,6 +362,17 @@ def export_report(root, project, chat, *, domain='media-depth'):
                 receipt = evidence.json(path)
                 item = {'path': str(path.relative_to(root)), 'record': receipt,
                         'raw_receipt_sha256': evidence.index[path.relative_to(root).as_posix()]}
+                copied_context = path.parent / 'context/source/OAK_CASE_EVIDENCE.json'
+                if approved_bytes is not None and copied_context.exists():
+                    if evidence.bytes(copied_context) != approved_bytes:
+                        raise ValueError('A role received a different approved case/history context.')
+                    history_usage['verified_context_copies'].append({'role': receipt.get('role'),
+                        'attempt': receipt.get('attempt'), 'path': copied_context.relative_to(root).as_posix()})
+                    for call in receipt.get('tool_calls', []):
+                        if (call.get('tool') == 'oak_h2_read' and isinstance(call.get('path'), str)
+                                and call['path'].removeprefix('context/') == 'source/OAK_CASE_EVIDENCE.json'):
+                            history_usage['recorded_file_read_requests'].append({'role': receipt.get('role'),
+                                'attempt': receipt.get('attempt'), 'path': call['path']})
                 response = path.parent / 'response.txt'
                 if response.exists():
                     raw = evidence.bytes(response)
@@ -321,7 +402,9 @@ def export_report(root, project, chat, *, domain='media-depth'):
                 operation['identity'], operation['details'] = json.loads(operation['identity']), json.loads(operation['details'])
             counts = Counter((operation['kind'], operation['state']) for operation in operations)
             cycles.append({'journal': row, 'files': files, 'producer_records': producers,
+                'authored_construction_controls': _construction_controls(row, evidence),
                 'role_attempts': role_attempts, 'harnesses': harnesses, 'operations': operations,
+                'attempt_history_usage': history_usage,
                 'operation_counts': [{'kind': kind, 'state': state, 'count': count}
                                      for (kind, state), count in sorted(counts.items())],
                 'metrics': _metrics(files['evaluation.json']['pairs']),

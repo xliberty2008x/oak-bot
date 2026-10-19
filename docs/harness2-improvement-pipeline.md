@@ -14,6 +14,13 @@ and regression material; their revealed holdouts are never fresh evidence again.
 The independent two-cycle results belong in the accompanying execution report.
 This guide describes behavior and reproduction, not a claim of measured gain.
 
+Upstream reflection can legitimately return `NO_ENTRY`. Oak preserves those
+verbatim DEV responses and unsuccessful attempt metadata in a separate scoped
+`attempt_history`, with original SHA verification and a 16 KiB limit across the
+last four completed cycles. This adapter addition was introduced before sealing
+cycle 2. The selective upstream Library remains unchanged; independent grades,
+acceptance decisions, regression and holdout inputs are excluded from history.
+
 ```mermaid
 flowchart LR
     Cases[Scoped cases and feedback] --> Queue[Prioritized improvement queue]
@@ -97,6 +104,7 @@ producer executions—base, two probes and composition—and four improvement-ro
 calls, including reflection. Independent comparison adds eight producer
 executions, for twelve nominal producer slots per cycle. Reviews are additional
 model calls inside producer execution and are reported separately.
+At `k=1`, selection is trivial and makes no separate selector model call.
 
 The sealed default caps allow sixteen producer reservations, eight improvement
 role reservations and 512 improvement-tool calls per cycle, including retries.
@@ -278,6 +286,12 @@ expected_active=..., reason=...)`; it restores a previously active accepted
 ancestor, records the event and quarantines the regressed version. Acceptance
 and application history survive reopening the store. Reacceptance requires a
 new candidate and independent decision.
+
+Each controlled follow-up also records scoped delivery, review, source-integrity,
+time, tool and artifact-reference metadata in the registry. A failed follow-up
+raises its queue priority. These monitoring cases remain optimizer-unapproved;
+they contain no raw prompts, hidden measurements or reusable DEV descriptor.
+A new development case still needs explicit source permission.
 
 The separate controlled activation demonstration temporarily activates explicitly
 labeled benign advice, blocks a deliberately rejected candidate, executes a

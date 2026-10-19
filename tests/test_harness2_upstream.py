@@ -320,7 +320,10 @@ class UpstreamTests(unittest.TestCase):
                 (self.base_harness() / 'AGENTS.md').write_text(kwargs.get('baseline_procedure', ''))
             def domain_of(self, _): return 'choreography'
             def task_prompt(self, _): return 'Return the signed total for the input.'
-            def task_files(self, _): return None
+            def task_files(self, _):
+                path = self.root / 'optimizer-source'
+                path.mkdir(exist_ok=True)
+                return path
             def _task(self, _): return {}
             def _procedure(self, path): return (Path(path) / 'AGENTS.md').read_text()
             def base_harness(self): return self.root / 'base'

@@ -1,13 +1,21 @@
 """Portable synthetic evidence export; no models, codecs or provider calls."""
 
 import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 
 from oak.harness2_pipeline import PipelineStore, digest
-from oak.harness2_report import export_report, main
+if os.environ.get('OAK_H2_HISTORY_REPORT'):
+    spec = importlib.util.spec_from_file_location('oak._history_report_draft', os.environ['OAK_H2_HISTORY_REPORT'])
+    report_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report_module)
+    export_report, main = report_module.export_report, report_module.main
+else:
+    from oak.harness2_report import export_report, main
 from oak.harness_versions import HarnessVersions
 
 
@@ -45,7 +53,8 @@ class ReportTests(unittest.TestCase):
 
     def finish(self):
         self.search = {'upstream': {'status': 'ok', 'modes': {'seq': {'ledger': {'R': 4, 'P': 3}}}},
-                       'provenance': {'chosen_harness': str(self.directory / 'upstream/final')}}
+                       'provenance': {'chosen_harness': str(self.directory / 'upstream/final'),
+                                      'library_entries_before': [], 'library_entries_after': []}}
         versions = HarnessVersions(self.root / 'versions.sqlite3')
         original = versions.bootstrap_current(*self.scope, '')
         candidate = versions.register(*self.scope, 'Inspect source layers.', parent_id=original['id'],
@@ -266,6 +275,111 @@ class ReportTests(unittest.TestCase):
         finally:
             other.close()
         with self.assertRaisesRegex(ValueError, 'non-public existing procedure'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_prior_no_entry_context_copy_and_actual_read_request_preserve_empty_library(self):
+        self.finish()
+        context = {'scope': list(self.scope), 'cases': [], 'attempt_history': {
+            'source': 'Oak adapter attempt_history', 'attempts': [
+                {'role': 'experience.seq1', 'response': 'NO_ENTRY', 'response_sha256': sha(b'NO_ENTRY')}]}}
+        path = write(self.directory / 'approved-development-evidence.json', context)
+        copied = self.role.parent / 'context/source/OAK_CASE_EVIDENCE.json'
+        copied.parent.mkdir(parents=True)
+        copied.write_bytes(path.read_bytes())
+        receipt = json.loads(self.role.read_text())
+        receipt['role'] = 'inv1.a1'
+        receipt['tool_calls'].append({'tool': 'oak_h2_read', 'path': 'source/OAK_CASE_EVIDENCE.json'})
+        write(self.role, receipt)
+        report = export_report(self.root, *self.scope[:2])
+        usage = report['cycles'][0]['attempt_history_usage']
+        self.assertTrue(usage['adapter_extension'])
+        self.assertEqual(usage['prior_attempts_in_context'], 1)
+        self.assertEqual(usage['upstream_library_entries_before'], [])
+        self.assertEqual(usage['upstream_library_entries_after'], [])
+        self.assertEqual(len(usage['verified_context_copies']), 1)
+        self.assertEqual(len(usage['recorded_file_read_requests']), 1)
+        self.assertIn('NO_ENTRY', json.dumps(report['cycles'][0]['files']['approved-development-evidence.json']))
+        copied.write_text('DIFFERENT_CONTEXT')
+        with self.assertRaisesRegex(ValueError, 'different approved case/history context'):
+            export_report(self.root, *self.scope[:2])
+
+    def construction(self, folder='some-generic-uuid'):
+        """Tiny byte/hash fixtures; no images, FFmpeg, scores or models run."""
+        root = self.scope_root / 'construction-controls' / folder
+        task = self.manifest['dev'][0]
+        source = root / task['descriptor']['id'] / 'workspace/inputs/source.png'
+        source.parent.mkdir(parents=True)
+        source.write_bytes(b'original-construction-source')
+        task['commitment']['inputs']['source.png'] = sha(source.read_bytes())
+        controls = {}
+        for label in ('positive', 'negative'):
+            file = root / task['descriptor']['id'] / label / 'frames/000.png'
+            file.parent.mkdir(parents=True)
+            file.write_bytes((label + '-authored-bytes').encode())
+            controls[label] = {'artifact_sha256': sha(file.read_bytes()),
+                'files': {file.relative_to(root).as_posix(): sha(file.read_bytes())},
+                'mechanical': {'status': 'pass' if label == 'positive' else 'fail',
+                               'structural_status': 'pass', 'checks': [{'observed': label}]}}
+        report = {'status': 'pass', 'cases': [{'descriptor_sha256': digest(task['descriptor']),
+                    'source_commitment': task['commitment'], 'status': 'pass', 'controls': controls}]}
+        path = write(root / 'preflight.json', report)
+        self.config['construction_controls_sha256'] = digest(report)
+        # This helper runs before finish(): update the test's initial unstarted
+        # fixture row, then freeze those precise commitments in finish().
+        with self.store.db:
+            self.store.db.execute('UPDATE cycles SET config=?,manifest=? WHERE id=?',
+                                 (json.dumps(self.config), json.dumps(self.manifest), self.cycle['id']))
+        return path, report
+
+    def test_exact_authored_control_receipt_and_all_bound_files_are_exported(self):
+        path, record = self.construction()
+        self.finish()
+        preliminary = write(self.scope_root / 'construction-controls/superseded/preflight.json',
+                            {'status': 'fail', 'PRELIMINARY_CANARY': True})
+        report = export_report(self.root, *self.scope[:2])
+        selected = report['cycles'][0]['authored_construction_controls']
+        self.assertEqual(selected['record'], record)
+        self.assertEqual(selected['raw_receipt_sha256'], sha(path.read_bytes()))
+        self.assertEqual(selected['selected_receipt_sha256'], self.config['construction_controls_sha256'])
+        self.assertEqual(len(selected['verified_bindings'][0]['files']), 2)
+        self.assertEqual(len(selected['verified_bindings'][0]['source_files']), 1)
+        self.assertNotIn('PRELIMINARY_CANARY', json.dumps(report))
+        self.assertNotIn(preliminary.relative_to(self.root).as_posix(), report['original_file_sha256'])
+
+    def test_selected_control_file_tampering_or_directory_escape_fails_closed(self):
+        path, record = self.construction('1')
+        self.finish()
+        relative = next(iter(record['cases'][0]['controls']['negative']['files']))
+        control = path.parent / relative
+        control.write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'recorded SHA'):
+            export_report(self.root, *self.scope[:2])
+        control.write_bytes(b'negative-authored-bytes')
+        control.unlink()
+        control.symlink_to(self.root / 'versions.sqlite3')
+        with self.assertRaisesRegex(ValueError, 'links'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_missing_selected_construction_receipt_is_not_replaced_with_preliminary(self):
+        path, _ = self.construction('2')
+        self.finish()
+        path.unlink()
+        write(path.parent.parent / 'preliminary/preflight.json', {'status': 'pass', 'cases': []})
+        with self.assertRaisesRegex(ValueError, 'exact selected authored construction receipt'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_control_file_cannot_escape_its_specific_preflight_root(self):
+        path, record = self.construction()
+        negative = record['cases'][0]['controls']['negative']
+        original_sha = next(iter(negative['files'].values()))
+        negative['files'] = {'../other-control/secret.bin': original_sha}
+        write(path, record)
+        self.config['construction_controls_sha256'] = digest(record)
+        with self.store.db:
+            self.store.db.execute('UPDATE cycles SET config=? WHERE id=?',
+                                 (json.dumps(self.config), self.cycle['id']))
+        self.finish()
+        with self.assertRaisesRegex(ValueError, 'escaped its bound preflight directory'):
             export_report(self.root, *self.scope[:2])
 
 

@@ -4,6 +4,10 @@ The two media follow-ups use subscription-backed Oak. The temporary promotion
 and deliberately rejected candidate are administrative test fixtures, not
 optimizer discoveries or evidence of quality improvement. Completed native
 receipts are reused; unknown interrupted attempts remain in the bounded ledger.
+Each terminal follow-up also adds scoped monitoring metadata to the case
+registry and improvement queue. Failures raise the group's priority. These
+receipt-only cases are optimizer-unapproved and contain no task descriptor;
+future DEV material still requires separate explicit consent.
 """
 
 from __future__ import annotations
@@ -76,8 +80,44 @@ def _check_stopped(root, project):
         store.close()
 
 
+def _monitor_followup(activation, expected, record, terminal, mode):
+    """Retain bounded result references; never enqueue raw native conversations."""
+    receipt = record['receipt']
+    artifact_sha = receipt.get('artifact_sha256')
+    matching = [row for row in receipt.get('reviews', [])
+                if artifact_sha and row.get('sha256') == artifact_sha]
+    visual = bool(matching and matching[-1].get('verdict') == 'pass')
+    reasons = []
+    if receipt.get('status') != 'completed':
+        reasons.append('terminal_result_incomplete_or_unverified')
+    if receipt.get('delivered') is not True:
+        reasons.append('delivery_missing')
+    if not visual:
+        reasons.append('same_sha_visual_review_unverified')
+    if receipt.get('source_immutable') is not True:
+        reasons.append('source_changed_or_unverified')
+    payload = {'visibility': 'public_fixture', 'source': 'activation-demo-native-followup',
+        'execution_mode': mode, 'model_backed': mode == 'native-subscription',
+        'task_id': record['descriptor']['id'], 'procedure_version': expected['id'],
+        'receipt_sha256': record['receipt_sha256'], 'receipt_reference_sha256': file_sha(terminal),
+        'artifact_sha256': artifact_sha, 'artifact_reference': str(terminal),
+        'result': {'status': receipt.get('status'), 'delivered': receipt.get('delivered'),
+                   'visual_passed': visual, 'source_immutable': receipt.get('source_immutable'),
+                   'mechanical_evaluation': 'not_run_in_activation_followup',
+                   'tool_calls': receipt.get('tool_calls'), 'elapsed_seconds': receipt.get('elapsed_seconds')},
+        'failure_reason': '; '.join(reasons) if reasons else None,
+        'quality_gain_claim': False}
+    store = PipelineStore(Path(activation['store_path']).parent, expected['project_id'],
+                          expected['chat_id'], expected['domain'])
+    try:
+        return store.record_case(payload, signature='source-preserving-depth', approved=False,
+                                 priority=100 if reasons else 10)
+    finally:
+        store.close()
+
+
 def _followup(root, name, descriptor, expected, activation, versions, *, runtime_home, timeout,
-              max_producers, runner):
+              max_producers, runner, mode):
     from .harness2_media import materialize_descriptor
     attempts = root / 'attempts' / name
     attempts.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -94,7 +134,8 @@ def _followup(root, name, descriptor, expected, activation, versions, *, runtime
             artifact = record['receipt'].get('artifact_path')
             if artifact and file_sha(artifact) != record['receipt'].get('artifact_sha256'):
                 raise ValueError('Cached native delivery changed.')
-            return record
+            case_id = _monitor_followup(activation, expected, record, terminal, mode)
+            return {**record, 'monitoring_case_id': case_id}
         unknown = intent.parent / 'interrupted-unknown.json'
         if not unknown.exists():
             write_once(unknown, {'classification': 'interrupted_unknown', 'intent_sha256': file_sha(intent),
@@ -118,7 +159,8 @@ def _followup(root, name, descriptor, expected, activation, versions, *, runtime
               'receipt_sha256': digest(receipt), 'recorded_at': now(),
               'application_provenance_verified': _proof(receipt, versions, expected)}
     write_once(attempt / 'receipt.json', record)
-    return record
+    case_id = _monitor_followup(activation, expected, record, attempt / 'receipt.json', mode)
+    return {**record, 'monitoring_case_id': case_id}
 
 
 def run_demo(root, *, project='harness2-demo', runtime_home=None, timeout=600,
@@ -200,7 +242,7 @@ def run_demo(root, *, project='harness2-demo', runtime_home=None, timeout=600,
             activation = {'store_path': str(root / 'versions.sqlite3'), 'project_id': project, 'domain': DOMAIN}
             first = _followup(demo, 'activated', make_descriptor(namespace, 1, split='followup'), fixture,
                 activation, versions, runtime_home=runtime_home, timeout=timeout,
-                max_producers=max_producers, runner=runner)
+                max_producers=max_producers, runner=runner, mode=mode)
             # Close/reopen the actual deployment store before the rollback.
             versions.close()
             versions = HarnessVersions(root / 'versions.sqlite3')
@@ -217,7 +259,7 @@ def run_demo(root, *, project='harness2-demo', runtime_home=None, timeout=600,
                     'kind': 'controlled-rollback', 'reopen_verified': True, 'recorded_at': now()})
             second = _followup(demo, 'restored', make_descriptor(namespace, 2, split='followup', kind='repair'), original,
                 activation, versions, runtime_home=runtime_home, timeout=timeout,
-                max_producers=max_producers, runner=runner)
+                max_producers=max_producers, runner=runner, mode=mode)
             report = {'kind': 'controlled-activation-and-rollback', 'mode': mode,
                 'model': MODEL, 'effort': 'low', 'project_id': project, 'chat_id': CHAT_ID, 'domain': DOMAIN,
                 'original_version_id': original['id'], 'fixture_version_id': fixture['id'],
@@ -228,7 +270,7 @@ def run_demo(root, *, project='harness2-demo', runtime_home=None, timeout=600,
                 'activation_provenance_verified': first['application_provenance_verified'],
                 'restored_provenance_verified': second['application_provenance_verified'],
                 'followups': [{key: record[key] for key in ('descriptor', 'expected_version_id', 'receipt_sha256',
-                                                        'application_provenance_verified')} |
+                                                        'application_provenance_verified', 'monitoring_case_id')} |
                     {'status': record['receipt'].get('status'), 'delivered': record['receipt'].get('delivered'),
                      'artifact_sha256': record['receipt'].get('artifact_sha256'),
                      'tool_calls': record['receipt'].get('tool_calls'),

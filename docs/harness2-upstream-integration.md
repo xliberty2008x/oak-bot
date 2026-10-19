@@ -79,6 +79,17 @@ Compose sessions read earlier same-domain entries. This is the harnessing-level
 recursion implemented in this pinned release; it does not rewrite the Python
 source of upstream's own prompts.
 
+The real first native reflection returned `NO_ENTRY`, leaving upstream Library
+empty. Before cycle 2, Oak added a separately labelled `attempt_history` to the
+DEV context. It retains verbatim role responses and failed-attempt metadata
+from up to four completed earlier cycles in the same scope, bounded to 16 KiB
+and verified against original native receipts. This preserves negative
+observations without inventing a Library entry. No independent grades,
+acceptance decisions, regression or holdout material enter that history.
+The report distinguishes actual Library entries from this adapter addition and
+records the exact context copies and file-read requests. A read request alone
+does not prove model comprehension. Upstream search and reflection are unchanged.
+
 The adapter calls `run_task` directly. Upstream's `run_domain` prunes its library
 to the prefix of the supplied task stream, so invoking a new sweep with only
 the next cycle's new task would erase the previous cycle's entries. Oak keeps
@@ -173,3 +184,20 @@ provenance, restart and rollback evidence. No external provider test follows
 from local media generation, a mocked site, Chromium fixtures or these method
 tests. Model-backed outcome reports must state directly when no quality gain
 was established.
+
+After the selected cycles finish, export their public synthetic evidence with:
+
+```bash
+python -m oak.harness2_report --root /absolute/private/pipeline \
+  --project harness2-demo --chat 1 --output /absolute/output/two-cycle-results.json
+```
+
+The exporter opens the journals read-only, refuses any non-public case in the
+selected scope and refuses pending cycles so unopened holdouts remain private.
+It rehashes bound artifacts, source files, role responses and harvested trees;
+retains interrupted and failed attempts; exports full terminal review and
+mechanical receipts; and reports per-arm denominators and cost proxies. Paths
+become portable placeholders. Original receipt SHA values commit the local
+bytes before substitution, while a separate content SHA commits the portable
+report. A completed controlled activation report and its followup receipts are
+included when present in the same selected scope.

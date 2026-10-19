@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import threading
 import time
 from datetime import datetime, timezone
@@ -421,6 +422,85 @@ def _seal_descriptor(store, descriptor):
     return {'descriptor': descriptor, 'commitment': source_commitment(descriptor, task)}
 
 
+def _prior_dev_attempt_history(store, cycle):
+    """Verbatim earlier DEV-role observations, distinct from upstream Library.
+
+    A genuine NO_ENTRY remains a NO_ENTRY. This adapter record stores neither
+    new lessons nor independent acceptance feedback. It reads only role audit
+    paths in completed earlier cycles of this exact project/chat/domain scope.
+    """
+    scope_root = _scope_root(store)
+    previous = store.db.execute(
+        'SELECT id,ordinal FROM cycles WHERE scope=? AND phase="completed" AND ordinal<? '
+        'ORDER BY ordinal DESC LIMIT 4', (store.key, cycle['ordinal'])).fetchall()
+
+    def read(path, root, maximum):
+        path, root = Path(path).absolute(), Path(root).absolute()
+        if '..' in path.parts or not path.is_relative_to(root):
+            raise ValueError('Prior DEV role evidence escaped its selected cycle.')
+        if any(parent.is_symlink() for parent in (path, *path.parents)):
+            raise ValueError('Prior DEV role evidence cannot contain links.')
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, 'rb') as stream:
+            before = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_size > maximum):
+                raise ValueError('Prior DEV role evidence exceeds its fixed boundary.')
+            data = stream.read(maximum + 1)
+            after = os.fstat(stream.fileno())
+            if (len(data) != before.st_size or before.st_size != after.st_size
+                    or before.st_mtime_ns != after.st_mtime_ns):
+                raise ValueError('Prior DEV role evidence changed while being read.')
+        return data
+
+    candidates = []
+    for prior in previous:
+        root = scope_root / 'cycles' / prior['id'] / 'roles'
+        for path in sorted(root.glob('*/attempt-*/receipt.json')):
+            raw = read(path, root, 65536)
+            receipt = json.loads(raw)
+            role, status = receipt.get('role'), receipt.get('status')
+            if (receipt.get('model') != MODEL or receipt.get('effort') != 'low'
+                    or receipt.get('channel') != 'oak_chatgpt_subscription'
+                    or not isinstance(role, str)
+                    or not re.fullmatch(r'(?:inv|dom|c)\d+\.a\d+|(?:experience|select)\.seq\d+', role)
+                    or type(receipt.get('attempt')) is not int or receipt['attempt'] < 1):
+                raise ValueError('Prior DEV role evidence has an unexpected native identity.')
+            entry = {'cycle_id': prior['id'], 'ordinal': prior['ordinal'], 'role': role,
+                     'attempt': receipt['attempt'], 'status': status,
+                     'receipt_sha256': hashlib.sha256(raw).hexdigest()}
+            if status == 'completed':
+                response = read(path.parent / 'response.txt', root, 32768)
+                actual = hashlib.sha256(response).hexdigest()
+                if receipt.get('response_sha256') != actual:
+                    raise ValueError('Prior DEV role response differs from its native receipt.')
+                entry.update(response_sha256=actual, response=response.decode('utf-8'))
+            elif status in {'failed', 'interrupted_unknown', 'interrupted_before_native',
+                            'not_started_budget_blocked', 'running', 'pending_budget'}:
+                # Failed/interrupted calls may have no final message. The
+                # status and original receipt are evidence; no lesson is added.
+                entry['response_available'] = False
+            else:
+                raise ValueError('Prior DEV role evidence has an unknown status.')
+            priority = 0 if role.startswith('experience.') else 2 if status == 'completed' else 1
+            candidates.append((prior['ordinal'], priority, role, receipt['attempt'], entry))
+    history = {'source': 'Oak adapter attempt_history: verbatim earlier DEV role responses, not upstream Library entries',
+               'policy': 'No independent grades, holdout material, acceptance decisions or authored lessons are included. NO_ENTRY is preserved verbatim.',
+               'max_prior_cycles': 4, 'max_bytes': 16384, 'attempts': [], 'omitted_attempts': 0}
+    # Prefer the latest real reflection, then its candidate observations. This
+    # is evidence retention, not a substitute reflection or a selected lesson.
+    for _, _, _, _, entry in sorted(candidates, key=lambda row: (row[1], -row[0], row[2], row[3])):
+        proposed = {**history, 'attempts': [*history['attempts'], entry]}
+        if len(canonical(proposed).encode()) <= 16200:
+            history['attempts'].append(entry)
+        else:
+            history['omitted_attempts'] += 1
+    history['content_sha256'] = digest(history['attempts'])
+    if len(canonical(history).encode()) > 16384:
+        raise ValueError('Prior DEV role evidence exceeds its total fixed budget.')
+    return history
+
+
 def approved_development_evidence(store, cycle):
     """Only consented current DEV corrections enter the scoped optimizer context.
 
@@ -438,7 +518,8 @@ def approved_development_evidence(store, cycle):
         feedback = [json.loads(r[0]) for r in store.db.execute(
             'SELECT value FROM feedback WHERE case_id=? AND scope=? ORDER BY created,id', (case['id'], store.key))]
         cases.append({'case_id': case['id'], 'development_case': payload, 'user_feedback': feedback})
-    value = {'scope': store.scope, 'cases': cases, 'source': 'explicitly approved current DEV cases only'}
+    value = {'scope': store.scope, 'cases': cases, 'source': 'explicitly approved current DEV cases only',
+             'attempt_history': _prior_dev_attempt_history(store, cycle)}
     if len(canonical(value).encode()) > 64000:
         raise ValueError('Approved DEV evidence exceeds its bounded optimizer context.')
     return value
