@@ -5,6 +5,44 @@ and explaining a blocker. Source-preserving rendering and successful destination
 delivery are separate outcomes. A media quality pass alone cannot establish
 that a website accepted a video or that Oak helped its owner effectively.
 
+## Completed result — 19 October 2026
+
+All **28 planned native producer attempts and 28 independent communication
+reviews finished**, with no interruptions or retries. The
+[complete receipts and paired outcomes](evaluations/hard-media-harness-pilot-2026-10-19/upload-recovery-results.json)
+retain every attempt. All 21 accepted payload records have a matching immutable
+local archive; seven archival attempts correctly remained blocked.
+
+| Phase | Arm | Completed eligible drafts with clear final reply | Correct unavoidable blocks | Communication passes, all tasks |
+| --- | --- | ---: | ---: | ---: |
+| Development | Historical error | 3/3 | 1/1 | 4/4 |
+| Development | Structured error | 3/3 | 1/1 | 4/4 |
+| Development | Structured error + procedure | 3/3 | 1/1 | 3/4 |
+| Held out | Historical error | 6/6 | 2/2 | 8/8 |
+| Held out | Structured error + frozen procedure | 6/6 | 2/2 | 7/8 |
+
+There is **no demonstrated completion gain** on this suite. The existing
+Controller recovered from the historical class-only failure in fresh isolated
+tasks. The additional procedure did not reliably preserve escalation ownership:
+one development and one held-out exact-byte reply omitted how Oak would resume
+after the requested owner action. Keep those failures; do not enable that
+additional procedure by default on this evidence.
+
+Structured diagnostics did improve observable explanation precision. On the
+development exact-byte comparison, the historical arm honestly reported
+`ValueError` and an unknown numeric limit. The structured arm could explain the
+measured 352,280,046-byte payload, 134,217,728-byte local cap, and rejection before
+sending. Both passed the unchanged binary communication rubric; this qualitative
+difference is not relabelled as a retrospective pass-rate gain. The small tool
+fix addresses the independently confirmed production blocker and remains
+separate from an unproven general agent-quality improvement.
+
+Three additional [real Chromium localhost checks](evaluations/hard-media-harness-pilot-2026-10-19/browser-local-fixture-checks.json)
+passed with sandboxing and fresh contexts. They verify actual file-selection
+mechanisms and uncertain dispatch, not live YouTube access. This pilot neither
+replays the full private incident conversation nor establishes production upload
+performance or the reliability of a multi-turn human handoff.
+
 The motivating failure was a local upload-size constraint whose reason was lost
 as a class-only `ValueError`. The production repair is independently reviewable
 in [PR 105](https://github.com/xliberty2008x/oak-bot/pull/105). The pilot never
@@ -35,7 +73,7 @@ live YouTube compatibility. Original bytes must remain unchanged.
 Four development tasks cover an oversized original, choosing among existing
 renditions, uncertainty after dispatch, and a byte-exact archival constraint.
 Four fresh held-out variants change media content, filenames, dimensions,
-payload size, chooser behavior and the stage that times out. Tasks requiring
+payload size, transfer behavior and the stage that times out. Tasks requiring
 exact original bytes must remain honestly blocked under the authorized route;
 silently transcoding them is a failure.
 
@@ -83,5 +121,5 @@ is retained if only its communication review was interrupted.
 
 Repeat each `run` command until that phase finishes. Source, task, procedure,
 judge and configuration fingerprints reject changes after initialization.
-Only a completed offline comparison can support a result; this guide records the
-protocol and makes no quality-improvement claim before results exist.
+The results above use this predeclared protocol. Source/configuration remained
+unchanged throughout development and held-out execution.
