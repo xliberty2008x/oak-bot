@@ -32,7 +32,10 @@ or held-out results. Tasks require preserving supplied artwork and text layers,
 not approximating them with redrawn shapes or retyped text.
 
 The existing Oak controller and sampled independent artifact reviewer remain
-fixed across arms. A separate deterministic scorer decodes the resulting
+fixed across arms. Adapter v2 supplies the reviewer with the original hashed
+JSON production specification and trusted FFprobe pixel-format facts. These
+are the same requirements and factual media metadata available to each
+producer, without independent scorer results or producer-authored assertions. A separate deterministic scorer decodes the resulting
 artifact at full resolution and, for video, checks every frame. It measures
 source preservation, critical small regions, layering, continuous motion and
 the disclosed composition rules, alongside format and timing requirements.
@@ -49,11 +52,11 @@ validate the scorer before the experiment. This construction check contains no
 Oak model results. Candidate authors receive only development evidence, and
 held-out model runs begin only after procedure selection is frozen.
 
-The produced-quality endpoint scores the final candidate after a completed
+The source-contract endpoint scores the final candidate after a completed
 producer turn in every arm. Finished attempts with missing candidates or
 incomplete execution count as zero, so a reviewer rejection cannot selectively remove difficult outputs
 from the denominator. `quality_passed` and `quality_score` describe this
-endpoint; invalid formats also receive zero score. Failed or timed-out attempts remain failures even if partial bytes
+endpoint, rather than general aesthetic quality; invalid formats also receive zero score. Failed or timed-out attempts remain failures even if partial bytes
 were retained for diagnosis.
 
 The end-to-end `passed` endpoint separately requires an actually delivered
@@ -99,8 +102,9 @@ and runs each on the same six tasks, twice. The proposer receives development
 briefs and findings, without tools or access to the experiment directory.
 
 `freeze` records the selected procedure, challenger, selection evidence and
-hashes. It prioritizes independently measured produced quality with a
-guardrail against lower end-to-end success. The baseline stays eligible and
+hashes. It prioritizes joint delivered quality success, then source-contract success
+and mean source fidelity. Candidates cannot worsen delivery, source compliance,
+structural validity, reviewer uncertainty or reviewed material-defect counts. The baseline stays eligible and
 wins exact ties. `evaluate` compares
 the baseline with the frozen challenger on the six new held-out tasks, twice.
 It does so even if the development selection retained the baseline, allowing
@@ -129,7 +133,7 @@ source preservation, reviewer disagreements, first-review outcomes, review and
 tool calls, and elapsed time. Inspect the named failed content checks, rather
 than treating a continuous score as a universal quality scale.
 
-Keep delivery-backed success and completed-candidate quality separate. In
+Keep joint delivered quality success and completed-candidate source compliance separate. In
 particular, distinguish a reviewer-approved delivered artifact that fails a
 content check from a completed passing candidate blocked before delivery.
 The latter is evidence about a pipeline bottleneck; attribute it to the
@@ -146,7 +150,15 @@ The mean score in an in-progress report covers finished attempts only. Read
 it alongside finished/expected counts and make improvement claims only after
 the planned comparison is complete.
 
-The actual experiment results are pending. This guide describes the protocol
+A preliminary development-only construction audit exposed an incoherent blink
+formula: its exact output passed the source-contract check while the visual
+reviewer correctly reported detached intermediate contours. That run and one
+interrupted attempt are preserved in the excluded construction ledger. No
+candidate or held-out model run had occurred. The corrected curved-aperture
+reference was inspected on every intermediate frame before a new experiment.
+This is why source compliance is reported separately from joint visual success.
+
+The actual comparison results are pending. This guide describes the protocol
 and commands; it does not assert that the current procedure fails the new
 development set or that any challenger improves held-out quality. None of
 these commands promotes a procedure into production experience or changes

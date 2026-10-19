@@ -46,6 +46,7 @@ _DYNAMIC = {'oak_review_artifact', 'oak_send_file', 'oak_experience',
 _NON_TOOL = {'userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'}
 _SAFE_NAME = re.compile(r'[A-Za-z0-9_-]+\Z')
 _MAX_ARTIFACT = 256 * 1024 * 1024
+_MAX_SPECIFICATION = 64 * 1024
 
 
 def _sha(data):
@@ -58,7 +59,7 @@ async def _video_codec_facts(data, sha256):
         raise ValueError('Codec input does not match the inspected snapshot.')
     process = await asyncio.create_subprocess_exec(
         '/usr/bin/ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
-        '-show_entries', 'format=format_name:format_tags=major_brand,compatible_brands:stream=codec_name,codec_type',
+        '-show_entries', 'format=format_name:format_tags=major_brand,compatible_brands:stream=codec_name,codec_type,pix_fmt',
         '-of', 'json', 'pipe:0', stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE, stderr=subprocess.DEVNULL,
         env=codec_environment(), limit=65536)
@@ -102,6 +103,11 @@ async def _video_codec_facts(data, sha256):
             if any(not isinstance(value, str) or not re.fullmatch('[A-Za-z0-9_.-]{1,80}', value)
                    for value in row.values()):
                 raise ValueError('Invalid stream codec facts.')
+            if row['codec_type'] == 'video':
+                pixels = stream.get('pix_fmt')
+                if not isinstance(pixels, str) or not re.fullmatch('[A-Za-z0-9_.-]{1,80}', pixels):
+                    raise ValueError('Invalid pixel format fact.')
+                row['pix_fmt'] = pixels
             facts.append(row)
         tags = format_data.get('tags') or {}
         format_tags = {key: tags[key] for key in ('major_brand', 'compatible_brands') if key in tags}
@@ -148,7 +154,7 @@ class _PolicyClient:
 
 
 class _PilotTools:
-    version = 'oak-offline-media-pilot-v1'
+    version = 'oak-offline-media-pilot-v2'
 
     def __init__(self, runtime, task, workspace, state, reviewer):
         self.runtime, self.task, self.workspace, self.state = runtime, task, workspace, state
@@ -183,6 +189,20 @@ class _PilotTools:
             if not isinstance(expected, str) or not re.fullmatch('[a-f0-9]{64}', expected):
                 raise ValueError('Invalid source hash.')
             self.source_hashes[str(resolved)] = expected
+        self.specification = None
+        if task.get('specification_path') is not None:
+            path = self.path(task['specification_path'])
+            if str(path) not in self.source_hashes:
+                raise ValueError('Specification must be an explicitly hashed task source.')
+            raw = self.read(path, maximum=_MAX_SPECIFICATION)
+            if _sha(raw) != self.source_hashes[str(path)]:
+                raise ValueError('Task specification changed.')
+            content = json.loads(raw.decode('utf-8'))
+            if not isinstance(content, dict):
+                raise ValueError('Task specification must be a JSON object.')
+            json.dumps(content, ensure_ascii=False, allow_nan=False)
+            self.specification = {'path': '/workspace/' + str(path.relative_to(self.workspace)),
+                                  'sha256': _sha(raw), 'content': content}
         self.references = [self.path(path) for path in task.get('reference_paths', [])]
         if len(self.references) > 3:
             raise ValueError('Use at most three source references.')
@@ -205,17 +225,18 @@ class _PilotTools:
             raise ValueError('Invalid workspace path.')
         return path
 
-    def read(self, path):
+    def read(self, path, *, maximum=None):
+        maximum = _MAX_ARTIFACT if maximum is None else maximum
         opened = self.files.open_read(str(self.path(path)))
         handle = opened['handle']
         try:
-            if opened['size'] > _MAX_ARTIFACT:
+            if opened['size'] > maximum:
                 raise ValueError('Artifact exceeds the pilot limit.')
             data = bytearray()
             while True:
                 chunk = self.files.read_chunk(handle)
                 data.extend(base64.b64decode(chunk['data'], validate=True))
-                if len(data) > _MAX_ARTIFACT:
+                if len(data) > maximum:
                     raise ValueError('Artifact exceeds the pilot limit.')
                 if chunk['eof']:
                     return bytes(data)
@@ -319,8 +340,13 @@ class _PilotTools:
             images.extend({'label': 'SOURCE REFERENCE: ' + row['label'], 'image_url': row['image_url']}
                           for row in evidence[:2])
         if valid:
+            metadata = {'output': data, 'references': references}
+            if self.specification is not None:
+                # Original immutable production requirements, never a
+                # producer-supplied review argument or evaluator output.
+                metadata['supplied_requirements_specification'] = self.specification
             report = await self.reviewer.review(
-                self.task['brief'], images, {'output': data, 'references': references},
+                self.task['brief'], images, metadata,
                 model=MODEL, effort=self.runtime.effort)
         else:
             report = {'verdict': 'unverified', 'error_code': 'media_decode_incomplete',
@@ -420,7 +446,7 @@ class PilotRuntime:
                   'elapsed_seconds': 0, 'model': MODEL, 'effort': self.effort,
                   'context_sha256': None, 'reviewer_policy_sha256': _sha(REVIEW_INSTRUCTIONS.encode()),
                   'source_immutable': False,
-                  'adapter': 'oak-controller-with-offline-bwrap-media-tools-v1'}
+                  'adapter': 'oak-controller-with-offline-bwrap-media-tools-v2'}
         tools = controller = wrapped = None
         try:
             if (not isinstance(task, dict) or not isinstance(task.get('brief'), str)

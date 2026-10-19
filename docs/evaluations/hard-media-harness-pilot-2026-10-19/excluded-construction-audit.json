@@ -1,0 +1,311 @@
+{
+  "excluded": true,
+  "reason": "Construction audit failed: exact specified eyelid bands produced visually incoherent intermediate contours.",
+  "disposition": "Preserve evidence; replace blink construction and start a new sealed experiment before any candidate authoring or held-out model evaluation.",
+  "implementation_sha256": "a28fab440701ee05abf4a2047bebdf7ed212e918bc263c39f21f4b331c5f88a7",
+  "suite_sha256": "fa13564395b7b1d98336a5005050a847537975a9d80dfec788dc72c545bf2b31",
+  "git_commit": "b1ac2bd71e98f5579c0c4098fc59a1fe718d9c81",
+  "completed_producer_attempts": 1,
+  "interrupted_producer_attempts": 1,
+  "candidate_authored": false,
+  "holdout_model_runs": 0,
+  "finished_evidence": [
+    {
+      "key": "dev/dev-repair-owl-blink/baseline/1",
+      "metrics": {
+        "passed": false,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": false,
+        "first_review_passed": false,
+        "material_defect": true,
+        "unverified": true,
+        "review_calls": 3,
+        "tool_calls": 21,
+        "elapsed_seconds": 309.361
+      },
+      "receipt": {
+        "status": "unverified",
+        "artifact_sha256": null,
+        "candidate_sha256": "5f7c28f253d84435b8bc3dac60e663efda679eee31380c1d3455dad7d6c546f7",
+        "candidate_complete": true,
+        "delivered": false,
+        "reviews": [
+          {
+            "verdict": "revise",
+            "summary": "Both eyes blink twice and the composition stays fixed, but intermediate eyelid states have conspicuous compositing defects.",
+            "issues": [
+              {
+                "severity": "major",
+                "evidence": "Both eyes show hard horizontal cutoffs and disconnected contours during transitions, especially frames 8–9, 11–12, 25–26 and 28–29. Rectangular strips of the open eyes remain above separate closed-eye curves; frames 7 and 13 also lose portions of the eye outlines.",
+                "repair": "Repair the intermediate eyelid masks/compositing so the supplied patches form coherent eyelid boundaries without rectangular cutoffs or detached duplicate curves. Preserve the existing closed states and fixed surrounding artwork."
+              }
+            ],
+            "checks": [
+              {
+                "criterion": "Both eyes close and reopen twice",
+                "status": "pass",
+                "evidence": "The supplied consecutive transition frames show full closure at frames 10 and 27, followed by reopening at frames 14 and 31."
+              },
+              {
+                "criterion": "Only local eyelids move; surrounding composition and open pupils remain fixed",
+                "status": "pass",
+                "evidence": "Sampled frames preserve the face position, open pupil placement, lettering, border and background, unlike the bobbing seed."
+              },
+              {
+                "criterion": "Supplied illustration style is preserved through eyelid transitions",
+                "status": "fail",
+                "evidence": "Closed states visually match the supplied patches, but intermediate states introduce straight clipping edges and disconnected linework."
+              },
+              {
+                "criterion": "Silent H.264, 640×416, exactly 3 seconds, 12 fps and 36 frames",
+                "status": "pass",
+                "evidence": "Extraction reports H.264, 640×416, 3.0 seconds, 12 fps, 36 decoded frames and no audio stream."
+              },
+              {
+                "criterion": "yuv420p and exact scene.json production specifications",
+                "status": "unknown",
+                "evidence": "Pixel format and scene.json contents are not supplied in the review evidence."
+              }
+            ],
+            "limitations": [
+              "Visual review covers the supplied sampled frames and detail crops, not every frame.",
+              "Input-byte preservation cannot be verified from this evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 27.36,
+            "sha256": "62981e92bab0fd0ae533db030d718895450db6d80f6d33f4c7f55225befc72f7",
+            "ok": false,
+            "queued_for_delivery": false,
+            "next_action": "Repair the observed issues, render again, and review the new bytes."
+          },
+          {
+            "verdict": "revise",
+            "summary": "Both eyes blink twice and the whole-face bobbing appears repaired, but the intermediate eyelid states have conspicuous compositing defects.",
+            "issues": [
+              {
+                "severity": "major",
+                "evidence": "Both eyes become hard-edged horizontal strips during transitions, while a separate closed-eyelid curve remains visible underneath. This is especially clear at frames 9–12 and 26–29 in the detail crops: pupils and eye outlines are abruptly clipped, producing disconnected contours rather than coherent eyelids.",
+                "repair": "Correct the supplied patches’ transition masks/compositing so each partially closed eye has a continuous eyelid boundary. Remove the simultaneously exposed, detached closed-eye curve while preserving the original raster texture and fixed pupils beneath the lids."
+              }
+            ],
+            "checks": [
+              {
+                "criterion": "Both eyes close and reopen twice",
+                "status": "pass",
+                "evidence": "Both eyes are fully closed at frames 10 and 27, then fully reopened by frames 14 and 31."
+              },
+              {
+                "criterion": "Only local eyelids move; surrounding artwork remains fixed",
+                "status": "pass",
+                "evidence": "The sampled output keeps the face silhouette, eye placement, lettering, border and background stationary, unlike the bobbing seed. Open-eye pupils retain their placement."
+              },
+              {
+                "criterion": "Edited regions preserve coherent artwork through transitions",
+                "status": "fail",
+                "evidence": "Closed states resemble the supplied patches, but intermediate states expose rectangular eye bands and detached curved linework in both eyes."
+              },
+              {
+                "criterion": "Beginning and ending preserve the source composition",
+                "status": "pass",
+                "evidence": "Frame 0 matches the supplied scene visually; frame 35 returns to the same open-eye composition."
+              },
+              {
+                "criterion": "Required video delivery properties",
+                "status": "pass",
+                "evidence": "Extraction reports H.264, 640×416, exactly 3 seconds, 12 fps, 36 decoded frames and no audio stream."
+              },
+              {
+                "criterion": "Exact scene.json specifications and yuv420p encoding",
+                "status": "unknown",
+                "evidence": "The supplied evidence does not include scene.json contents or the encoded pixel format."
+              }
+            ],
+            "limitations": [
+              "Review is based on supplied sampled frames and detail crops, not continuous playback or full-resolution inspection of every frame.",
+              "Input-byte preservation and exact numerical acceptance tolerances cannot be verified from this evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 31.516,
+            "sha256": "75df34d27d852c94b033b1f06f7831ba378f0c1fa1ad8199cf24e34dd42d481f",
+            "ok": false,
+            "queued_for_delivery": false,
+            "next_action": "Repair the observed issues, render again, and review the new bytes."
+          },
+          {
+            "verdict": "revise",
+            "summary": "Both eyes blink twice and whole-face bobbing is removed, but intermediate eyelid states have conspicuous compositing defects.",
+            "issues": [
+              {
+                "severity": "major",
+                "evidence": "Both eyes show hard horizontal cutoffs, disconnected eye outlines and a separate closed-eye arc beneath the exposed pupil band during frames 8–9 and 11–12, repeated at 25–26 and 28–29. The detail crops make these broken transitions clear.",
+                "repair": "Repair the intermediate-state masks and layering so the supplied closed-eye patches coherently occlude the stationary eyes, without rectangular exposed bands or detached closure strokes. Preserve the existing closed endpoints and fixed surrounding artwork."
+              }
+            ],
+            "checks": [
+              {
+                "criterion": "Both eyes close and reopen twice",
+                "status": "pass",
+                "evidence": "Frames 6–14 and 23–31 show synchronized open–closed–open cycles, fully closed at frames 10 and 27."
+              },
+              {
+                "criterion": "Face, open pupils, lettering, border and background remain fixed",
+                "status": "pass",
+                "evidence": "These elements remain aligned in the supplied output samples; the first frame visually matches the scene reference."
+              },
+              {
+                "criterion": "Local eyelid edits preserve coherent source-style linework and occlusion",
+                "status": "fail",
+                "evidence": "Closed endpoints resemble the supplied patches, but intermediate states visibly fragment the eye contours and closure strokes."
+              },
+              {
+                "criterion": "Silent H.264, 640×416, three seconds, 12 fps and 36 frames",
+                "status": "pass",
+                "evidence": "Extraction confirms H.264, the requested dimensions, duration, frame rate and frame count, with no audio stream."
+              },
+              {
+                "criterion": "yuv420p and exact scene.json production specifications",
+                "status": "unknown",
+                "evidence": "Pixel format and scene.json contents are not included in the supplied evidence."
+              }
+            ],
+            "limitations": [
+              "Review covers supplied timestamped frames and crops, not continuous playback or every frame at full resolution.",
+              "Exact placement, timing-formula and tolerance compliance cannot be established without scene.json."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 26.927,
+            "sha256": "5f7c28f253d84435b8bc3dac60e663efda679eee31380c1d3455dad7d6c546f7",
+            "ok": false,
+            "queued_for_delivery": false,
+            "next_action": "Repair the observed issues, render again, and review the new bytes."
+          }
+        ],
+        "tool_calls": 21,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 5,
+          "oak_pilot_inspect": 9,
+          "oak_review_artifact": 4,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 309.361,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v1",
+        "error_code": "no_independently_passed_delivery",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "e465be4a382beb7fb921dbe1cf274c0c466ad05748b773d2c492466b8f86a79c"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "2e1386a45baeba844cb38e47363cb2dbae9a99c7a8cf1ef06d86e3e2199c9147"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "32b5300047134597a67dd8437cad33a9450c00c406533f7ac73638ca71b9ca03"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "ff61b68de7086863fc48a25d38bc0e9edda2dc3187996aba05e097b760759b3b"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "5e37a0e88c9ff158f23ae4e27ac0f26b8fd71c737674e047613d3d446a16eb6f"
+          }
+        ]
+      },
+      "source_contract_measurement": {
+        "task_id": "dev-repair-owl-blink",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×416; required 640×416."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-1",
+            "status": "pass",
+            "evidence": "editable region [205, 174, 289, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-2",
+            "status": "pass",
+            "evidence": "editable region [351, 174, 435, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 612, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 377, 612, 394]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      }
+    }
+  ]
+}

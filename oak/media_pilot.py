@@ -437,7 +437,9 @@ def freeze(root):
             and row['quality_passed'] >= base['quality_passed']
             and row['mean_quality_score'] >= base['mean_quality_score']
             and row['passed'] >= base['passed']
-            and row['structural_passed'] >= base['structural_passed']]
+            and row['structural_passed'] >= base['structural_passed']
+            and row['unverified'] <= base['unverified']
+            and row['material_defect_runs'] <= base['material_defect_runs']]
     else:
         eligible = [BASELINE] + [key for key, row in summaries.items() if key != BASELINE
             and row['passed'] >= base['passed']
@@ -447,8 +449,8 @@ def freeze(root):
     def rank(key):
         row = summaries[key]
         if hard:
-            return (row['quality_passed'], row['mean_quality_score'], row['passed'], key == BASELINE,
-                    -row['review_calls'])
+            return (row['passed'], row['quality_passed'], row['mean_quality_score'],
+                    -row['unverified'], -row['material_defect_runs'], key == BASELINE, -row['review_calls'])
         return (row['passed'], -row['unverified'], -row['material_defect_runs'],
                 row['first_review_passed'], -row['review_calls'], key == BASELINE)
     chosen = max(eligible, key=rank)
@@ -460,8 +462,8 @@ def freeze(root):
         'challenger_sha256': _hash(state['procedures'][challenger]),
         'development_evidence_sha256': _hash(proposal_evidence(state)),
         'development_summaries': summaries, 'frozen_at': _now(),
-        'selection_rule': ('Independent quality pass count, mean quality score, delivery success; baseline wins ties. '
-            'Require no regression in quality pass count, mean score, delivery success or structural validity.' if hard else
+        'selection_rule': ('Joint delivered quality success, source-contract pass count, mean source fidelity; baseline wins ties. '
+            'Require no regression in source compliance, delivery, structure, uncertainty or reviewed defects.' if hard else
             'Success, verification, defects, first review, review calls; baseline wins ties.'),
         'promotion': 'Evaluation only. No live lesson or deployment changes.'}
     _write(Path(root) / 'pilot.json', state)
@@ -510,7 +512,7 @@ def report(root):
     result = {'schema_version': SCHEMA_VERSION, 'model': MODEL, 'config': state['config'],
               'suite_sha256': state['suite_sha256'], 'implementation_sha256': state['implementation_sha256'],
               'environment': state['environment'],
-              'quality_endpoint': 'Final completed candidate fidelity; missing or incomplete attempts score zero.',
+              'quality_endpoint': 'Final completed candidate SOURCE-CONTRACT fidelity; not aesthetic quality. Missing/incomplete attempts score zero.',
               'delivery_endpoint': 'Completed immutable delivery with SHA-matched reviewer and independent content passes.',
               'summary_denominator': 'All finished attempts, including failures; compare only complete splits.',
               'complete': complete, 'frozen': state['frozen'], 'summaries': summaries,
@@ -531,7 +533,7 @@ def report(root):
     title = 'Oak harder media procedure pilot' if state['config'].get('suite') == 'hard' else 'Oak media procedure pilot'
     lines = ['# ' + title, '',
              f'Model: `{MODEL}`. Held-out evaluation complete: **{complete}**.', '',
-             '| Split | Procedure | Finished | Passed | Quality pass | Mean quality | First-review pass | Unverified | Median seconds |',
+             '| Split | Procedure | Finished | Delivered quality pass | Source contract pass | Mean source fidelity | First-review pass | Unverified | Median seconds |',
              '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
     for split, rows in summaries.items():
         for key, row in rows.items():
@@ -539,7 +541,7 @@ def report(root):
                          f'{row["quality_passed"]} | {row["mean_quality_score"]} | {row["first_review_passed"]} | {row["unverified"]} | {row["median_seconds"]} |')
     lines.extend(['', f'Paired held-out outcomes: {result["wins"]} wins, {result["losses"]} losses, '
                   f'{result["ties"]} ties.', '',
-                  f'Independent quality outcomes: {result["quality_wins"]} wins, {result["quality_losses"]} losses, '
+                  f'Source-contract outcomes: {result["quality_wins"]} wins, {result["quality_losses"]} losses, '
                   f'{result["quality_ties"]} ties.', '', '## Procedures', ''])
     for key, procedure in state['procedures'].items():
         lines.extend([f'### {key}', '', procedure['hypothesis'], ''])

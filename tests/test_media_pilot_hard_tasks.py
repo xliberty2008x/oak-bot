@@ -50,6 +50,8 @@ class HardTaskContracts(unittest.TestCase):
                     self.assertEqual(len(task['reference_paths']), 3 if public['kind'] == 'repair' else 2)
                     expected = {str(path) for path in (workspace / 'inputs').iterdir()}
                     self.assertEqual(set(task['source_hashes']), expected)
+                    self.assertEqual(task['specification_path'], str(workspace / 'inputs' / 'scene.json'))
+                    self.assertIn(task['specification_path'], task['source_hashes'])
                     self.assertTrue({str(path) for path in map(Path, task['reference_paths'])} <= expected)
                     for path, identity in task['source_hashes'].items():
                         self.assertEqual(hashlib.sha256(Path(path).read_bytes()).hexdigest(), identity)
@@ -129,6 +131,24 @@ class IndependentLayerGeometry(unittest.TestCase):
         self.assertIsNone(ImageChops.difference(reference_frame(task_id, self.workspace, 35), original).getbbox())
         for eye in spec['contract']['animation']['eyes']:
             self.assertIsNotNone(ImageChops.difference(closed.crop(eye['box']), original.crop(eye['box'])).getbbox())
+        # Every intermediate aperture keeps the original pupil in place instead
+        # of exposing disconnected bands of a closed-eye seam.
+        animation = spec['contract']['animation']
+        self.assertEqual(animation['type'], 'blink-local-curved-aperture')
+        for n in (7, 8, 9, 11, 12, 13, 24, 25, 26, 28, 29, 30):
+            intermediate = reference_frame(task_id, self.workspace, n)
+            for eye in animation['eyes']:
+                x0, y0, x1, y1 = eye['box']
+                self.assertEqual(intermediate.getpixel((x0 + 40, y0 + 27)),
+                                 original.getpixel((x0 + 40, y0 + 27)))
+                # Skin above/below the curved opening uses the supplied fill,
+                # while no unrelated face or print pixel changes.
+                self.assertEqual(intermediate.getpixel((x0 + 40, y0 + 4)),
+                                 atlas.getpixel((40, 84)))
+            protected = ImageChops.difference(intermediate, original)
+            for eye in animation['eyes']:
+                protected.paste((0, 0, 0), tuple(eye['box']))
+            self.assertIsNone(protected.getbbox())
         frames = _decode(self.workspace / 'inputs' / 'broken-seed.mp4', spec['size'])
         self.assertEqual(len(frames), 36)
         # Broken seed actually shifts protected print rather than merely omitting a blink.

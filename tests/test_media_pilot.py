@@ -273,20 +273,21 @@ class HardPilotContracts(HardPilotFixture, unittest.TestCase):
             self.assertEqual(metrics['quality_score'], 0.)
             self.assertFalse(metrics['passed'])
 
-    def test_quality_gain_can_win_with_equal_delivery_success(self):
+    def test_joint_delivered_quality_takes_priority_over_contract_score(self):
         self.populate_hard_development({'baseline': (6, 6, .6),
             'candidate-1': (6, 10, .85), 'candidate-2': (8, 8, .75)})
         frozen = pilot.freeze(self.root)
-        self.assertEqual(frozen['procedure_id'], 'candidate-1')
-        self.assertEqual(frozen['challenger_id'], 'candidate-1')
+        self.assertEqual(frozen['procedure_id'], 'candidate-2')
+        self.assertEqual(frozen['challenger_id'], 'candidate-2')
 
     def test_higher_quality_cannot_win_if_delivery_success_regresses(self):
         self.populate_hard_development({'baseline': (6, 6, .6),
             'candidate-1': (5, 12, .95), 'candidate-2': (6, 6, .6)})
         frozen = pilot.freeze(self.root)
         self.assertEqual(frozen['procedure_id'], 'baseline')
-        # It can still be evaluated without becoming the selected procedure.
-        self.assertEqual(frozen['challenger_id'], 'candidate-1')
+        # The challenger uses the same joint-quality ranking, retaining the
+        # candidate with equal delivery rather than the better contract proxy.
+        self.assertEqual(frozen['challenger_id'], 'candidate-2')
 
     def test_hard_baseline_wins_exact_quality_and_delivery_ties(self):
         self.populate_hard_development({key: (6, 8, .8)

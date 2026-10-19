@@ -234,6 +234,43 @@ class HardVideoQuality(unittest.TestCase):
                 self.assertTrue(any(item['criterion'].startswith('content:eye-')
                                     and item['status'] == 'fail' for item in result['checks']))
 
+    def test_disconnected_eyelid_bands_fail_despite_correct_closed_states(self):
+        task_id = 'dev-repair-owl-blink'
+        workspace = self.workspaces[task_id]
+        spec = quality_spec(task_id, workspace)
+        animation = spec['contract']['animation']
+        with Image.open(spec['assets']['scene']) as source:
+            scene = source.convert('RGBA')
+        with Image.open(spec['assets']['atlas']) as source:
+            atlas = source.convert('RGBA')
+        frames = []
+        for index in range(36):
+            frame = scene.copy()
+            closure = max(0, max(1 - abs(index - center) / animation['half_span']
+                                 for center in animation['centers']))
+            for eye in animation['eyes']:
+                patch = atlas.crop(eye['closed_atlas_box'])
+                rows = round(patch.height * closure / 2)
+                if rows:
+                    left, top, right, bottom = eye['box']
+                    frame.alpha_composite(patch.crop((0, 0, patch.width, rows)), (left, top))
+                    frame.alpha_composite(patch.crop((0, patch.height - rows, patch.width, patch.height)),
+                                          (left, bottom - rows))
+            frames.append(frame.convert('RGB'))
+        # Endpoints and full closure are right, but the intermediate eye is an
+        # abruptly clipped horizontal band. This guards the construction error
+        # found in the excluded first attempt without altering numeric tolerances.
+        for index in (0, *animation['centers'], 35):
+            self.assertIsNone(ImageChops.difference(
+                frames[index], reference_frame(task_id, workspace, index)).getbbox())
+        output = self.root / 'disconnected-eyelid-bands.mp4'
+        _encode(frames, output)
+        result = self.score(task_id, output)
+        self.assertEqual(result['structural_status'], 'pass')
+        self.assertEqual(result['status'], 'fail')
+        self.assertTrue(any(item['criterion'].startswith('content:eye-')
+                            and item['status'] == 'fail' for item in result['checks']))
+
     def test_moving_pendulum_in_wrong_phase_is_rejected(self):
         task_id = 'dev-create-woven-pendulum'
         workspace = self.workspaces[task_id]

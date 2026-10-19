@@ -212,18 +212,22 @@ def _make_assets(spec, inputs):
             draw.ellipse((x0 + 32, y0 + 11, x0 + 36, y0 + 15), fill='#fff8db')
             closed = Image.new('RGBA', (84, 56), eye_skin)
             cd = ImageDraw.Draw(closed)
-            cd.arc((6, 5, 78, 47), 15, 165, fill='#514e3f', width=3)
-            for tx in range(8, 78, 11):
-                cd.line((tx, 8, tx + 4, 11), fill='#c7ad83', width=1)
+            cd.line([(5, 25), (17, 28), (30, 30), (42, 31), (54, 30), (67, 28), (79, 25)],
+                    fill='#514e3f', width=2, joint='curve')
             atlas.alpha_composite(closed, (index * 100, 0))
+            atlas.alpha_composite(Image.new('RGBA', (84, 56), eye_skin), (index * 100, 80))
             contract['regions'].append(_region('eye-' + str(index + 1), box, 'editable') | {'support_mode': 'full'})
         draw.polygon([(cx - 13, cy + 31), (cx + 13, cy + 31), (cx, cy + 61)], fill='#425052')
         for dx in range(-84, 85, 21):
             draw.arc((cx + dx - 8, cy + 69, cx + dx + 8, cy + 89), 0, 170, fill='#8d674e', width=2)
         contract['animation'] = {
-            'type': 'blink-local-bands', 'eyes': [{'box': list(box), 'closed_atlas_box': [i * 100, 0, i * 100 + 84, 56]} for i, box in enumerate(boxes)],
+            'type': 'blink-local-curved-aperture', 'revision': 2,
+            'eyes': [{'box': list(box), 'closed_atlas_box': [i * 100, 0, i * 100 + 84, 56],
+                      'fill_atlas_box': [i * 100, 80, i * 100 + 84, 136]} for i, box in enumerate(boxes)],
             'centers': [10, 27] if variant < 6 else [8, 25], 'half_span': 4 if variant < 6 else 5,
-            'formula': 'closure(n)=max(0, max(1-abs(n-center)/half_span for center in centers)); k=round(eye_height*closure/2). Copy the first k and last k rows of each supplied closed patch over its source eye box. All other pixels remain the original scene.',
+            'aperture_inset': 2, 'outline_color': '#514e3f', 'outline_width': 2,
+            'antialias_scale': 4,
+            'formula': 'closure(n)=max(0, max(1-abs(n-center)/half_span for center in centers)). At closure=0 preserve the original eye box exactly. At closure=1 use the supplied complete closed-eye patch. For 0<closure<1 start with the supplied plain eyelid-fill patch; reveal the UNCHANGED original eye pixels through a horizontally fixed, vertically narrowing elliptical aperture, then draw its dark curved boundary. Never squash, translate or rescale the iris/pupil. With local width w, height h, q=antialias_scale: half_height=(h-2*aperture_inset-1)*(1-closure)/2, cy=(h-1)/2, ellipse=(aperture_inset,cy-half_height,w-aperture_inset-1,cy+half_height). Rasterize the filled-white ellipse mask and its outline on separate q-times-resolution canvases at round(coordinate*q), downsample with LANCZOS; outline width=outline_width*q. Composite the source eye through the mask over the fill patch, then source-over the outline. All other scene pixels remain unchanged. The fully closed patch is a single shallow curved lid seam, never detached strips of that seam.',
         }
     elif family == 'pendulum':
         pivot = [w // 2 + (22 if variant < 6 else -19), 104 if variant < 6 else 116]
@@ -397,11 +401,29 @@ def reference_frame(task_id, workspace, index=0):
         closure = max(0, max(1 - abs(index - center) / animation['half_span'] for center in animation['centers']))
         for eye in animation['eyes']:
             box = eye['box']
-            patch = atlas.crop(eye['closed_atlas_box'])
-            k = round(patch.height * closure / 2)
-            if k:
-                frame.alpha_composite(patch.crop((0, 0, patch.width, k)), (box[0], box[1]))
-                frame.alpha_composite(patch.crop((0, patch.height - k, patch.width, patch.height)), (box[0], box[3] - k))
+            if closure <= 0:
+                continue
+            if closure >= 1:
+                patch = atlas.crop(eye['closed_atlas_box'])
+            else:
+                patch = atlas.crop(eye['fill_atlas_box'])
+                w, h = patch.size
+                q = animation['antialias_scale']
+                inset = animation['aperture_inset']
+                half_height = (h - 2 * inset - 1) * (1 - closure) / 2
+                cy = (h - 1) / 2
+                ellipse = [round(value * q) for value in
+                           (inset, cy - half_height, w - inset - 1, cy + half_height)]
+                mask = Image.new('L', (w * q, h * q))
+                ImageDraw.Draw(mask).ellipse(ellipse, fill=255)
+                mask = mask.resize((w, h), Image.Resampling.LANCZOS)
+                outline = Image.new('RGBA', (w * q, h * q))
+                ImageDraw.Draw(outline).ellipse(ellipse, outline=animation['outline_color'],
+                                               width=animation['outline_width'] * q)
+                outline = outline.resize((w, h), Image.Resampling.LANCZOS)
+                patch.paste(frame.crop(box), (0, 0), mask)
+                patch.alpha_composite(outline)
+            frame.alpha_composite(patch, tuple(box[:2]))
     elif family == 'pendulum':
         sprite = atlas.crop(animation['atlas_box'])
         scale = animation['scale']
@@ -502,5 +524,6 @@ def materialize_task(task_id, workspace):
     public = _public(spec)
     files = sorted(inputs.iterdir())
     return {'task_id': task_id, **{key: public[key] for key in ('split', 'kind', 'brief', 'output_name')},
+            'specification_path': str(inputs / 'scene.json'),
             'reference_paths': [str(path) for path in references],
             'source_hashes': {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}}

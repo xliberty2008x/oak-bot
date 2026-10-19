@@ -11,9 +11,9 @@ import tempfile
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from oak.media_pilot_runtime import PilotRuntime, _PilotTools
+from oak.media_pilot_runtime import PilotRuntime, _PilotTools, _video_codec_facts
 from oak.quality_media import codec_environment
 from oak.runtime import MODEL
 
@@ -178,6 +178,95 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result['candidate_complete'])
         self.output.write_bytes(b'changed after run')
         self.assertEqual(candidate.read_bytes(), PNG_BYTES)
+
+    def specification_task(self, raw):
+        path = self.workspace / 'scene.json'
+        path.write_bytes(raw)
+        return {**self.task, 'specification_path': str(path),
+                'source_hashes': {**self.task['source_hashes'],
+                                  str(path): hashlib.sha256(raw).hexdigest()}}
+
+    async def test_original_hashed_specification_reaches_both_review_arms_without_producer_overrides(self):
+        specification = {'layers': [{'asset': 'original.png', 'position': [12, 18]}],
+                         'timing': {'frame_count': 36, 'fps': 12},
+                         'requirement': 'SUPPLIED_ORIGINAL_SPECIFICATION'}
+        raw = json.dumps(specification, ensure_ascii=False, indent=2).encode()
+        task = self.specification_task(raw)
+
+        async def plan(client):
+            report = await client.tool('oak_review_artifact', path='result.png',
+                requirements='PRODUCER_OVERRIDE_CANARY', reference_paths=['forged-reference.png'])
+            self.assertTrue(report['ok'])
+            await client.tool('oak_send_file', path='result.png')
+            client.events.put_nowait(completed())
+
+        review_inputs = []
+        for procedure in ('', 'Inspect local edits before final review.'):
+            factory = FakeFactory(plan)
+            result = await self.runtime(factory).run(task, self.workspace, procedure)
+            self.assertEqual(result['status'], 'completed')
+            self.assertEqual(result['adapter'], 'oak-controller-with-offline-bwrap-media-tools-v2')
+            reviewer = next(client for client in factory.clients if client.role == 'review')
+            inputs = next(params['input'] for method, params in reviewer.calls if method == 'turn/start')
+            metadata = json.loads(inputs[0]['text'])
+            self.assertEqual(metadata['owner_brief'], task['brief'])
+            self.assertEqual(metadata['extraction_facts']['supplied_requirements_specification'], {
+                'path': '/workspace/scene.json', 'sha256': hashlib.sha256(raw).hexdigest(),
+                'content': specification})
+            self.assertNotIn('PRODUCER_OVERRIDE_CANARY', json.dumps(inputs))
+            self.assertNotIn('forged-reference.png', json.dumps(inputs))
+            review_inputs.append(inputs)
+        self.assertEqual(review_inputs[0], review_inputs[1])
+
+    async def test_specification_must_be_explicitly_allowlisted_and_match_source_hash(self):
+        task = self.specification_task(b'{"production":true}')
+        for modified in (
+                {**task, 'source_hashes': self.task['source_hashes']},
+                {**task, 'source_hashes': {**task['source_hashes'], task['specification_path']: '0' * 64}},
+                {**task, 'specification_path': '/outside/scene.json'}):
+            factory = FakeFactory(self.passing_plan)
+            result = await self.runtime(factory).run(modified, self.workspace)
+            self.assertEqual(result['status'], 'failed')
+            self.assertEqual(factory.clients, [])
+
+    async def test_invalid_or_oversized_specification_fails_before_any_model_scope(self):
+        for raw in (b'\xff', b'{', b'[]', b'{"x":NaN}', b'{"x":Infinity}',
+                    b'{"x":"' + b'x' * (64 * 1024) + b'"}'):
+            with self.subTest(size=len(raw), prefix=raw[:12]):
+                task = self.specification_task(raw)
+                factory = FakeFactory(self.passing_plan)
+                result = await self.runtime(factory).run(task, self.workspace)
+                self.assertEqual(result['status'], 'failed')
+                self.assertEqual(factory.clients, [])
+
+    async def test_bounded_specification_accepts_exact_64kib_file_without_relaxing_review_limits(self):
+        raw = b'{}' + b' ' * (64 * 1024 - 2)
+        task = self.specification_task(raw)
+        factory = FakeFactory(self.passing_plan)
+        result = await self.runtime(factory).run(task, self.workspace)
+        self.assertEqual(result['status'], 'completed')
+        reviewer = next(client for client in factory.clients if client.role == 'review')
+        inputs = next(params['input'] for method, params in reviewer.calls if method == 'turn/start')
+        forwarded = json.loads(inputs[0]['text'])['extraction_facts']['supplied_requirements_specification']
+        self.assertEqual(forwarded['content'], {})
+        self.assertEqual(forwarded['sha256'], hashlib.sha256(raw).hexdigest())
+
+    async def test_specification_mutation_prevents_review_and_candidate_credit(self):
+        task = self.specification_task(b'{"production":"original"}')
+
+        async def plan(client):
+            Path(task['specification_path']).write_bytes(b'{"production":"changed"}')
+            result = await client.tool('oak_review_artifact', path='result.png')
+            self.assertFalse(result['ok'])
+            client.events.put_nowait(completed())
+
+        factory = FakeFactory(plan)
+        result = await self.runtime(factory).run(task, self.workspace)
+        self.assertEqual(result['status'], 'failed')
+        self.assertFalse(result['source_immutable'])
+        self.assertFalse(result['delivered'])
+        self.assertIsNone(result['candidate_path'])
+        self.assertEqual(len(factory.clients), 1)
 
     async def test_rejected_output_remains_available_without_independent_pass_or_delivery(self):
         async def plan(client):
@@ -443,6 +532,34 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(self.task['brief'] in value and other_task['brief'] in value)
 
 
+class PilotCodecProtocolTests(unittest.IsolatedAsyncioTestCase):
+    async def test_video_pixel_format_is_a_validated_hash_bound_probe_fact(self):
+        digest = hashlib.sha256(PNG_BYTES).hexdigest()
+        for pixels in ('yuv420p', 'yuv444p', None, 'yuv420p; untrusted claim'):
+            with self.subTest(pixels=pixels):
+                video = {'codec_name': 'h264', 'codec_type': 'video'}
+                if pixels is not None:
+                    video['pix_fmt'] = pixels
+                payload = {'format': {'format_name': 'mov,mp4', 'tags': {'major_brand': 'isom'}},
+                           'streams': [video, {'codec_name': 'aac', 'codec_type': 'audio'}]}
+                process = SimpleNamespace(returncode=0, wait=AsyncMock(return_value=0),
+                    stdin=SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock(),
+                                          wait_closed=AsyncMock()),
+                    stdout=SimpleNamespace(read=AsyncMock(side_effect=[json.dumps(payload).encode(), b''])))
+                with patch('oak.media_pilot_runtime.asyncio.create_subprocess_exec',
+                           new_callable=AsyncMock, return_value=process) as probe:
+                    if pixels in {'yuv420p', 'yuv444p'}:
+                        facts = await _video_codec_facts(PNG_BYTES, digest)
+                        self.assertEqual(facts['sha256'], digest)
+                        self.assertEqual(facts['streams'][0]['pix_fmt'], pixels)
+                        self.assertNotIn('pix_fmt', facts['streams'][1])
+                    else:
+                        with self.assertRaises(ValueError):
+                            await _video_codec_facts(PNG_BYTES, digest)
+                self.assertTrue(any('stream=codec_name,codec_type,pix_fmt' in value
+                                    for value in probe.await_args.args if isinstance(value, str)))
+
+
 @unittest.skipUnless(all(importlib.util.find_spec(name) for name in ('PIL', 'numpy'))
                      and Path('/usr/bin/ffmpeg').is_file() and Path('/usr/bin/ffprobe').is_file(),
                      'Provisioned Pillow, numpy and distro ffmpeg/ffprobe are required')
@@ -475,7 +592,8 @@ class PilotCodecFactsTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('mp4', facts['format_name'].split(','))
                 self.assertEqual(facts['format_tags']['major_brand'], 'isom')
                 self.assertIn('avc1', facts['format_tags']['compatible_brands'])
-                self.assertEqual(facts['streams'], [{'codec_name': 'h264', 'codec_type': 'video'}])
+                self.assertEqual(facts['streams'], [{'codec_name': 'h264', 'codec_type': 'video',
+                                                    'pix_fmt': 'yuv420p'}])
                 self.assertFalse(data['audio_present'])
                 self.assertEqual(tools.files.handles, {})
             finally:
