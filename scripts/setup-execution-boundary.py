@@ -39,6 +39,10 @@ DENY4 = ('0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
 DENY6 = ('::/128', '::1/128', '::ffff:0:0/96', '64:ff9b::/96',
          '64:ff9b:1::/48', '100::/64', '2001:db8::/32', '2002::/16',
          'fc00::/7', 'fe80::/10', 'ff00::/8')
+# Match the dependency identity enforced by oak.harness2_upstream. Do not
+# import its runtime/tool clients while preparing an execution boundary.
+HARNESS2_COMMIT = '1cfe254e8d25b15f37048c3730134686abe60335'
+HARNESS2_MANIFEST_SHA256 = 'c8a9f020df0ef897a69eb1fe3df8273c30ad4dd48a3102573559a1719652707e'
 
 
 def run(*args, **kwargs):
@@ -222,6 +226,39 @@ WantedBy=multi-user.target
     return result
 
 
+def harness2_files(source):
+    """Include only the verified dependency required by the reviewed adapter."""
+    vendor = source / 'third_party/harness2'
+    if any(path.is_symlink() for path in (source, source/'third_party', vendor)):
+        raise ValueError('Harness2 dependency directories cannot be symlinks')
+
+    def read(name):
+        path = vendor / name
+        if any(parent.is_symlink() for parent in (path, *path.parents) if parent.is_relative_to(vendor)):
+            raise ValueError('Harness2 dependency symlinks are not accepted')
+        if not path.is_file() or path.stat().st_nlink != 1:
+            raise ValueError('Harness2 dependency requires independent regular files')
+        return path.read_bytes()
+
+    manifest = read('UPSTREAM.json')
+    if hashlib.sha256(manifest).hexdigest() != HARNESS2_MANIFEST_SHA256:
+        raise ValueError('Harness2 dependency manifest differs from its reviewed pin')
+    locked = json.loads(manifest)
+    if locked.get('commit') != HARNESS2_COMMIT or locked.get('modifications') != []:
+        raise ValueError('Harness2 dependency revision is not the reviewed pin')
+    expected_python = {name for name in locked['files'] if name.endswith('.py')}
+    actual_python = {path.relative_to(vendor).as_posix() for path in (vendor/'harness2').rglob('*.py')}
+    if actual_python != expected_python:
+        raise ValueError('Harness2 dependency contains missing or unexpected Python modules')
+    files = {'third_party/harness2/UPSTREAM.json': manifest}
+    for name, expected in locked['files'].items():
+        data = read(name)
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise ValueError('Harness2 dependency file differs from its reviewed hash')
+        files['third_party/harness2/'+name] = data
+    return files
+
+
 def render(spec, destination):
     spec = validate_spec(dict(spec))
     destination = Path(destination)
@@ -242,6 +279,8 @@ def render(spec, destination):
         files[path.relative_to(source).as_posix()] = path.read_bytes()
     if not {'oak/executor.py', 'oak/executor_worker.py'} <= files.keys():
         raise ValueError('Execution implementation is incomplete')
+    if 'oak/harness2_upstream.py' in files:
+        files.update(harness2_files(source))
     files['scripts/setup-execution-boundary.py'] = Path(__file__).read_bytes()
     release_digest = hashlib.sha256(b''.join(name.encode() + files[name] for name in sorted(files))).hexdigest()[:20]
     release = ROOT / 'releases' / release_digest

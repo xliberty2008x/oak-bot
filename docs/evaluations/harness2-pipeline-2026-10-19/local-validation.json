@@ -1,0 +1,60 @@
+{
+  "command": "PYTHONPATH=tests python -m unittest test_harness2_upstream test_harness2_media test_harness2_pipeline test_harness2_pipeline_history test_harness2_report test_harness_versions test_harness_activation test_harness2_activation_demo test_harness_rollback_quarantine test_harness_controller_scope test_media_pilot_runtime test_state -q",
+  "elapsed_seconds": 65.455,
+  "environment": {
+    "bubblewrap": "bubblewrap 0.6.1",
+    "ffmpeg": "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg developers",
+    "ffprobe": "ffprobe version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2007-2021 the FFmpeg developers",
+    "native_codex_distribution": "0.159.2",
+    "numpy": "2.5.4",
+    "pillow": "12.3.0",
+    "python": "3.12.15"
+  },
+  "exit_code": 0,
+  "final_media_implementation": {
+    "files": {
+      "oak/harness2_media.py": "14152af7423dbceccd1c0897ee850d0d04f8631a86000425ddea31ec9ded0ae0",
+      "oak/media_pilot_complex_quality.py": "5b2fc3ea1689d704a1d2883b922cab776f2525e15bdda7573ccfa8a9220c9467",
+      "oak/media_pilot_complex_tasks.py": "911e59d7e65121d450fdec7399d7d12df0c9a6b85d131ca00e8720e90c88039f",
+      "oak/media_pilot_hard_quality.py": "7ed0c1a2fc24131b1c746080cccd678092b9c8521ced053ff45c44a927ca20f9",
+      "oak/media_pilot_perceptual_quality.py": "93121468f1fb788936a259315df48a2790802e5b6bdb571bc00bacc67b9b5924",
+      "oak/media_pilot_render.py": "6227f161240d8cfa7c0fabd82f4d23fc0c34b4c3c22a51f993d3f299669808df",
+      "oak/media_pilot_runtime.py": "70113faec2a1d4be4f9f8047ed90d5a0fafa8e985b45582fbe6426473e775dbe",
+      "oak/quality.py": "18f03b57471bd2004ee7878e5c1a0b9bc63dca7fdaa0bb864a948a3d3c1b9b30",
+      "oak/quality_media.py": "77a8bff069fe7e573b2fa02276b17834e115bc873b3465230e812e12164602d4"
+    },
+    "sha256": "6cadfaa9b526b155d8e3c98ac17c29004a2a4c9778defd5ca9e748aaa268e8c2"
+  },
+  "kind": "local-focused-unit-and-codec-checks",
+  "live_provider_verification": false,
+  "local_log_sha256": "7d6306a8a82b90e4c04ee08240237c5081dbbb85ee3593bb45a27b7792f7f65c",
+  "modules": [
+    "test_harness2_upstream",
+    "test_harness2_media",
+    "test_harness2_pipeline",
+    "test_harness2_pipeline_history",
+    "test_harness2_report",
+    "test_harness_versions",
+    "test_harness_activation",
+    "test_harness2_activation_demo",
+    "test_harness_rollback_quarantine",
+    "test_harness_controller_scope",
+    "test_media_pilot_runtime",
+    "test_state"
+  ],
+  "native_evidence_remains_bound_to_original_source_seals": true,
+  "native_model_execution_in_this_check": false,
+  "post_native_hardening": [
+    "Resume unfinished terminal receipt validation without producer replay.",
+    "Reject rollback to quarantined or nonancestor versions.",
+    "Validate Controller identifiers without reading another conversation."
+  ],
+  "previous_pilot_worktree_preserved": {
+    "git_status_clean": true,
+    "head": "bdbab33f4653c262f70ff8b6d8b202f1be235e45"
+  },
+  "recorded_at": "2026-10-19T18:13:32.330158+00:00",
+  "result": "OK",
+  "schema": "oak-harness2-final-validation-v1",
+  "tests_run": 172
+}

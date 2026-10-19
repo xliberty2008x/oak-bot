@@ -205,8 +205,79 @@ class TelegramGateway:
             # Restore delivery, never rerun model work from a Telegram snapshot.
             if not reply.terminal:
                 reply.terminal = True
-                reply.error = 'Попередню відповідь перервано перезапуском.'
+                if self._completed_turn(row['chat_id'], reply.run_id):
+                    if (not any(reply.parts.values()) and not reply.error and reply.message_ids
+                            and len(reply.message_ids) == len(reply.sent)
+                            and all(type(value) is int and value > 0 for value in reply.message_ids)):
+                        # The turn completed and these messages were acknowledged.
+                        # An empty stale text snapshot cannot justify rewriting them.
+                        self._save_reply(row['chat_id'], reply, 'delivered')
+                        continue
+                else:
+                    reply.error = 'Попередню відповідь перервано перезапуском.'
             self._replies.setdefault(row['chat_id'], deque()).append(reply)
+
+    def _completed_turn(self, chat_id, turn_id):
+        db = self.sessions.db
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='turns'").fetchone():
+            return False
+        return db.execute("SELECT 1 FROM turns WHERE chat_id=? AND turn_id=? AND status='completed'",
+                          (chat_id, turn_id)).fetchone() is not None
+
+    def _record_improvement_event(self, chat_id, kind, metadata, *, request_id=None):
+        recorder = getattr(type(self.controller), 'record_improvement_event', None)
+        if callable(recorder):
+            try:
+                recorder(self.controller, chat_id, kind, metadata, request_id=request_id)
+            except Exception:
+                pass  # Monitoring failure cannot replay confirmed transport or block owner input.
+
+    def _improvement_control(self, chat_id, text):
+        parts = text.strip().split()
+        action = parts[1].lower() if len(parts) == 2 else 'status' if len(parts) == 1 else None
+        if action not in {'status', 'stop', 'resume'}:
+            return 'Використай /improve status, /improve stop або /improve resume.'
+        control = getattr(type(self.controller), 'improvement_control', None)
+        if not callable(control):
+            return 'Самопокращення не увімкнено для цієї розмови.'
+        try:
+            value = control(self.controller, chat_id, action)
+        except Exception:
+            return 'Стан самопокращення зараз недоступний.'
+        if not isinstance(value, dict) or value.get('enabled') is not True:
+            return 'Самопокращення не увімкнено для цієї розмови.'
+        phase = str(value.get('phase', ''))
+        if value.get('paused') is True:
+            state = 'призупинено'
+        elif phase in {'running', 'searching', 'search', 'evaluating', 'evaluation', 'frozen', 'candidate'}:
+            state = 'працює'
+        elif phase == 'blocked':
+            state = 'потрібна перевірка оператором'
+        elif phase == 'stopped':
+            state = 'вичерпано бюджет циклів' if value.get('reason') == 'cycle_budget_exhausted' else 'цикли зупинено'
+        elif phase in {'completed', 'complete'}:
+            state = 'цикл завершено'
+        else:
+            state = 'очікує готових дозволених задач'
+        lines = ['Самопокращення: ' + state + '.']
+        if action == 'stop' and value.get('paused') is True:
+            lines.append('Нові цикли зупинено. Поточна основна задача продовжується.')
+        elif action == 'resume' and value.get('paused') is False:
+            lines.append('Дозволено продовжувати цикли в межах наявного бюджету.')
+        def count(key):
+            result = value.get(key, 0)
+            return result if type(result) is int and result >= 0 else 0
+        lines.append(f'Випадки: {count("cases")}; дозволено для покращення: {count("approved_cases")}.')
+        lines.append(f'Без готового сценарію: {count("awaiting_adapter")}; очікують дозволу: {count("awaiting_approval")}.')
+        decision = value.get('last_decision')
+        if isinstance(decision, dict) and type(decision.get('accepted')) is bool:
+            lines.append('Останній кандидат: ' + ('прийнято.' if decision['accepted'] else 'відхилено.'))
+        version = value.get('active_version')
+        if isinstance(version, str) and re.fullmatch('[a-f0-9]{64}', version):
+            lines.append('Активна версія: ' + version[:12] + '.')
+        else:
+            lines.append('Активна версія: поточні процедури Oak.')
+        return '\n'.join(lines)
 
     def _destination(self, scope):
         destination = self.sessions.destination(scope)
@@ -705,8 +776,20 @@ class TelegramGateway:
                     self._checkpoint(update_id + 1)
                 return
             text = message.get('text') or message.get('caption') or ''
+            reply_to = (message.get('reply_to_message') or {}).get('message_id')
+            if type(reply_to) is int and reply_to > 0:
+                previous = self.db.execute("SELECT id FROM deliveries WHERE chat_id=? AND status='delivered' "
+                    "AND json_extract(receipt,'$.message_id')=? AND json_type(payload,'$._upload')='object' "
+                    "ORDER BY rowid DESC LIMIT 1", (chat_id, reply_to)).fetchone()
+                if previous:
+                    self._record_improvement_event(chat_id, 'owner_feedback',
+                        {'transport': 'telegram', 'reply_to_message_id': reply_to,
+                         'delivery_reference': 'telegram-delivery:' + previous['id']},
+                        request_id='telegram-update:' + str(update_id))
             command = self._command(message)
-            if command in {'/approve', '/deny', '/answer'}:
+            if command == '/improve':
+                await self._notice(chat_id, self._improvement_control(chat_id, text))
+            elif command in {'/approve', '/deny', '/answer'}:
                 if message.get('forward_origin') or message.get('forward_from'):
                     await self._notice(chat_id, 'Підтвердження потрібно написати особисто, без пересилання.')
                 else:
@@ -1584,6 +1667,10 @@ class TelegramGateway:
         with self.db:
             self.db.execute("UPDATE deliveries SET status='delivered',receipt=? WHERE id=?",
                             (json.dumps(receipt), row['id']))
+        if '_upload' in payload:
+            self._record_improvement_event(row['chat_id'], 'artifact_delivery',
+                {'delivery_status': 'confirmed', 'transport': 'telegram', 'message_id': result['message_id']},
+                request_id='telegram-delivery:' + row['id'])
 
     async def _render(self):
         while True:

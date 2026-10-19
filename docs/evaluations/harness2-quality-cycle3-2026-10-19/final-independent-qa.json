@@ -1,0 +1,4147 @@
+{
+  "schema": "oak-harness2-three-cycle-independent-json-qa-v1",
+  "recorded_at": "2026-10-19T21:40:34.820953+00:00",
+  "audit_script": {
+    "file": "reproduce-results-qa.py",
+    "sha256": "8835906eb4e127a900eee3dad0e1152071767d66ba6fd4ea8df4132dc0a2d464"
+  },
+  "inspection_boundary": "JSON-only consistency and provenance audit. No engine imports, media opening/decoding, grading, model calls or transport attestation.",
+  "source_export": {
+    "file": "native-three-cycle-results.json",
+    "sha256": "7d19e7b3f304830625f382177577b0bb7808b65404ec0207fe0e789538aa1e85",
+    "portable_content_sha256": "1f6569e7981ad77333e680a583e46d4b49c249ae0f2ba9431fc03121eff79feb"
+  },
+  "original_two_cycle_export": {
+    "file": "native-two-cycle-results.json",
+    "sha256": "43edba1933f82b19619e0fc7a9a5d4d899fc8eb545c7502b078ac3c463a1bb73"
+  },
+  "check_count": 670,
+  "passed": 670,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "expected_number_of_completed_cycles",
+      "passed": true
+    },
+    {
+      "check": "fixed_report_model_effort_auth",
+      "passed": true
+    },
+    {
+      "check": "fixed_upstream_pin",
+      "passed": true
+    },
+    {
+      "check": "portable_document_hash",
+      "passed": true
+    },
+    {
+      "check": "no_broad_quality_or_live_provider_claim",
+      "passed": true
+    },
+    {
+      "check": "unchanged_original_cycle:1",
+      "passed": true
+    },
+    {
+      "check": "unchanged_original_cycle:2",
+      "passed": true
+    },
+    {
+      "check": "all_original_source_file_hashes_preserved",
+      "passed": true,
+      "evidence": {
+        "original_file_bindings": 615,
+        "changed": {}
+      }
+    },
+    {
+      "check": "cycle1:completed",
+      "passed": true
+    },
+    {
+      "check": "cycle1:file_journal_freeze_decision_search_equal",
+      "passed": true
+    },
+    {
+      "check": "cycle1:manifest_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle1:config_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle1:raw_json_search_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle1:portable_search_equals_raw_json",
+      "passed": true
+    },
+    {
+      "check": "cycle1:raw_search_file_hash",
+      "passed": true
+    },
+    {
+      "check": "cycle1:evaluation_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:decision_evaluation_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:decision_freeze_policy_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:selected_control_receipt_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle1:control_raw_file_hash_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:positive_negative_controls_pass",
+      "passed": true
+    },
+    {
+      "check": "cycle1:control_sources_are_exact_committed_cases",
+      "passed": true
+    },
+    {
+      "check": "cycle1:all_exported_control_bytes_bindings_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unchanged_quality_source:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "cycle1:fresh_source_identities_unique",
+      "passed": true
+    },
+    {
+      "check": "cycle1:fresh_disjoint_current_dev_regression",
+      "passed": true
+    },
+    {
+      "check": "cycle1:fresh_disjoint_all_prior_cycle_exposures",
+      "passed": true,
+      "evidence": {
+        "fresh": 2,
+        "prior_unique": 0
+      }
+    },
+    {
+      "check": "cycle1:complete_distinct_planned_pairs",
+      "passed": true
+    },
+    {
+      "check": "cycle1:unique_terminal_producer_run_ids",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-create-reeds309-depth:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:holdout-repair-reeds310-depth:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-3074f8eddcea292782f1:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle1:media-1c68aab35b339230b989:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_metrics:holdout:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_metrics:holdout:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_metrics:regression:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_metrics:regression:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_fresh_wins_losses_ties",
+      "passed": true
+    },
+    {
+      "check": "cycle1:decision_matches_all_results",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reported_holdout_joint_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle1:rejection_does_not_activate_candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle1:reservations_within_caps",
+      "passed": true
+    },
+    {
+      "check": "cycle1:all_operations_in_reported_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle1:role_cost_proxies_match_records",
+      "passed": true
+    },
+    {
+      "check": "cycle1:role_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:development:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:development:DOM",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:development:INV",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:development:composition",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:independent:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle1:producer_cost_group:independent:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle2:completed",
+      "passed": true
+    },
+    {
+      "check": "cycle2:file_journal_freeze_decision_search_equal",
+      "passed": true
+    },
+    {
+      "check": "cycle2:manifest_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle2:config_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle2:raw_json_search_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle2:portable_search_equals_raw_json",
+      "passed": true
+    },
+    {
+      "check": "cycle2:raw_search_file_hash",
+      "passed": true
+    },
+    {
+      "check": "cycle2:evaluation_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:decision_evaluation_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:decision_freeze_policy_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:selected_control_receipt_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle2:control_raw_file_hash_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:positive_negative_controls_pass",
+      "passed": true
+    },
+    {
+      "check": "cycle2:control_sources_are_exact_committed_cases",
+      "passed": true
+    },
+    {
+      "check": "cycle2:all_exported_control_bytes_bindings_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unchanged_quality_source:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "cycle2:fresh_source_identities_unique",
+      "passed": true
+    },
+    {
+      "check": "cycle2:fresh_disjoint_current_dev_regression",
+      "passed": true
+    },
+    {
+      "check": "cycle2:fresh_disjoint_all_prior_cycle_exposures",
+      "passed": true,
+      "evidence": {
+        "fresh": 2,
+        "prior_unique": 5
+      }
+    },
+    {
+      "check": "cycle2:complete_distinct_planned_pairs",
+      "passed": true
+    },
+    {
+      "check": "cycle2:unique_terminal_producer_run_ids",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-3074f8eddcea292782f1:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-1c68aab35b339230b989:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-90526c6f009fe0d09630:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle2:media-201befa8a5e4ea2ce23e:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_metrics:holdout:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_metrics:holdout:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_metrics:regression:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_metrics:regression:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_fresh_wins_losses_ties",
+      "passed": true
+    },
+    {
+      "check": "cycle2:decision_matches_all_results",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reported_holdout_joint_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle2:rejection_does_not_activate_candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle2:reservations_within_caps",
+      "passed": true
+    },
+    {
+      "check": "cycle2:all_operations_in_reported_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle2:role_cost_proxies_match_records",
+      "passed": true
+    },
+    {
+      "check": "cycle2:role_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:development:DOM",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:development:INV",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:development:composition",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:development:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:independent:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle2:producer_cost_group:independent:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle3:completed",
+      "passed": true
+    },
+    {
+      "check": "cycle3:file_journal_freeze_decision_search_equal",
+      "passed": true
+    },
+    {
+      "check": "cycle3:manifest_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle3:config_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle3:raw_json_search_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle3:portable_search_equals_raw_json",
+      "passed": true
+    },
+    {
+      "check": "cycle3:raw_search_file_hash",
+      "passed": true
+    },
+    {
+      "check": "cycle3:evaluation_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:decision_evaluation_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:decision_freeze_policy_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:selected_control_receipt_seal",
+      "passed": true
+    },
+    {
+      "check": "cycle3:control_raw_file_hash_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:positive_negative_controls_pass",
+      "passed": true
+    },
+    {
+      "check": "cycle3:control_sources_are_exact_committed_cases",
+      "passed": true
+    },
+    {
+      "check": "cycle3:all_exported_control_bytes_bindings_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unchanged_quality_source:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "cycle3:fresh_source_identities_unique",
+      "passed": true
+    },
+    {
+      "check": "cycle3:fresh_disjoint_current_dev_regression",
+      "passed": true
+    },
+    {
+      "check": "cycle3:fresh_disjoint_all_prior_cycle_exposures",
+      "passed": true,
+      "evidence": {
+        "fresh": 6,
+        "prior_unique": 8
+      }
+    },
+    {
+      "check": "cycle3:complete_distinct_planned_pairs",
+      "passed": true
+    },
+    {
+      "check": "cycle3:unique_terminal_producer_run_ids",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3074f8eddcea292782f1:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-1c68aab35b339230b989:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-201befa8a5e4ea2ce23e:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:holdout-repair-reeds310-depth:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-92e88cca80b8b1fe33e7:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-b835ce3e00915f357583:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-fd9819461f2b28ffd00f:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-9c32f88ce60d50b1d48d:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-3f54213735e5f5020838:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:baseline:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:producer_receipt_present",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:same_recorded_candidate_delivery_sha",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:exported_artifact_bytes_verified",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:same_frozen_harness",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:exact_committed_source",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:immutable_source_claim_has_verified_bytes",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:visual_boolean_matches_same_sha_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:material_defect_matches_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:mechanical_boolean_matches_measurement_and_conditions",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:joint_is_delivery_visual_mechanical_conjunction",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:time_tools_reviews_match_receipt",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:equal_per_attempt_limits",
+      "passed": true
+    },
+    {
+      "check": "cycle3:media-ab4d4be665e403d6d477:candidate:pair_freeze_binding",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_metrics:holdout:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_metrics:holdout:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_metrics:regression:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_metrics:regression:candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_fresh_wins_losses_ties",
+      "passed": true
+    },
+    {
+      "check": "cycle3:decision_matches_all_results",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reported_holdout_joint_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle3:rejection_does_not_activate_candidate",
+      "passed": true
+    },
+    {
+      "check": "cycle3:reservations_within_caps",
+      "passed": true
+    },
+    {
+      "check": "cycle3:all_operations_in_reported_counts",
+      "passed": true
+    },
+    {
+      "check": "cycle3:role_cost_proxies_match_records",
+      "passed": true
+    },
+    {
+      "check": "cycle3:role_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_attempt_counts_match",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:development:composition",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:development:DOM",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:development:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:development:INV",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:independent:baseline",
+      "passed": true
+    },
+    {
+      "check": "cycle3:producer_cost_group:independent:candidate",
+      "passed": true
+    },
+    {
+      "check": "role_audit_targets_last_cycle",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:inv1.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:dom1.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:c1.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:inv2.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:dom2.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:c2.a1",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:select.seq2",
+      "passed": true
+    },
+    {
+      "check": "role_audit_receipt_binding:experience.seq2",
+      "passed": true
+    },
+    {
+      "check": "actual_selector_limit_preserved",
+      "passed": true
+    },
+    {
+      "check": "pre_native_audit_targets_last_cycle",
+      "passed": true
+    },
+    {
+      "check": "pre_native_manifest_and_config_binding",
+      "passed": true
+    },
+    {
+      "check": "final_scope_active_version_matches_decision",
+      "passed": true
+    },
+    {
+      "check": "rejected_final_candidate_has_no_activation_event",
+      "passed": true
+    }
+  ],
+  "unperformed_checks": [],
+  "original_cycle_bindings": {
+    "1": {
+      "original_sha256": "ebfad3077ecfe6160889d1bdd810a835ea24ea7418ef02ae474af3d1f6d84641",
+      "current_sha256": "ebfad3077ecfe6160889d1bdd810a835ea24ea7418ef02ae474af3d1f6d84641"
+    },
+    "2": {
+      "original_sha256": "1ef128e1015aba1c9e7e096d94f6311835eb08563537fcee38392c1abb9eab5e",
+      "current_sha256": "1ef128e1015aba1c9e7e096d94f6311835eb08563537fcee38392c1abb9eab5e"
+    }
+  },
+  "cycle_table": [
+    {
+      "cycle": 1,
+      "cycle_id": "7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579",
+      "k": 1,
+      "producer_attempts": 12,
+      "development_terminal_runs": 4,
+      "independent_terminal_runs": 8,
+      "producer_interrupted": 0,
+      "producer_seconds": {
+        "known_count": 12,
+        "missing_count": 0,
+        "sum": 1114.522,
+        "mean": 92.87683333333334,
+        "median": 92.4105
+      },
+      "producer_tools": {
+        "known_count": 12,
+        "missing_count": 0,
+        "sum": 232,
+        "mean": 19.333333333333332,
+        "median": 19.5
+      },
+      "producer_reviews": 12,
+      "role_attempts": 4,
+      "role_statuses": {
+        "completed": 4
+      },
+      "role_seconds": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 190.043,
+        "mean": 47.51075,
+        "median": 35.7395
+      },
+      "role_tools": 125,
+      "regression_tasks": 2,
+      "regression_baseline_joint": 1,
+      "regression_candidate_joint": 1,
+      "regression_losses": 1,
+      "holdout_tasks": 2,
+      "holdout_baseline_joint": 1,
+      "holdout_candidate_joint": 1,
+      "fresh_wins": 1,
+      "fresh_losses": 1,
+      "fresh_ties": 0,
+      "accepted": false,
+      "reasons": [
+        "no_strict_fresh_holdout_gain",
+        "regression_loss"
+      ],
+      "active_id": "24fa26c289eea95a64c71609e7af9e2331af574386d57feb498fa5f58611690e",
+      "candidate_id": "da47dd0c1cae101def329dd1d3f252bf65759ca85758f156a4670f524b2ebc8f",
+      "unknown_pair_arms": 0,
+      "unverified_pair_arms": 0,
+      "freeze_sha256": "97d3818afa4ad39daef4169924e83e7c0c3a83cc4a460d4cd963a5f28b473e3c",
+      "evaluation_sha256": "fa569097c5a9ba2ea7600385fb829c85e880be25a44de6da76e5a91d4f45acc1",
+      "cycle_canonical_sha256": "ebfad3077ecfe6160889d1bdd810a835ea24ea7418ef02ae474af3d1f6d84641"
+    },
+    {
+      "cycle": 2,
+      "cycle_id": "3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45",
+      "k": 1,
+      "producer_attempts": 12,
+      "development_terminal_runs": 4,
+      "independent_terminal_runs": 8,
+      "producer_interrupted": 0,
+      "producer_seconds": {
+        "known_count": 12,
+        "missing_count": 0,
+        "sum": 1096.0659999999998,
+        "mean": 91.33883333333334,
+        "median": 92.355
+      },
+      "producer_tools": {
+        "known_count": 12,
+        "missing_count": 0,
+        "sum": 220,
+        "mean": 18.333333333333332,
+        "median": 18.0
+      },
+      "producer_reviews": 12,
+      "role_attempts": 4,
+      "role_statuses": {
+        "completed": 4
+      },
+      "role_seconds": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 176.551,
+        "mean": 44.13775,
+        "median": 35.819
+      },
+      "role_tools": 113,
+      "regression_tasks": 2,
+      "regression_baseline_joint": 1,
+      "regression_candidate_joint": 1,
+      "regression_losses": 1,
+      "holdout_tasks": 2,
+      "holdout_baseline_joint": 1,
+      "holdout_candidate_joint": 1,
+      "fresh_wins": 1,
+      "fresh_losses": 1,
+      "fresh_ties": 0,
+      "accepted": false,
+      "reasons": [
+        "no_strict_fresh_holdout_gain",
+        "regression_loss"
+      ],
+      "active_id": "24fa26c289eea95a64c71609e7af9e2331af574386d57feb498fa5f58611690e",
+      "candidate_id": "89cb4e06d1472a7b9a1bc3859840e909c588f7627fb288b6fc2f1ba9a46d4b8e",
+      "unknown_pair_arms": 0,
+      "unverified_pair_arms": 0,
+      "freeze_sha256": "9ec99e9460b0edcc86d40e342d02908700d2ec35e9e9c4b0ee83782898af15e2",
+      "evaluation_sha256": "867d185fe095198ece850e82956c447d33188aa34a52ec72d5f210cd5766172f",
+      "cycle_canonical_sha256": "1ef128e1015aba1c9e7e096d94f6311835eb08563537fcee38392c1abb9eab5e"
+    },
+    {
+      "cycle": 3,
+      "cycle_id": "17268cd68f3c3ab4c0700286095bc22f8aea549696428bf35b25eed15e302c31",
+      "k": 2,
+      "producer_attempts": 28,
+      "development_terminal_runs": 8,
+      "independent_terminal_runs": 20,
+      "producer_interrupted": 0,
+      "producer_seconds": {
+        "known_count": 28,
+        "missing_count": 0,
+        "sum": 2375.038,
+        "mean": 84.82278571428571,
+        "median": 82.98949999999999
+      },
+      "producer_tools": {
+        "known_count": 28,
+        "missing_count": 0,
+        "sum": 523,
+        "mean": 18.678571428571427,
+        "median": 19.0
+      },
+      "producer_reviews": 29,
+      "role_attempts": 8,
+      "role_statuses": {
+        "completed": 8
+      },
+      "role_seconds": {
+        "known_count": 8,
+        "missing_count": 0,
+        "sum": 333.20899999999995,
+        "mean": 41.651125,
+        "median": 37.134
+      },
+      "role_tools": 298,
+      "regression_tasks": 4,
+      "regression_baseline_joint": 3,
+      "regression_candidate_joint": 2,
+      "regression_losses": 2,
+      "holdout_tasks": 6,
+      "holdout_baseline_joint": 5,
+      "holdout_candidate_joint": 2,
+      "fresh_wins": 1,
+      "fresh_losses": 4,
+      "fresh_ties": 1,
+      "accepted": false,
+      "reasons": [
+        "no_strict_fresh_holdout_gain",
+        "regression_loss"
+      ],
+      "active_id": "24fa26c289eea95a64c71609e7af9e2331af574386d57feb498fa5f58611690e",
+      "candidate_id": "1430b6e94f036bec9d435b66b043a3446dd03ccab37fa431b065d458149c4481",
+      "unknown_pair_arms": 0,
+      "unverified_pair_arms": 0,
+      "freeze_sha256": "34219ec40487e61dc378ef54b896f7cb499d5101d05558ccf725f39bc9782391",
+      "evaluation_sha256": "40a75012a517c4b5596f89ed982100b7cb095ad478fffe593218edaaf865b959",
+      "cycle_canonical_sha256": "cc424722640cd4cd3b7a540298a772f16fbfed8a0fd4abc3b7ddce8e5a9c5861"
+    }
+  ],
+  "group_table": [
+    {
+      "cycle": 1,
+      "split": "holdout",
+      "arm": "baseline",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 210.745,
+        "mean": 105.3725,
+        "median": 105.3725
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 43,
+        "mean": 21.5,
+        "median": 21.5
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.73598,
+        "mean": 0.86799,
+        "median": 0.86799
+      }
+    },
+    {
+      "cycle": 1,
+      "split": "holdout",
+      "arm": "candidate",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 165.81900000000002,
+        "mean": 82.90950000000001,
+        "median": 82.90950000000001
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 38,
+        "mean": 19,
+        "median": 19.0
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.6803180000000002,
+        "mean": 0.8401590000000001,
+        "median": 0.8401590000000001
+      }
+    },
+    {
+      "cycle": 1,
+      "split": "regression",
+      "arm": "baseline",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 185.543,
+        "mean": 92.7715,
+        "median": 92.7715
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 37,
+        "mean": 18.5,
+        "median": 18.5
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.7378719999999999,
+        "mean": 0.8689359999999999,
+        "median": 0.8689359999999999
+      }
+    },
+    {
+      "cycle": 1,
+      "split": "regression",
+      "arm": "candidate",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 198.35399999999998,
+        "mean": 99.17699999999999,
+        "median": 99.17699999999999
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 39,
+        "mean": 19.5,
+        "median": 19.5
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.7261060000000001,
+        "mean": 0.8630530000000001,
+        "median": 0.8630530000000001
+      }
+    },
+    {
+      "cycle": 2,
+      "split": "holdout",
+      "arm": "baseline",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 194.94600000000003,
+        "mean": 97.47300000000001,
+        "median": 97.47300000000001
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 38,
+        "mean": 19,
+        "median": 19.0
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.768865,
+        "mean": 0.8844325,
+        "median": 0.8844325
+      }
+    },
+    {
+      "cycle": 2,
+      "split": "holdout",
+      "arm": "candidate",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 181.665,
+        "mean": 90.8325,
+        "median": 90.8325
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 37,
+        "mean": 18.5,
+        "median": 18.5
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.762772,
+        "mean": 0.881386,
+        "median": 0.881386
+      }
+    },
+    {
+      "cycle": 2,
+      "split": "regression",
+      "arm": "baseline",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 191.474,
+        "mean": 95.737,
+        "median": 95.737
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 40,
+        "mean": 20,
+        "median": 20.0
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.72673,
+        "mean": 0.863365,
+        "median": 0.863365
+      }
+    },
+    {
+      "cycle": 2,
+      "split": "regression",
+      "arm": "candidate",
+      "planned_distinct_tasks": 2,
+      "joint_successes": 1,
+      "delivery_successes": 2,
+      "visual_successes": 2,
+      "mechanical_successes": 1,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 164.188,
+        "mean": 82.094,
+        "median": 82.094
+      },
+      "tool_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 35,
+        "mean": 17.5,
+        "median": 17.5
+      },
+      "review_calls": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 2,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 2,
+        "missing_count": 0,
+        "sum": 1.761406,
+        "mean": 0.880703,
+        "median": 0.880703
+      }
+    },
+    {
+      "cycle": 3,
+      "split": "holdout",
+      "arm": "baseline",
+      "planned_distinct_tasks": 6,
+      "joint_successes": 5,
+      "delivery_successes": 6,
+      "visual_successes": 6,
+      "mechanical_successes": 5,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 509.193,
+        "mean": 84.8655,
+        "median": 80.1015
+      },
+      "tool_calls": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 108,
+        "mean": 18,
+        "median": 18.5
+      },
+      "review_calls": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 7,
+        "mean": 1.1666666666666667,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 5.55885,
+        "mean": 0.9264749999999999,
+        "median": 0.9601744999999999
+      }
+    },
+    {
+      "cycle": 3,
+      "split": "holdout",
+      "arm": "candidate",
+      "planned_distinct_tasks": 6,
+      "joint_successes": 2,
+      "delivery_successes": 6,
+      "visual_successes": 6,
+      "mechanical_successes": 2,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 518.198,
+        "mean": 86.36633333333333,
+        "median": 86.405
+      },
+      "tool_calls": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 127,
+        "mean": 21.166666666666668,
+        "median": 21.5
+      },
+      "review_calls": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 6,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 6,
+        "missing_count": 0,
+        "sum": 5.055537,
+        "mean": 0.8425895,
+        "median": 0.7778305000000001
+      }
+    },
+    {
+      "cycle": 3,
+      "split": "regression",
+      "arm": "baseline",
+      "planned_distinct_tasks": 4,
+      "joint_successes": 3,
+      "delivery_successes": 4,
+      "visual_successes": 4,
+      "mechanical_successes": 3,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 342.909,
+        "mean": 85.72725,
+        "median": 90.44
+      },
+      "tool_calls": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 72,
+        "mean": 18,
+        "median": 18.5
+      },
+      "review_calls": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 4,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 3.669407,
+        "mean": 0.91735175,
+        "median": 0.9633925
+      }
+    },
+    {
+      "cycle": 3,
+      "split": "regression",
+      "arm": "candidate",
+      "planned_distinct_tasks": 4,
+      "joint_successes": 2,
+      "delivery_successes": 4,
+      "visual_successes": 4,
+      "mechanical_successes": 2,
+      "material_defects": 0,
+      "unverified": 0,
+      "incomplete_or_failed": 0,
+      "elapsed_seconds": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 312.807,
+        "mean": 78.20175,
+        "median": 80.1
+      },
+      "tool_calls": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 72,
+        "mean": 18,
+        "median": 18.5
+      },
+      "review_calls": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 4,
+        "mean": 1,
+        "median": 1.0
+      },
+      "mechanical_quality_score": {
+        "known_count": 4,
+        "missing_count": 0,
+        "sum": 3.379056,
+        "mean": 0.844764,
+        "median": 0.856975
+      }
+    }
+  ],
+  "pair_table": [
+    {
+      "cycle": 1,
+      "task_id": "holdout-create-reeds309-depth",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.775494,
+      "artifact_sha256": "0953957d084e322c61a5f537aa37b5730ab70c2459a106b38c7564a035ef1e96",
+      "seconds": 83.199,
+      "tools": 16,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 1,
+      "task_id": "holdout-create-reeds309-depth",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.960393,
+      "artifact_sha256": "1abfdc93ec0810c8120e47dbd2c0d96ae80535125003348764ff5fcfdf45dd9d",
+      "seconds": 93.086,
+      "tools": 17,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 1,
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.962378,
+      "artifact_sha256": "d1ec52e1f1a476e4aa1eeaeb83ce019a8e67b7a6e80e64a36765a0bd8b19e871",
+      "seconds": 102.344,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 1,
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.765713,
+      "artifact_sha256": "0d5dce05bd226cf73f93740034e66f6b3f7eac7162a63d63832270bac611e567",
+      "seconds": 105.268,
+      "tools": 22,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 1,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.769644,
+      "artifact_sha256": "d028de363440d31620016b5e6214e1d770a410272697941eafe2700056e0a33b",
+      "seconds": 122.958,
+      "tools": 24,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 1,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.893719,
+      "artifact_sha256": "7f34366ccd07b0d00b06dd5ba27ccfc333e59039e2647d40b0359f96b8035c92",
+      "seconds": 74.084,
+      "tools": 17,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 1,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.966336,
+      "artifact_sha256": "d736b0c48624cf90cb90e832b5219a9669ad1f2ba8b82f18e3637c6fec064227",
+      "seconds": 87.787,
+      "tools": 19,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 1,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.786599,
+      "artifact_sha256": "45a859d1ef1c2ec97c03032c83e1d1662966afac60282d05d5d943aca5ce8c51",
+      "seconds": 91.735,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.760322,
+      "artifact_sha256": "72bb4b5f69e7adaef17b5f57a9d6ed448ff4ace400b7d9edc525fce188307ea6",
+      "seconds": 96.304,
+      "tools": 19,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.969796,
+      "artifact_sha256": "b11c13d4d438aedc0fbae288f7ab5791646778b9d4c614549076447bff980b15",
+      "seconds": 75.295,
+      "tools": 17,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.966408,
+      "artifact_sha256": "690c5691bb5090fd9760510a1c260f3ce9650db893c241ec70f67d23eec23bf0",
+      "seconds": 95.17,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.79161,
+      "artifact_sha256": "e547488969fa7a8f4a9351173bb8d5d783f8fae70d3f38d6b5bafe9de6177f7e",
+      "seconds": 88.893,
+      "tools": 18,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-90526c6f009fe0d09630",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.985203,
+      "artifact_sha256": "4860a31e4b54dc439f9e62b82e0e64819995c1b3f0c9ec0ced5f12fe3a00e8bd",
+      "seconds": 90.034,
+      "tools": 18,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-90526c6f009fe0d09630",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.798209,
+      "artifact_sha256": "bd0cbe6d5fae1e8ebc0601570d21c575e2e671232f1c1287a5b87ef37c37b42c",
+      "seconds": 103.377,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-201befa8a5e4ea2ce23e",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.783662,
+      "artifact_sha256": "34da51d6672e5a70c93133a070f91c26db383ac85960e280b94f87bedf076bbd",
+      "seconds": 104.912,
+      "tools": 20,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-201befa8a5e4ea2ce23e",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.964563,
+      "artifact_sha256": "65d227918250ac36f28f49dc3ea2454f42da52c8829430e04fab367f591c2c2b",
+      "seconds": 78.288,
+      "tools": 16,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.963482,
+      "artifact_sha256": "06344606f731b8aa8fd7a394fbd8680d305b3733e237877c2556fba0252c76cc",
+      "seconds": 92.259,
+      "tools": 19,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.762958,
+      "artifact_sha256": "6ea3bd449e6175a80731ec2dc404871f6d1e0f1f09ce280b84940db2d7a86d06",
+      "seconds": 81.45,
+      "tools": 20,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.98373,
+      "artifact_sha256": "f6569be90c18404819dd5d328d5ec450f5610fe097fcf37845383b01d0fe39a5",
+      "seconds": 95.361,
+      "tools": 18,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.970127,
+      "artifact_sha256": "d95fcd24bd1c9d99573804f4e9bc49f8cc3bb6ea23f01bab5a92451fb0d89eb3",
+      "seconds": 65.174,
+      "tools": 15,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-201befa8a5e4ea2ce23e",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.963303,
+      "artifact_sha256": "b50069519e5b29c4a333a9b00a9cfb6ab2b482320520b168e6b3b9d1113708ca",
+      "seconds": 66.668,
+      "tools": 16,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-201befa8a5e4ea2ce23e",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.694979,
+      "artifact_sha256": "0e8f0653ff39cf5a04391674c4ff839f720a3c616fbefcd2d967d91baecf69e2",
+      "seconds": 87.433,
+      "tools": 20,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:actual_depth_crossing:rear_veil_I",
+        "content:actual_depth_crossing:front_veil_II"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.758892,
+      "artifact_sha256": "b460aad8d3dc654e6ec1252f6cc4900575fb285f3121a4e7021bde5f596832e0",
+      "seconds": 88.621,
+      "tools": 19,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.950992,
+      "artifact_sha256": "93f35f4c7f0aff3eb349cf467a4280cbbb39390cef3458189fcb1c2a52dbf838",
+      "seconds": 78.75,
+      "tools": 17,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-92e88cca80b8b1fe33e7",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.96029,
+      "artifact_sha256": "a531d4c76c1320f9889137435caee44d9e06ecfd6f64f3a13a6fc0e78ced5035",
+      "seconds": 77.256,
+      "tools": 18,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-92e88cca80b8b1fe33e7",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.77729,
+      "artifact_sha256": "a9f5ba56413bb34c1d89d3bedb98df081772321ffc061db69fab502c8c421e94",
+      "seconds": 92.818,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-b835ce3e00915f357583",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.960059,
+      "artifact_sha256": "b7d7e85e8781f12cb390fd4c287fd7167928a15d7debaaa801fd9cce2903d735",
+      "seconds": 122.89,
+      "tools": 21,
+      "reviews": 2,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-b835ce3e00915f357583",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.776727,
+      "artifact_sha256": "3b0ace37ba61e7c8a16b420e83d1e27d7ca4239dcbdd3541fe83a6655ca45968",
+      "seconds": 96.057,
+      "tools": 24,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-fd9819461f2b28ffd00f",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.955106,
+      "artifact_sha256": "7ca05fd261d3be3c02760635771cf3a83317b42c401fd737374e66e6e8734f5d",
+      "seconds": 71.061,
+      "tools": 15,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-fd9819461f2b28ffd00f",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.772139,
+      "artifact_sha256": "02ad2f84bc306016e1b35cb1a8e7b5b29c2edde75d5ec8d727a123fb6ee2f897",
+      "seconds": 95.379,
+      "tools": 21,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-9c32f88ce60d50b1d48d",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.963329,
+      "artifact_sha256": "f36e6903045d2baf663fa8060ef188724d305ffd4de69b9952aeb710fb6f77c4",
+      "seconds": 55.049,
+      "tools": 15,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-9c32f88ce60d50b1d48d",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.778371,
+      "artifact_sha256": "49c589580ad0e301d568766c2265cb24b54756d2953d2353e718a4384fe9025a",
+      "seconds": 77.832,
+      "tools": 22,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-3f54213735e5f5020838",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.963044,
+      "artifact_sha256": "a60a173528debe4d95cef30da53a7508b6360ea9bd0cad5b883ff1d76de2199c",
+      "seconds": 99.99,
+      "tools": 19,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-3f54213735e5f5020838",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.984128,
+      "artifact_sha256": "e04470fd380110941cd099df239b8dc76401ce213ea8720825bc8d4fc7a578ad",
+      "seconds": 76.12,
+      "tools": 17,
+      "reviews": 1,
+      "failed_criteria": []
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-ab4d4be665e403d6d477",
+      "split": "holdout",
+      "arm": "baseline",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": false,
+      "joint": false,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.757022,
+      "artifact_sha256": "b3f1147ceef85c860d5ce18d863fab5472a491aed9c7676d248fcc4717c09802",
+      "seconds": 82.947,
+      "tools": 20,
+      "reviews": 1,
+      "failed_criteria": [
+        "content:visible_source_pattern:actor_far",
+        "content:visible_source_pattern:actor_near"
+      ]
+    },
+    {
+      "cycle": 3,
+      "task_id": "media-ab4d4be665e403d6d477",
+      "split": "holdout",
+      "arm": "candidate",
+      "status": "completed",
+      "delivered": true,
+      "visual": true,
+      "mechanical": true,
+      "joint": true,
+      "unverified": false,
+      "material_defect": false,
+      "quality_score": 0.966882,
+      "artifact_sha256": "8326eb788a2a25a15b1198040f4dc319eecd75b8e34d8b91bece112623d6a9e2",
+      "seconds": 79.992,
+      "tools": 22,
+      "reviews": 1,
+      "failed_criteria": []
+    }
+  ],
+  "role_context_audit": {
+    "file": "role-context-independent-qa.json",
+    "sha256": "fed60edd2a9e03054e5fbb943995c6a10d00d9a348551d561d5fa282407c68c1",
+    "selector_output_images": 0,
+    "selector_source_view_requests": 6,
+    "limitation": "Actual selector saw source images and delivery/VLM text, not candidate rendered frames. Context/read requests do not prove complete page coverage or comprehension."
+  },
+  "pre_native_audit": {
+    "file": "pre-native-independent-qa.json",
+    "sha256": "63b54f3620e3a09f0b34e0af66d5c73fa01f10bef32fdd45840d6e898ebfef89"
+  },
+  "cost_scope": "Cycle work only. Administrative activation fixtures and separate post-cycle followups are excluded from these totals; subscription USD is not metered.",
+  "quality_claim": "Admission status is recomputed from sealed comparisons; neither property-score differences nor native selection alone establish broad quality improvement."
+}

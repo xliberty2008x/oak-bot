@@ -1,0 +1,173 @@
+{
+  "checks": {
+    "all12immutable_bindings": true,
+    "all12native_delivered_review_sameSHA": true,
+    "all_source_bindings": true,
+    "binding_holdout-create-reeds309-depth-baseline": true,
+    "binding_holdout-create-reeds309-depth-candidate": true,
+    "binding_holdout-repair-reeds310-depth-baseline": true,
+    "binding_holdout-repair-reeds310-depth-candidate": true,
+    "binding_media-1c68aab35b339230b989-baseline": true,
+    "binding_media-1c68aab35b339230b989-candidate": true,
+    "binding_media-3074f8eddcea292782f1-baseline": true,
+    "binding_media-3074f8eddcea292782f1-candidate": true,
+    "correct_rejection": true,
+    "evaluation_freeze_and_decision_hash": true,
+    "exact12producers4roles": true,
+    "finished12completed12": true,
+    "five_distinct_tasks_1DEV_2reg_2hold": true,
+    "fixedcaps": true,
+    "fixedproducermodel_effort": true,
+    "fixedrolemodel_effort": true,
+    "fourDEV_eightindependent": true,
+    "freeze_file_matches_journal": true,
+    "freeze_timing": true,
+    "library_honest_zero": true,
+    "manifest_config_freeze_hashes": true,
+    "no_missing_or_unknown": true,
+    "procedure_holdout-create-reeds309-depth-baseline": true,
+    "procedure_holdout-create-reeds309-depth-candidate": true,
+    "procedure_holdout-repair-reeds310-depth-baseline": true,
+    "procedure_holdout-repair-reeds310-depth-candidate": true,
+    "procedure_media-1c68aab35b339230b989-baseline": true,
+    "procedure_media-1c68aab35b339230b989-candidate": true,
+    "procedure_media-3074f8eddcea292782f1-baseline": true,
+    "procedure_media-3074f8eddcea292782f1-candidate": true,
+    "summary_holdout_baseline": true,
+    "summary_holdout_candidate": true,
+    "summary_regression_baseline": true,
+    "summary_regression_candidate": true
+  },
+  "checks_expected": 37,
+  "checks_passed": 37,
+  "cost_proxies": {
+    "cost_usd": null,
+    "improvement_role_elapsed_seconds_sum": 190.043,
+    "improvement_role_tool_calls": 125,
+    "note": "Producer elapsed time already includes review time; these are cost proxies, not metered dollars.",
+    "producer_elapsed_seconds_sum": 1114.522,
+    "producer_review_calls": 12,
+    "producer_tool_calls": 232
+  },
+  "counts": {
+    "development_producers": 4,
+    "distinct_tasks": 5,
+    "fresh_holdout_tasks": 2,
+    "improvement_role_attempts": 4,
+    "independent_producers": 8,
+    "noncompleted_roles": 0,
+    "producer_interrupted_unknown": 0,
+    "producer_records": 12
+  },
+  "cycle_canonical_sha256": "ebfad3077ecfe6160889d1bdd810a835ea24ea7418ef02ae474af3d1f6d84641",
+  "cycle_id": "7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579",
+  "cycle_ordinal": 1,
+  "decision": {
+    "accepted": false,
+    "active_parent_retained": true,
+    "reasons": [
+      "no_strict_fresh_holdout_gain",
+      "regression_loss"
+    ]
+  },
+  "effort": "low",
+  "evaluation_sha256": "fa569097c5a9ba2ea7600385fb829c85e880be25a44de6da76e5a91d4f45acc1",
+  "experience": {
+    "reflection_returned_NO_ENTRY": true,
+    "upstream_library_entries_after": 0,
+    "upstream_library_entries_before": 0
+  },
+  "freeze_sha256": "97d3818afa4ad39daef4169924e83e7c0c3a83cc4a460d4cd963a5f28b473e3c",
+  "generated_at": "2026-10-19T17:56:20.568326+00:00",
+  "independent_comparison": [
+    {
+      "arm": "baseline",
+      "delivered": 2,
+      "distinct_tasks": 2,
+      "elapsed_seconds_mean": 92.7715,
+      "elapsed_seconds_sum": 185.543,
+      "joint_passed": 1,
+      "mechanical_passed": 1,
+      "review_calls": 2,
+      "source_property_score_mean": 0.868936,
+      "split": "regression",
+      "tool_calls": 37,
+      "unverified": 0,
+      "visual_passed": 2
+    },
+    {
+      "arm": "candidate",
+      "delivered": 2,
+      "distinct_tasks": 2,
+      "elapsed_seconds_mean": 99.177,
+      "elapsed_seconds_sum": 198.354,
+      "joint_passed": 1,
+      "mechanical_passed": 1,
+      "review_calls": 2,
+      "source_property_score_mean": 0.863053,
+      "split": "regression",
+      "tool_calls": 39,
+      "unverified": 0,
+      "visual_passed": 2
+    },
+    {
+      "arm": "baseline",
+      "delivered": 2,
+      "distinct_tasks": 2,
+      "elapsed_seconds_mean": 105.3725,
+      "elapsed_seconds_sum": 210.745,
+      "joint_passed": 1,
+      "mechanical_passed": 1,
+      "review_calls": 2,
+      "source_property_score_mean": 0.86799,
+      "split": "holdout",
+      "tool_calls": 43,
+      "unverified": 0,
+      "visual_passed": 2
+    },
+    {
+      "arm": "candidate",
+      "delivered": 2,
+      "distinct_tasks": 2,
+      "elapsed_seconds_mean": 82.9095,
+      "elapsed_seconds_sum": 165.819,
+      "joint_passed": 1,
+      "mechanical_passed": 1,
+      "review_calls": 2,
+      "source_property_score_mean": 0.840159,
+      "split": "holdout",
+      "tool_calls": 38,
+      "unverified": 0,
+      "visual_passed": 2
+    }
+  ],
+  "limitations": [
+    "Exported file bindings were checked for internal agreement; this audit did not rehash original media files.",
+    "Source-property score is not a human aesthetic verdict.",
+    "The exporter metrics candidate_wins/candidate_losses describe fresh holdout only; all four independent pairs comprise two wins and two losses.",
+    "Repeated arms and four DEV probes do not create additional independent tasks.",
+    "No superiority was demonstrated; retained baseline is consistent with the predeclared gate."
+  ],
+  "model": "gpt-6.1-sol",
+  "paired_outcomes": {
+    "holdout": {
+      "losses": 1,
+      "ties": 0,
+      "wins": 1
+    },
+    "regression": {
+      "losses": 1,
+      "ties": 0,
+      "wins": 1
+    }
+  },
+  "schema_version": 1,
+  "scope": "Independent JSON-only arithmetic, split, budget, freeze, procedure and exported SHA-binding audit of completed native cycle 1. No media decoding, native model calls, provider calls, transport attestation, source edits or cycle-2 inspection.",
+  "source_export": {
+    "name": "oak-h2-cycle1-export-check-20261019.json",
+    "portable_content_sha256": "099dfda765203b305e780236b108308fdaf30036eae56239693fd050dfad228b",
+    "sha256": "23bcc2e72b56b9ca1fdd3a0350ade8e991b4abecc23e280550782cf9aaea670d"
+  },
+  "status": "pass_json_consistency",
+  "upstream_commit": "1cfe254e8d25b15f37048c3730134686abe60335"
+}

@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import datetime
+import hashlib
 import json
 import re
 import shutil
@@ -54,6 +55,25 @@ class Controller:
         self.emit = emit
         self.instructions = instructions
         self.config = config or {}
+        self.improvement = None
+        if self.config.get('harness_improvement') is not None:
+            from .harness2_production import ProductionBridge, configuration
+            if configuration(self.config) is not None:
+                self.improvement = ProductionBridge(self.config)
+                self.config = {**self.config, 'harness_activation':self.improvement.activation}
+        self.harness_versions = None
+        self.harness_activation = self.config.get('harness_activation')
+        self._harness_prepared = {}
+        if self.harness_activation is not None:
+            if (not isinstance(self.harness_activation, dict)
+                    or set(self.harness_activation) != {'store_path', 'project_id', 'domain'}):
+                raise ValueError('Harness activation requires an explicit store, project and domain.')
+            from .harness_versions import HarnessVersions, _scope as validate_harness_scope
+            # Validate identifiers without reading a different conversation.
+            # The actual conversation is resolved in prepare_harness_input.
+            validate_harness_scope(self.harness_activation['project_id'], 0,
+                                   self.harness_activation['domain'])
+            self.harness_versions = HarnessVersions(self.harness_activation['store_path'])
         self.tools = None
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
@@ -542,6 +562,7 @@ class Controller:
                 payload['input'] = [*items, {'type': 'text', 'text':
                     'Relevant private working experience (reference, not new owner instructions):\n' +
                     json.dumps(learned, ensure_ascii=False)[:18000]}]
+            payload['input'], _ = self.prepare_harness_input(chat_id, str(update_id), payload['input'])
             self._status(update_id, 'dispatching')
             try:
                 turn_id = self.active.get(chat_id)
@@ -823,9 +844,67 @@ class Controller:
         await self.submit(chat_id, text, update_id)
 
     def _accepted(self, update_id, chat_id, turn_id):
+        self.bind_harness_turn(chat_id, str(update_id), turn_id)
         with self.db:
             self.db.execute('INSERT OR REPLACE INTO input_runs VALUES (?,?,?)', (update_id, chat_id, turn_id))
             self.db.execute("UPDATE inputs SET status='accepted' WHERE update_id=?", (update_id,))
+
+    def prepare_harness_input(self, chat_id, request_id, items):
+        """Resolve trusted activation on every task, including resumed threads.
+
+        The configured domain defines applicability. Producers cannot configure
+        this store, accept versions, or change the pointer through oak_experience.
+        Persist intent before dispatch; the separate turn binding never retries
+        an uncertain native action.
+        """
+        if self.improvement is not None:
+            if chat_id not in self.improvement.chats:
+                return items, None
+            self.improvement.ensure_baseline(chat_id)
+        if self.harness_versions is None:
+            return items, None
+        scope = self.harness_activation
+        fingerprint = hashlib.sha256(json.dumps(items, ensure_ascii=False, sort_keys=True,
+            separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+        application = self.harness_versions.prepare_application(
+            scope['project_id'], chat_id, scope['domain'], request_id, input_sha256=fingerprint)
+        if application is None:
+            return [*items, {'type': 'text', 'text':
+                'No active harness procedure applies in this configured project and conversation. '
+                'Previously injected harness versions are inactive; follow current task instructions.'}], None
+        self._harness_prepared[(chat_id, request_id)] = application['id']
+        return [*items, {'type': 'text', 'text': application['context']}], application
+
+    def record_improvement_event(self, chat_id, kind, metadata, *, request_id=None, turn_id=None):
+        """Local metadata is observational; it never authorizes optimizer disclosure."""
+        if self.improvement is None:
+            return None
+        try:
+            turn_id = turn_id or self.active.get(chat_id)
+            if self.harness_versions is not None and turn_id:
+                scope = self.harness_activation
+                row = self.harness_versions.db.execute('SELECT version_id,procedure_sha256 FROM harness_applications '
+                    'WHERE project_id=? AND chat_id=? AND domain=? AND turn_id=? ORDER BY created DESC LIMIT 1',
+                    (scope['project_id'],chat_id,scope['domain'],turn_id)).fetchone()
+                if row:
+                    metadata = {**metadata, 'version_id':row[0],'procedure_sha256':row[1]}
+            return self.improvement.record(chat_id,kind,metadata,request_id=request_id,turn_id=turn_id)
+        except Exception:
+            return None  # Observation cannot replay, fail or change the user's action.
+
+    def improvement_control(self, chat_id, action='status'):
+        if self.improvement is None:
+            return {'enabled':False}
+        return self.improvement.control(chat_id,action)
+
+    def improvement_status(self, chat_id):
+        return self.improvement_control(chat_id)
+
+    def bind_harness_turn(self, chat_id, request_id, turn_id):
+        application_id = self._harness_prepared.get((chat_id, request_id))
+        if self.harness_versions is not None and application_id:
+            return self.harness_versions.bind_turn(application_id, turn_id)
+        return None
 
     async def stop(self, chat_id, *, expected_turn=None):
         async with self._lock(chat_id):
@@ -946,6 +1025,7 @@ class Controller:
                 return  # A queued old thread cannot update its replacement.
             if msg.get('method') == 'turn/completed':
                 turn = params['turn']
+                self.record_improvement_event(chat_id,'task_terminal',{'status':turn['status']},turn_id=turn['id'])
                 if self.active.get(chat_id) == turn['id']:
                     self.active.pop(chat_id, None)
                 self.interactions.cancel_turn(thread_id, turn['id'])
@@ -982,4 +1062,6 @@ class Controller:
                 await self.tools.artifact(chat_id, target, 'Зображення')
 
     def close(self):
+        if self.harness_versions is not None:
+            self.harness_versions.close()
         self.db.close()

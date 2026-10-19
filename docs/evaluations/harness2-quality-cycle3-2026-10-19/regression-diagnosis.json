@@ -1,0 +1,982 @@
+{
+  "scope": "Read-only postcompletion diagnostic on already revealed cases; not a rescore or new evaluation rule. Frame12 preselected for public crossing trajectories. No fresh future held inputs.",
+  "frame_index": 12,
+  "results": [
+    {
+      "cycle": 1,
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "frame_index": 12,
+      "baseline_artifact_sha256": "d1ec52e1f1a476e4aa1eeaeb83ce019a8e67b7a6e80e64a36765a0bd8b19e871",
+      "candidate_artifact_sha256": "0d5dce05bd226cf73f93740034e66f6b3f7eac7162a63d63832270bac611e567",
+      "baseline_raw_sha256": "07d3d5355de874f435921516b65a625fd8a1caf0ad8210cfd27dff125b01b928",
+      "candidate_raw_sha256": "8ebae0897142099ec8ec61e5fc1e91340b320b987c13984bd0c22a3485c569fb",
+      "mask_metrics": {
+        "baseline": [
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ],
+        "candidate": [
+          {
+            "false_positive_pixels_beyond2px": 1588,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 1588,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ]
+      },
+      "actor_pixels": {
+        "actor_far": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 780,
+          "baseline_restored_exact_raw_pixels": 780,
+          "baseline_decoded_source_rgb_mae": 10.017948717948718,
+          "candidate_decoded_source_rgb_mae": 32.0534188034188,
+          "candidate_decoded_original_scene_rgb_mae": 2.7572649572649572,
+          "example": {
+            "xy": [
+              307,
+              300
+            ],
+            "source_expected_rgb": [
+              92,
+              163,
+              158
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              92,
+              163,
+              158
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              90,
+              160,
+              152
+            ],
+            "candidate_decoded_rgb": [
+              116,
+              147,
+              152
+            ]
+          }
+        },
+        "actor_near": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 206,
+          "baseline_restored_exact_raw_pixels": 206,
+          "baseline_decoded_source_rgb_mae": 2.411003236245955,
+          "candidate_decoded_source_rgb_mae": 53.05825242718446,
+          "candidate_decoded_original_scene_rgb_mae": 2.44336569579288,
+          "example": {
+            "xy": [
+              548,
+              274
+            ],
+            "source_expected_rgb": [
+              223,
+              201,
+              148
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              223,
+              201,
+              148
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              222,
+              198,
+              147
+            ],
+            "candidate_decoded_rgb": [
+              117,
+              146,
+              151
+            ]
+          }
+        }
+      },
+      "crop_box": [
+        264,
+        252,
+        360,
+        348
+      ],
+      "proof_file": "c1-holdout-repair-reeds310-depth-source-loss-proof.png",
+      "proof_sha256": "22253367e1f7efa01386b376f19f7570a5128c0069dbda66e417148da7d26c6b",
+      "existing_evaluation": {
+        "baseline": {
+          "score": 0.962378,
+          "joint_passed": true,
+          "visual_passed": true,
+          "failed_criteria": []
+        },
+        "candidate": {
+          "score": 0.765713,
+          "joint_passed": false,
+          "visual_passed": true,
+          "failed_criteria": [
+            "content:visible_source_pattern:actor_far",
+            "content:visible_source_pattern:actor_near"
+          ]
+        }
+      },
+      "evidence_bindings": {
+        "baseline": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/receipt.json",
+          "receipt_sha256": "9f96872d5f061d2ecfc12aaefe410c49436d7af66e5c8eb3243e66724d570376",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/attempt-1/.pilot-control/afdef36a74a64aefbfdea69442f1a15c/d1ec52e1f1a476e4aa1eeaeb83ce019a8e67b7a6e80e64a36765a0bd8b19e871.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "07d3d5355de874f435921516b65a625fd8a1caf0ad8210cfd27dff125b01b928",
+          "masks": [
+            "mask0.png",
+            "mask1.png"
+          ],
+          "source_commitment_sha256": "44622bab87c29cf67f2ae42474d862ac636df0011f9278e9d20012a517665fa9",
+          "source_files": {
+            "actor-far.png": "6818a64cbbbad3f9efcad67a466b7bb492e7a58cc7b7f63ebacab1382cdd688a",
+            "actor-near.png": "dcfcee6021a318f00743c1a2d4dc411e01cb384913a231b2d4387745064db2bd",
+            "actors.png": "5c2c2f6d48919f6e80adc158fcd638dae37c6f38ffb66835a3174ba745180e88",
+            "broken-seed.mp4": "20575aa47d826996f726b70e9d1ef803f22a4f052ac1a687d4ca8df04ef829fc",
+            "depth-guide.png": "e6cc6648b72f13e3ccf2946c92990fb2003c61013d56f04f6c0e7cafe80a4fe5",
+            "scene.json": "06f18901a8761a795d2e0c6112abb3b40a34ef498503936c4c0d8d3481afe982",
+            "scene.png": "bddee7ae308efd3e8b99d4b14555c43982f154e4582ec24907af12a2157de626"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 17,
+              "code_sha256": "d01c133ecdf67f4195a14de9fd6351744cde05de8083eb6041d0e490e7b1b749",
+              "actual_render_excerpt": [
+                "  f.paste(actors[k],(x,y),actors[k]);f.paste(base,(0,0),masks[k])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "0f21600c5af804f67670ec8ebb4719d2b44692db9dca49353b04b2ee74db4c53"
+        },
+        "candidate": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/receipt.json",
+          "receipt_sha256": "040a9b814b2247eda14b19544fee3018b79e728da930280157e4c4b20344e0e5",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/attempt-1/.pilot-control/7a76eca8257f46f5bb648a35009a7116/0d5dce05bd226cf73f93740034e66f6b3f7eac7162a63d63832270bac611e567.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "8ebae0897142099ec8ec61e5fc1e91340b320b987c13984bd0c22a3485c569fb",
+          "masks": [
+            "mask0.png",
+            "mask1.png"
+          ],
+          "source_commitment_sha256": "44622bab87c29cf67f2ae42474d862ac636df0011f9278e9d20012a517665fa9",
+          "source_files": {
+            "actor-far.png": "6818a64cbbbad3f9efcad67a466b7bb492e7a58cc7b7f63ebacab1382cdd688a",
+            "actor-near.png": "dcfcee6021a318f00743c1a2d4dc411e01cb384913a231b2d4387745064db2bd",
+            "actors.png": "5c2c2f6d48919f6e80adc158fcd638dae37c6f38ffb66835a3174ba745180e88",
+            "broken-seed.mp4": "20575aa47d826996f726b70e9d1ef803f22a4f052ac1a687d4ca8df04ef829fc",
+            "depth-guide.png": "e6cc6648b72f13e3ccf2946c92990fb2003c61013d56f04f6c0e7cafe80a4fe5",
+            "scene.json": "06f18901a8761a795d2e0c6112abb3b40a34ef498503936c4c0d8d3481afe982",
+            "scene.png": "bddee7ae308efd3e8b99d4b14555c43982f154e4582ec24907af12a2157de626"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 15,
+              "code_sha256": "aa47d1aeee8f4ebf9d7c2a5a324a5044fdf29c65e440d77eed92f1ead9561fde",
+              "actual_render_excerpt": [
+                " expanded=m.filter(ImageFilter.MaxFilter(3));flood=expanded.copy();ImageDraw.floodfill(flood,(0,0),128)",
+                " m=ImageChops.lighter(expanded,flood.point(lambda v:255 if v==0 else 0)).filter(ImageFilter.MinFilter(3));m.save('/workspace/mask%d.png'%k)",
+                " out=Image.new('RGB',im.size,(180,70,90));out.paste(im,(0,0),m);out.save('/workspace/stencil%d.png'%k)"
+              ]
+            },
+            {
+              "trace_event_index": 17,
+              "code_sha256": "a21ac2c3f9bd097eead1b332547816ccb00acecaacd81ff014567713812be63a",
+              "actual_render_excerpt": [
+                "  mo=cfg['motion'][name];x=round(mo['start'][0]+(mo['end'][0]-mo['start'][0])*u);y=round(mo['start'][1]+mo['bob']*math.sin(2*math.pi*u));im.paste(actors[k],(x,y),actors[k]);im.paste(bg,(0,0),masks[k])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "a70c5b965cfe9d0d972e2a2a02cd12b9ffa914cd51b49b79ebfd2f1ec50561b0"
+        }
+      },
+      "proof_description": "Five columns: baseline raw, candidate raw, source-derived expected consequence, baseline decoded delivery, candidate decoded delivery. The expected consequence is a source-construction control, not a native production result."
+    },
+    {
+      "cycle": 1,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "holdout",
+      "frame_index": 12,
+      "baseline_artifact_sha256": "d736b0c48624cf90cb90e832b5219a9669ad1f2ba8b82f18e3637c6fec064227",
+      "candidate_artifact_sha256": "45a859d1ef1c2ec97c03032c83e1d1662966afac60282d05d5d943aca5ce8c51",
+      "baseline_raw_sha256": "b7325d8109666dc2ca0c50e8e95e81a5c9bf327100d2213c9f25fc2940b64ebb",
+      "candidate_raw_sha256": "1fa48bd4f7f79a919099c34fa34d4e57361d1ee6d468ef1598e6ec8c8c3d453f",
+      "mask_metrics": {
+        "baseline": [
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ],
+        "candidate": [
+          {
+            "false_positive_pixels_beyond2px": 1690,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 1690,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ]
+      },
+      "actor_pixels": {
+        "actor_far": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 237,
+          "baseline_restored_exact_raw_pixels": 237,
+          "baseline_decoded_source_rgb_mae": 11.019690576652602,
+          "candidate_decoded_source_rgb_mae": 64.51476793248945,
+          "candidate_decoded_original_scene_rgb_mae": 3.654008438818565,
+          "example": {
+            "xy": [
+              322,
+              267
+            ],
+            "source_expected_rgb": [
+              240,
+              216,
+              166
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              240,
+              216,
+              166
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              238,
+              214,
+              172
+            ],
+            "candidate_decoded_rgb": [
+              113,
+              148,
+              158
+            ]
+          }
+        },
+        "actor_near": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 223,
+          "baseline_restored_exact_raw_pixels": 223,
+          "baseline_decoded_source_rgb_mae": 2.819133034379671,
+          "candidate_decoded_source_rgb_mae": 53.535127055306425,
+          "candidate_decoded_original_scene_rgb_mae": 2.4633781763826605,
+          "example": {
+            "xy": [
+              554,
+              267
+            ],
+            "source_expected_rgb": [
+              223,
+              201,
+              148
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              223,
+              201,
+              148
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              221,
+              201,
+              145
+            ],
+            "candidate_decoded_rgb": [
+              117,
+              146,
+              151
+            ]
+          }
+        }
+      },
+      "crop_box": [
+        263,
+        219,
+        359,
+        315
+      ],
+      "proof_file": "c1-media-1c68aab35b339230b989-source-loss-proof.png",
+      "proof_sha256": "8c164b777deda271fc132ef82b9d8b63291a92c13e32183754fe916fea984b0b",
+      "existing_evaluation": {
+        "baseline": {
+          "score": 0.966336,
+          "joint_passed": true,
+          "visual_passed": true,
+          "failed_criteria": []
+        },
+        "candidate": {
+          "score": 0.786599,
+          "joint_passed": false,
+          "visual_passed": true,
+          "failed_criteria": [
+            "content:visible_source_pattern:actor_far",
+            "content:visible_source_pattern:actor_near"
+          ]
+        }
+      },
+      "evidence_bindings": {
+        "baseline": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/receipt.json",
+          "receipt_sha256": "2c35ec2d730a477249fd41be32fac9ed4cffe6c5c1b4e6d212d57a473356d301",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/attempt-1/.pilot-control/23684a68d1764a00ad6bf8ceaf763d52/d736b0c48624cf90cb90e832b5219a9669ad1f2ba8b82f18e3637c6fec064227.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "b7325d8109666dc2ca0c50e8e95e81a5c9bf327100d2213c9f25fc2940b64ebb",
+          "masks": [
+            "mask0.png",
+            "mask1.png"
+          ],
+          "source_commitment_sha256": "d768eb7819c42ef2bd3027f03b58ddfc5809fc76e2faa00d7f3a7f8f61f0de74",
+          "source_files": {
+            "actor-far.png": "abba5cb28b5cd5491211c264a56c95b804334ac39a9222ae775c770c4e1ef771",
+            "actor-near.png": "a3811bcedd666d7bc1317a8830f6c389809ab3ba0f4822bd199381d98c430022",
+            "actors.png": "7aa28ec48cbc2054721f201f2e874495f28fbd684ff76d1c6ffa59c22186a13e",
+            "broken-seed.mp4": "4c03c46334b5305570957dddfb9d5b4a334f1d87688a0404d02e44e783540cbd",
+            "depth-guide.png": "4735a7482c4a252df50ae909215d9e5179e2e3cfe57ed56c20ca7bbfad7ae1f4",
+            "scene.json": "d0c8e9c8b99f79aa8e684203778f72e4d9664fb906ddd1b10c46f854d48b6783",
+            "scene.png": "b347cdf04917fb9756dabb48691da183617e2f35e95a7d55695ddd03c83a105a"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 13,
+              "code_sha256": "9303288939f9888db32895f6429fde2331df28b6bb316614811f0bdcfe7876ea",
+              "actual_render_excerpt": [
+                " out=Image.new('RGB',im.size,'white');out.paste(im,(0,0),m);out.save('/workspace/veil%d.png'%i)"
+              ]
+            },
+            {
+              "trace_event_index": 15,
+              "code_sha256": "6e3f1f1ba52b645b99c5c5667ea6b89aa2f7a7cc13b51f45d694672d9d89521e",
+              "actual_render_excerpt": [
+                "  f.alpha_composite(actors[i],(x,y));f.paste(bg,(0,0),masks[i])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "55437b0208cdbf5ed96bc3e85bd87b0399799052f1bd7671696e6ad9492bb039"
+        },
+        "candidate": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/receipt.json",
+          "receipt_sha256": "e3eb7f391b0f61ce307687b76107cea0b63b541dc1aa7e3eec562f5904d4dcf5",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/attempt-1/.pilot-control/c0d5676f67744cb7a9e7d06a5ee2cdaf/45a859d1ef1c2ec97c03032c83e1d1662966afac60282d05d5d943aca5ce8c51.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/7e9ff82cbeae2a56e75b04a4048f6da3bc51642d4c4b6b7c7561572fb9c29579/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "1fa48bd4f7f79a919099c34fa34d4e57361d1ee6d468ef1598e6ec8c8c3d453f",
+          "masks": [
+            "mask1.png",
+            "mask2.png"
+          ],
+          "source_commitment_sha256": "d768eb7819c42ef2bd3027f03b58ddfc5809fc76e2faa00d7f3a7f8f61f0de74",
+          "source_files": {
+            "actor-far.png": "abba5cb28b5cd5491211c264a56c95b804334ac39a9222ae775c770c4e1ef771",
+            "actor-near.png": "a3811bcedd666d7bc1317a8830f6c389809ab3ba0f4822bd199381d98c430022",
+            "actors.png": "7aa28ec48cbc2054721f201f2e874495f28fbd684ff76d1c6ffa59c22186a13e",
+            "broken-seed.mp4": "4c03c46334b5305570957dddfb9d5b4a334f1d87688a0404d02e44e783540cbd",
+            "depth-guide.png": "4735a7482c4a252df50ae909215d9e5179e2e3cfe57ed56c20ca7bbfad7ae1f4",
+            "scene.json": "d0c8e9c8b99f79aa8e684203778f72e4d9664fb906ddd1b10c46f854d48b6783",
+            "scene.png": "b347cdf04917fb9756dabb48691da183617e2f35e95a7d55695ddd03c83a105a"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 15,
+              "code_sha256": "136eaf0f1adaf74b50ed033c5013efb48e3b742626e0e4675a512a980ffda222",
+              "actual_render_excerpt": [
+                " mask=mask.filter(ImageFilter.MaxFilter(3))",
+                " ImageDraw.floodfill(mask,(0,0),128)",
+                " mask=mask.point(lambda p:0 if p==128 else 255).filter(ImageFilter.MinFilter(3))"
+              ]
+            },
+            {
+              "trace_event_index": 17,
+              "code_sha256": "e4251fa8d82cf7b8282dcf834724eda822ca519c8743b5fd892522eb6f8cdf5d",
+              "actual_render_excerpt": [
+                "  f.paste(actors[j],(x,y),actors[j]);f.paste(im,(0,0),masks[j])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "72714fe1522b77102f79a5c9dc34cc3ea03b8deb2388685127ea6b4976ba3225"
+        }
+      },
+      "proof_description": "Five columns: baseline raw, candidate raw, source-derived expected consequence, baseline decoded delivery, candidate decoded delivery. The expected consequence is a source-construction control, not a native production result."
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-1c68aab35b339230b989",
+      "split": "regression",
+      "frame_index": 12,
+      "baseline_artifact_sha256": "690c5691bb5090fd9760510a1c260f3ce9650db893c241ec70f67d23eec23bf0",
+      "candidate_artifact_sha256": "e547488969fa7a8f4a9351173bb8d5d783f8fae70d3f38d6b5bafe9de6177f7e",
+      "baseline_raw_sha256": "07df4ffefc0728e3336e1d6c42d610b16bced50077ae8da51ac4fa8a10d06aef",
+      "candidate_raw_sha256": "1fa48bd4f7f79a919099c34fa34d4e57361d1ee6d468ef1598e6ec8c8c3d453f",
+      "mask_metrics": {
+        "baseline": [
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ],
+        "candidate": [
+          {
+            "false_positive_pixels_beyond2px": 1702,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 1702,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ]
+      },
+      "actor_pixels": {
+        "actor_far": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 237,
+          "baseline_restored_exact_raw_pixels": 237,
+          "baseline_decoded_source_rgb_mae": 10.977496483825599,
+          "candidate_decoded_source_rgb_mae": 64.51476793248945,
+          "candidate_decoded_original_scene_rgb_mae": 3.749648382559775,
+          "example": {
+            "xy": [
+              322,
+              267
+            ],
+            "source_expected_rgb": [
+              240,
+              216,
+              166
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              240,
+              216,
+              166
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              243,
+              216,
+              172
+            ],
+            "candidate_decoded_rgb": [
+              115,
+              150,
+              155
+            ]
+          }
+        },
+        "actor_near": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 223,
+          "baseline_restored_exact_raw_pixels": 223,
+          "baseline_decoded_source_rgb_mae": 2.5336322869955157,
+          "candidate_decoded_source_rgb_mae": 53.49925261584455,
+          "candidate_decoded_original_scene_rgb_mae": 2.5411061285500747,
+          "example": {
+            "xy": [
+              554,
+              267
+            ],
+            "source_expected_rgb": [
+              223,
+              201,
+              148
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              223,
+              201,
+              148
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              221,
+              200,
+              147
+            ],
+            "candidate_decoded_rgb": [
+              119,
+              147,
+              148
+            ]
+          }
+        }
+      },
+      "crop_box": [
+        263,
+        219,
+        359,
+        315
+      ],
+      "proof_file": "c2-media-1c68aab35b339230b989-source-loss-proof.png",
+      "proof_sha256": "4c57e21bf87c2f69ade34c04fecb7a2ea51dcfde755f26f0978d5b579a98b97f",
+      "existing_evaluation": {
+        "baseline": {
+          "score": 0.966408,
+          "joint_passed": true,
+          "visual_passed": true,
+          "failed_criteria": []
+        },
+        "candidate": {
+          "score": 0.79161,
+          "joint_passed": false,
+          "visual_passed": true,
+          "failed_criteria": [
+            "content:visible_source_pattern:actor_far",
+            "content:visible_source_pattern:actor_near"
+          ]
+        }
+      },
+      "evidence_bindings": {
+        "baseline": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/receipt.json",
+          "receipt_sha256": "bf59993f72bdbbd715a7e0f3d405ff906663952cd2d11699a468290aabd85c26",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/attempt-1/.pilot-control/abe084c52cec441a9b94c88aa12ccbb9/690c5691bb5090fd9760510a1c260f3ce9650db893c241ec70f67d23eec23bf0.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/ddb46e142a9b38dc072f44d864905bdcab0bc65d81a8829c4f4e584229862954/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "07df4ffefc0728e3336e1d6c42d610b16bced50077ae8da51ac4fa8a10d06aef",
+          "masks": [
+            "maskI.png",
+            "maskII.png"
+          ],
+          "source_commitment_sha256": "d5c402736dbf1042ffd726d55c79296fcffdc5095bed1efdc86f547dbfd83572",
+          "source_files": {
+            "actor-far.png": "abba5cb28b5cd5491211c264a56c95b804334ac39a9222ae775c770c4e1ef771",
+            "actor-near.png": "a3811bcedd666d7bc1317a8830f6c389809ab3ba0f4822bd199381d98c430022",
+            "actors.png": "7aa28ec48cbc2054721f201f2e874495f28fbd684ff76d1c6ffa59c22186a13e",
+            "broken-seed.mp4": "4c03c46334b5305570957dddfb9d5b4a334f1d87688a0404d02e44e783540cbd",
+            "depth-guide.png": "4735a7482c4a252df50ae909215d9e5179e2e3cfe57ed56c20ca7bbfad7ae1f4",
+            "scene.json": "d0c8e9c8b99f79aa8e684203778f72e4d9664fb906ddd1b10c46f854d48b6783",
+            "scene.png": "b347cdf04917fb9756dabb48691da183617e2f35e95a7d55695ddd03c83a105a"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 14,
+              "code_sha256": "3f1a6940db0ed1635ff8b0cc57e6df77ec5d7701ca6359a4e80383a1d6971e75",
+              "actual_render_excerpt": [
+                " out=Image.new('RGB',im.size,(240,230,210));out.paste(im,(0,0),m);out.save('/workspace/veil'+name+'.png')"
+              ]
+            },
+            {
+              "trace_event_index": 16,
+              "code_sha256": "64dec33bc364e744f7d706fd1b9290ef4da7d20f74357bc5b3d965187c44ef9e",
+              "actual_render_excerpt": [
+                "  out.alpha_composite(a[j],(x,y));out.paste(bg,(0,0),m[j])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "1ecc2fe1f9b4619e793ea92f29491e46f8376f376f79932ed87f0aaaed8aaa17"
+        },
+        "candidate": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/receipt.json",
+          "receipt_sha256": "5611b1ec1e830d527b0f3f8d29fc866a45d4ec74204d5a5db4d47e3780bd59ac",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/attempt-1/.pilot-control/a1f47ab157ac462f8886233170c74827/e547488969fa7a8f4a9351173bb8d5d783f8fae70d3f38d6b5bafe9de6177f7e.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/df8b15af37aaff00ba1631a13e3891f6ca58cab7d435ddf96218aa7752cef512/attempt-1/workspace",
+          "raw_frame": "frames/12.png",
+          "raw_frame_sha256": "1fa48bd4f7f79a919099c34fa34d4e57361d1ee6d468ef1598e6ec8c8c3d453f",
+          "masks": [
+            "mask0.png",
+            "mask1.png"
+          ],
+          "source_commitment_sha256": "d5c402736dbf1042ffd726d55c79296fcffdc5095bed1efdc86f547dbfd83572",
+          "source_files": {
+            "actor-far.png": "abba5cb28b5cd5491211c264a56c95b804334ac39a9222ae775c770c4e1ef771",
+            "actor-near.png": "a3811bcedd666d7bc1317a8830f6c389809ab3ba0f4822bd199381d98c430022",
+            "actors.png": "7aa28ec48cbc2054721f201f2e874495f28fbd684ff76d1c6ffa59c22186a13e",
+            "broken-seed.mp4": "4c03c46334b5305570957dddfb9d5b4a334f1d87688a0404d02e44e783540cbd",
+            "depth-guide.png": "4735a7482c4a252df50ae909215d9e5179e2e3cfe57ed56c20ca7bbfad7ae1f4",
+            "scene.json": "d0c8e9c8b99f79aa8e684203778f72e4d9664fb906ddd1b10c46f854d48b6783",
+            "scene.png": "b347cdf04917fb9756dabb48691da183617e2f35e95a7d55695ddd03c83a105a"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 11,
+              "code_sha256": "fc7c61be5b14230f2b3deff9d7839d564b873685b708f435403464f46f3fe743",
+              "actual_render_excerpt": [
+                " m=m.filter(ImageFilter.MaxFilter(3))",
+                " ImageDraw.floodfill(m,(0,0),128,thresh=0)",
+                " m=m.point(lambda v:0 if v==128 else 255).filter(ImageFilter.MinFilter(3))",
+                " out=Image.new('RGB',im.size,'magenta');out.paste(im,(0,0),full);out.save('/workspace/masked%d.png'%j)"
+              ]
+            },
+            {
+              "trace_event_index": 13,
+              "code_sha256": "c0fb1a3a04339e646a5ec5a827aff16b030f0aae0128e2b4ddcd28edccc75b59",
+              "actual_render_excerpt": [
+                " out.alpha_composite(a[0],(round(40+624*u),round(198+13*math.sin(2*math.pi*u))))",
+                " out.paste(bg,(0,0),m[0])",
+                " out.alpha_composite(a[1],(round(664-624*u),round(214-11*math.sin(2*math.pi*u))))",
+                " out.paste(bg,(0,0),m[1])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "e65767ae845618955f7cf13383e09292e3f9e7343626a6298c166e46e234f066"
+        }
+      },
+      "proof_description": "Five columns: baseline raw, candidate raw, source-derived expected consequence, baseline decoded delivery, candidate decoded delivery. The expected consequence is a source-construction control, not a native production result."
+    },
+    {
+      "cycle": 2,
+      "task_id": "media-90526c6f009fe0d09630",
+      "split": "holdout",
+      "frame_index": 12,
+      "baseline_artifact_sha256": "4860a31e4b54dc439f9e62b82e0e64819995c1b3f0c9ec0ced5f12fe3a00e8bd",
+      "candidate_artifact_sha256": "bd0cbe6d5fae1e8ebc0601570d21c575e2e671232f1c1287a5b87ef37c37b42c",
+      "baseline_raw_sha256": "ef6c5447bf334231e98e1a6589653019a9fd1e6e16b66bb0fac52572f9be3185",
+      "candidate_raw_sha256": "6cb258d822fae52cdcd589a776ba304f388a337b31e4f7e415be30e3c198a147",
+      "mask_metrics": {
+        "baseline": [
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 0,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ],
+        "candidate": [
+          {
+            "false_positive_pixels_beyond2px": 1690,
+            "false_negative_pixels_beyond2px": 0
+          },
+          {
+            "false_positive_pixels_beyond2px": 1690,
+            "false_negative_pixels_beyond2px": 0
+          }
+        ]
+      },
+      "actor_pixels": {
+        "actor_far": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 231,
+          "baseline_restored_exact_raw_pixels": 231,
+          "baseline_decoded_source_rgb_mae": 7.936507936507937,
+          "candidate_decoded_source_rgb_mae": 63.78066378066378,
+          "candidate_decoded_original_scene_rgb_mae": 3.6406926406926408,
+          "example": {
+            "xy": [
+              339,
+              267
+            ],
+            "source_expected_rgb": [
+              240,
+              216,
+              166
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              240,
+              216,
+              166
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              242,
+              216,
+              167
+            ],
+            "candidate_decoded_rgb": [
+              116,
+              146,
+              157
+            ]
+          }
+        },
+        "actor_near": {
+          "lost_original_source_pixels_beyond2px_foreground_and_actor_edges": 223,
+          "baseline_restored_exact_raw_pixels": 223,
+          "baseline_decoded_source_rgb_mae": 2.2451420029895366,
+          "candidate_decoded_source_rgb_mae": 53.49177877428998,
+          "candidate_decoded_original_scene_rgb_mae": 2.411061285500747,
+          "example": {
+            "xy": [
+              586,
+              267
+            ],
+            "source_expected_rgb": [
+              223,
+              201,
+              148
+            ],
+            "original_scene_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_raw_rgb": [
+              223,
+              201,
+              148
+            ],
+            "candidate_raw_rgb": [
+              120,
+              148,
+              153
+            ],
+            "baseline_decoded_rgb": [
+              218,
+              201,
+              147
+            ],
+            "candidate_decoded_rgb": [
+              117,
+              146,
+              151
+            ]
+          }
+        }
+      },
+      "crop_box": [
+        280,
+        219,
+        376,
+        315
+      ],
+      "proof_file": "c2-media-90526c6f009fe0d09630-source-loss-proof.png",
+      "proof_sha256": "604dceccdace3aa59ebcc8ae3dd2671f06b9e00266a7176645a01edaba1a5c31",
+      "existing_evaluation": {
+        "baseline": {
+          "score": 0.985203,
+          "joint_passed": true,
+          "visual_passed": true,
+          "failed_criteria": []
+        },
+        "candidate": {
+          "score": 0.798209,
+          "joint_passed": false,
+          "visual_passed": true,
+          "failed_criteria": [
+            "content:visible_source_pattern:actor_far",
+            "content:visible_source_pattern:actor_near"
+          ]
+        }
+      },
+      "evidence_bindings": {
+        "baseline": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/2c588b578a0c706b8fa83de3edea1876c0c0c7378abe670115ccf973f2107c14/receipt.json",
+          "receipt_sha256": "a44eb8038fcc2fa7cd22801a3c76072a0815b5bcf628c05d421e3c7757416632",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/2c588b578a0c706b8fa83de3edea1876c0c0c7378abe670115ccf973f2107c14/attempt-1/.pilot-control/abc037a9a0f749d9b709fc0696513105/4860a31e4b54dc439f9e62b82e0e64819995c1b3f0c9ec0ced5f12fe3a00e8bd.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/2c588b578a0c706b8fa83de3edea1876c0c0c7378abe670115ccf973f2107c14/attempt-1/workspace",
+          "raw_frame": "frames/012.png",
+          "raw_frame_sha256": "ef6c5447bf334231e98e1a6589653019a9fd1e6e16b66bb0fac52572f9be3185",
+          "masks": [
+            "veil0.png",
+            "veil251.png"
+          ],
+          "source_commitment_sha256": "367ea05b15085c8f392d1b4534941589b5877cd5be97ff3434c62279058dfe79",
+          "source_files": {
+            "actor-far.png": "6cc7abcedff5b1850d9b94cd075f7e27717b46a920182e224a51c7172d5d4f7d",
+            "actor-near.png": "606140bd6b745e6015e41e7ab957347ddbbf1f0bcda678a1d88610aa6a188f5b",
+            "actors.png": "a7629e652e52e9921b046fa8be673daf184898a6922d71403184905a57e3e070",
+            "depth-guide.png": "a64df261bf3bc90c65da307fb2eb18c69c495098060492f39a8bd7fb3212afba",
+            "scene.json": "39ac5cab856fea1118bff8883c975fa8852dab457b6dab27e5dd964f192cb98a",
+            "scene.png": "8088fc6f10cbc4ee73f548e9ead2905bddb3b3ad051c7bfb812e0ffbe373b7a9"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 14,
+              "code_sha256": "b3d01cd372684b7cb9b8a385ef30e891f3cdf2002eaf52d3498137e858bb843b",
+              "actual_render_excerpt": [
+                "  frame.paste(a[j],pos,a[j]);frame.paste(im,(0,0),masks[j])"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "12be65bfd5ba8dc43968d4770d8fe02ec11787fbfc9840ceb6ec30346efd3be3"
+        },
+        "candidate": {
+          "receipt": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/b9aa946be3e040c113be9c8e46ef355f63219c801ab5ea5d22da2cc5014d1743/receipt.json",
+          "receipt_sha256": "1660b47754628b910dd543f3e07270a48002baaeb3ac553df3211d8d4bd4cfa5",
+          "artifact": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/b9aa946be3e040c113be9c8e46ef355f63219c801ab5ea5d22da2cc5014d1743/attempt-1/.pilot-control/2ab8ff7094cf46b09be75aa8c0445b0c/bd0cbe6d5fae1e8ebc0601570d21c575e2e671232f1c1287a5b87ef37c37b42c.mp4",
+          "workspace": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/cycles/3ab05446b258288bd45ca9568513473951427df991fcf1cf2ce4fa8dd79f6c45/independent/executions/b9aa946be3e040c113be9c8e46ef355f63219c801ab5ea5d22da2cc5014d1743/attempt-1/workspace",
+          "raw_frame": "frames/012.png",
+          "raw_frame_sha256": "6cb258d822fae52cdcd589a776ba304f388a337b31e4f7e415be30e3c198a147",
+          "masks": [
+            "veil1.png",
+            "veil2.png"
+          ],
+          "source_commitment_sha256": "367ea05b15085c8f392d1b4534941589b5877cd5be97ff3434c62279058dfe79",
+          "source_files": {
+            "actor-far.png": "6cc7abcedff5b1850d9b94cd075f7e27717b46a920182e224a51c7172d5d4f7d",
+            "actor-near.png": "606140bd6b745e6015e41e7ab957347ddbbf1f0bcda678a1d88610aa6a188f5b",
+            "actors.png": "a7629e652e52e9921b046fa8be673daf184898a6922d71403184905a57e3e070",
+            "depth-guide.png": "a64df261bf3bc90c65da307fb2eb18c69c495098060492f39a8bd7fb3212afba",
+            "scene.json": "39ac5cab856fea1118bff8883c975fa8852dab457b6dab27e5dd964f192cb98a",
+            "scene.png": "8088fc6f10cbc4ee73f548e9ead2905bddb3b3ad051c7bfb812e0ffbe373b7a9"
+          },
+          "source_roles": {
+            "actors.png": "original atlas containing both complete patterned actors",
+            "depth-guide.png": "public guide identifying both veils and required depth order",
+            "scene.png": "original stationary scene"
+          },
+          "renders": [
+            {
+              "trace_event_index": 15,
+              "code_sha256": "440a556f7c514d2558e1d0fd19dc220da5407100e80ff2a774112b5f1eb0002a",
+              "actual_render_excerpt": [
+                " m=m.filter(ImageFilter.MaxFilter(3));p=m.load();out=Image.new('L',im.size);o=out.load();q=deque([(0,0)]);o[0,0]=255",
+                " m=ImageChops.invert(out).filter(ImageFilter.MinFilter(3));m.save('/workspace/veil%d.png'%idx)",
+                " pr=Image.new('RGB',im.size,(160,40,100));pr.paste(im,(0,0),m);pr.crop((245+off,95,385+off,440)).save('/workspace/mask%d.png'%idx)"
+              ]
+            },
+            {
+              "trace_event_index": 17,
+              "code_sha256": "1d2536133f8b19539a76355b296c802f17af1cb6c6b9ad6729014a0a9c9a9211",
+              "actual_render_excerpt": [
+                "  im.paste(actor,(x,y),actor);im.paste(bg,(0,0),mask)"
+              ]
+            }
+          ],
+          "diagnostic_decoded_frame_sha256": "31812c9f0be0d49daa8b08c0604c8ca6d110b4d13829055eb33588a44332944f"
+        }
+      },
+      "proof_description": "Five columns: baseline raw, candidate raw, source-derived expected consequence, baseline decoded delivery, candidate decoded delivery. The expected consequence is a source-construction control, not a native production result."
+    }
+  ],
+  "schema": "oak-harness2-revealed-regression-diagnosis-v1",
+  "conclusion": "All four candidate losses include actual visible actor source pixels incorrectly erased through genuine leaf/stem gaps before encoding; the error persists in the exact delivered artifact.",
+  "mechanism": "Closing beige-outline masks with MaxFilter(3), flood-filling enclosed regions and MinFilter(3) seals genuine background gaps. Pasting the original scene through those masks overwrites visible actor patterns with mural background.",
+  "not_explained_by": [
+    "Timing: all independent arms use the valid public timeline u=n/35.",
+    "Marker ambiguity: the proof uses original source actor colors and visible leaf gaps, beyond the allowed edge neighborhood.",
+    "Codec-only damage: raw saved pre-encoding frames already contain the exact original mural instead of the actor."
+  ],
+  "limits": [
+    "Diagnostic counts are explanatory measurements, not a new acceptance metric, threshold change or rerun of old evaluations.",
+    "Only preselected frame 12 was decoded and visually compared from each of eight artifacts. Existing unchanged mechanical receipts already cover all 36 frames.",
+    "Mechanism is established for actual generated masks and frames; this comparison does not establish that procedure wording caused the different rendering choices.",
+    "No new cycle-3 held inputs, grader mask images, production user media or credentials are included."
+  ],
+  "source_export": {
+    "path": "../harness2-pipeline-2026-10-19/native-two-cycle-results.json",
+    "sha256": "43edba1933f82b19619e0fc7a9a5d4d899fc8eb545c7502b078ac3c463a1bb73",
+    "portable_content_sha256": "7b0855b78707c4a0d4f52f877b3cde2da2d8184145b58b516cdd2175bcad4334"
+  },
+  "optimizer_boundary": "This report and numeric measurements are independent diagnostic documentation. Only separately approved factual visible-gap observations and actual render-code excerpts may enter DEV feedback; do not copy this report, hidden semantic masks or independent numerical grades into optimizer context.",
+  "reproduction": {
+    "script": "reproduce-regression-diagnosis.py",
+    "command": "python reproduce-regression-diagnosis.py --root /path/to/preserved-pipeline --output /path/to/new-diagnostic-output",
+    "dependencies": [
+      "Python 3.12",
+      "Pillow",
+      "numpy",
+      "ffmpeg",
+      "repository source constructors only; no model or grading calls"
+    ],
+    "note": "Regenerates diagnostic measurements and equivalent labeled crops from immutable old sources. It does not execute captured render code or alter original files."
+  },
+  "combined_proof": {
+    "file": "all-four-source-loss-proof.png",
+    "sha256": "e57bd0c97737e4c9407885f61c91d0ea44efc844efce1a319f5c62c61de2e32e"
+  }
+}

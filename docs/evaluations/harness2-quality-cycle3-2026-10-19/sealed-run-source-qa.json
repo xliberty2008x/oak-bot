@@ -1,0 +1,31 @@
+{
+  "all_sealed_native_sources_unchanged": true,
+  "before_post_cycle_selector_repair": true,
+  "checked_files": 15,
+  "cycle_id": "17268cd68f3c3ab4c0700286095bc22f8aea549696428bf35b25eed15e302c31",
+  "effort": "low",
+  "files": {
+    "oak/controller.py": "0a8d953c1ecbcdb3386e9117e92d1a0b6fc7d929e76905ebceb61f22a7e291c6",
+    "oak/harness2_media.py": "14152af7423dbceccd1c0897ee850d0d04f8631a86000425ddea31ec9ded0ae0",
+    "oak/harness2_pipeline.py": "0749c3ea21f620fe92893798627651b980d33f372daa64801d51e481fd03cc60",
+    "oak/harness2_upstream.py": "a4d61e5bc49ce94b5bf5e0e0bee52e7f07a15869eb4f3267fdc91567d63dadda",
+    "oak/harness_versions.py": "ecea67ca7c9e65ddb8b4999d0fab5ae7643e518424325cf78eff5fcb5978179e",
+    "oak/media_pilot_complex_quality.py": "5b2fc3ea1689d704a1d2883b922cab776f2525e15bdda7573ccfa8a9220c9467",
+    "oak/media_pilot_complex_tasks.py": "911e59d7e65121d450fdec7399d7d12df0c9a6b85d131ca00e8720e90c88039f",
+    "oak/media_pilot_hard_quality.py": "7ed0c1a2fc24131b1c746080cccd678092b9c8521ced053ff45c44a927ca20f9",
+    "oak/media_pilot_perceptual_quality.py": "93121468f1fb788936a259315df48a2790802e5b6bdb571bc00bacc67b9b5924",
+    "oak/media_pilot_render.py": "6227f161240d8cfa7c0fabd82f4d23fc0c34b4c3c22a51f993d3f299669808df",
+    "oak/media_pilot_runtime.py": "70113faec2a1d4be4f9f8047ed90d5a0fafa8e985b45582fbe6426473e775dbe",
+    "oak/quality.py": "18f03b57471bd2004ee7878e5c1a0b9bc63dca7fdaa0bb864a948a3d3c1b9b30",
+    "oak/quality_media.py": "77a8bff069fe7e573b2fa02276b17834e115bc873b3465230e812e12164602d4",
+    "oak/runtime.py": "094b4b7fb6be36f971e5433b9f5ebcf32acbee4ee6b8dba32095705d5d579665",
+    "oak/tools.py": "e04039e0d049844dc603e0f9c87c48dcd1b306ff2572d38c5f67f48fe97089e7"
+  },
+  "implementation_sha256": "fd8a3ddbb6fb5f21303e371ddde8ef9b45b9cb774e95ee2bf6a86f02efbb2c33",
+  "model": "gpt-6.1-sol",
+  "new_grader_calls": 0,
+  "new_model_calls": 0,
+  "phase": "completed",
+  "recorded_at": "2026-10-19T21:40:16.662323+00:00",
+  "schema": "oak-native-cycle-source-seal-qa-v1"
+}

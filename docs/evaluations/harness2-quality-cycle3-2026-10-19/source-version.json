@@ -1,0 +1,35 @@
+{
+  "implementation_sha256": "fd8a3ddbb6fb5f21303e371ddde8ef9b45b9cb774e95ee2bf6a86f02efbb2c33",
+  "kind": "cycle3-native-source-version",
+  "local_commit": "221685038b4dcdcaeac84b9f9b8bf13212edfc5c",
+  "note": "Same committed tree, different Git commit objects from connector publication; native journal seals actual implementation file hashes.",
+  "pipeline_source_sha256": "0749c3ea21f620fe92893798627651b980d33f372daa64801d51e481fd03cc60",
+  "post_cycle_adapter_repair": {
+    "codec_protocol_smoke": "selector-assets-codec-smoke.json",
+    "implementation": {
+      "files": {
+        "oak/controller.py": "0a8d953c1ecbcdb3386e9117e92d1a0b6fc7d929e76905ebceb61f22a7e291c6",
+        "oak/harness2_media.py": "3a9123f5b05fc08f87f2bad4b484d79a0cf3e7cb2d678726f0d522452edc4d50",
+        "oak/harness2_pipeline.py": "0749c3ea21f620fe92893798627651b980d33f372daa64801d51e481fd03cc60",
+        "oak/harness2_upstream.py": "a4d61e5bc49ce94b5bf5e0e0bee52e7f07a15869eb4f3267fdc91567d63dadda",
+        "oak/harness_versions.py": "ecea67ca7c9e65ddb8b4999d0fab5ae7643e518424325cf78eff5fcb5978179e",
+        "oak/media_pilot_complex_quality.py": "5b2fc3ea1689d704a1d2883b922cab776f2525e15bdda7573ccfa8a9220c9467",
+        "oak/media_pilot_complex_tasks.py": "911e59d7e65121d450fdec7399d7d12df0c9a6b85d131ca00e8720e90c88039f",
+        "oak/media_pilot_hard_quality.py": "7ed0c1a2fc24131b1c746080cccd678092b9c8521ced053ff45c44a927ca20f9",
+        "oak/media_pilot_perceptual_quality.py": "93121468f1fb788936a259315df48a2790802e5b6bdb571bc00bacc67b9b5924",
+        "oak/media_pilot_render.py": "6227f161240d8cfa7c0fabd82f4d23fc0c34b4c3c22a51f993d3f299669808df",
+        "oak/media_pilot_runtime.py": "70113faec2a1d4be4f9f8047ed90d5a0fafa8e985b45582fbe6426473e775dbe",
+        "oak/quality.py": "18f03b57471bd2004ee7878e5c1a0b9bc63dca7fdaa0bb864a948a3d3c1b9b30",
+        "oak/quality_media.py": "77a8bff069fe7e573b2fa02276b17834e115bc873b3465230e812e12164602d4",
+        "oak/runtime.py": "094b4b7fb6be36f971e5433b9f5ebcf32acbee4ee6b8dba32095705d5d579665",
+        "oak/tools.py": "e04039e0d049844dc603e0f9c87c48dcd1b306ff2572d38c5f67f48fe97089e7"
+      },
+      "sha256": "b2a6d694f65cfa05d6c73328fc9e63b17dc0b782795a79c8a8874048668bfa18"
+    },
+    "native_quality_evidence": null,
+    "note": "Applied only after all cycle-3 model work completed; no rescoring or new optimization run. The measured cycle uses the original implementation SHA above.",
+    "original_cycle_sources_unchanged_proof": "sealed-run-source-qa.json"
+  },
+  "public_commit": "86f293c50c1d38587d38ad4d1c7a68de24c3ced4",
+  "tree": "438eaf775410f7beb2be25c6904809d5b639c17b"
+}
