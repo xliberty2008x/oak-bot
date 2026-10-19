@@ -15,6 +15,7 @@ from oak.runtime import MODEL
 class FakeRuntime:
     calls = []
     fail = False
+    no_entry = False
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -40,9 +41,12 @@ class FakeRuntime:
                 raise ConnectionError('not copied to public error')
             text = params['input'][0]['text']
             if 'EXPERIENCE' in text or '<experience>' in text:
-                answer = ('<experience>\ncue: source has signed entries\nlesson: retain both signs\n'
+                answer = '<experience>NO_ENTRY</experience>' if self.no_entry else (
+                          '<experience>\ncue: source has signed entries\nlesson: retain both signs\n'
                           'evidence: INV and DOM retained the negative entry in native output\n'
                           'confidence: local observed contrast\n</experience>')
+            elif 'Open every candidate before choosing' in text:
+                answer = '```choice\nA\n```\n<why>Protocol fixture selected an anonymized final.</why>'
             else:
                 result = await self.tool_handler({'tool': 'oak_h2_write', 'threadId': 'thread',
                     'turnId': 'turn', 'arguments': {'path': 'context/harness/AGENTS.md',
@@ -71,6 +75,7 @@ class UpstreamTests(unittest.TestCase):
         (self.context / 'task.md').write_text('Reconcile signed amounts.')
         FakeRuntime.calls = []
         FakeRuntime.fail = False
+        FakeRuntime.no_entry = False
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -286,6 +291,62 @@ class UpstreamTests(unittest.TestCase):
             self.assertEqual(resumed.status, 'skipped')
             self.assertEqual(adapter.executions, 8)
             self.assertEqual(len(FakeRuntime.calls), count)
+
+    def test_k2_real_upstream_selector_no_entry_and_completed_restart(self):
+        """Actual search and subscription protocol with text-only fixture outputs."""
+        core, root = upstream(), self.root
+        surface = core.tree.SurfaceSpec(name='codex', always_on=('AGENTS.md',), always_on_max=12000,
+            always_on_cap_reason='bounded procedure', skill_dir='skills', skill_name_rule='matches_dir',
+            trigger_hint='', autotrigger_file='AGENTS.md', trigger_line='', subagent_requires_mode=False,
+            plugin_dir=None, hooks_file=None, reject_empty_always_on=True)
+
+        class Adapter:
+            def __init__(self):
+                self.substrate = type('Substrate', (), {'name': 'oak', 'surface': lambda _: surface})()
+                self.spec = core.spec.BenchSpec(name='oak', runs_root=root / 'runs',
+                    install_mode='workspace_config', prompts=core.spec.BenchPrompts(work='reconcile signed amounts'),
+                    channels={'proposer': NativeRoleSpec(), 'selector': NativeRoleSpec()})
+                self.executions = []
+            def domain_of(self, _): return 'ledger'
+            def task_prompt(self, _): return 'Return the signed total for the input.'
+            def task_files(self, _): return None
+            def base_harness(self): return root / 'source/harness'
+            def validate_tree(self, tree):
+                if set(tree) != {'AGENTS.md'}: raise ValueError('Unsupported component.')
+            def execute(self, task_id, harness_dir, run_id, **kwargs):
+                path = root / 'executions' / run_id
+                if not (path / 'answer.txt').is_file():
+                    path.mkdir(parents=True)
+                    (path / 'answer.txt').write_text('Total: -18')
+                    self.executions.append(run_id)
+                return path
+            def delivered(self, path): return (path / 'answer.txt').is_file()
+            def trajectory(self, path, **kwargs): return 'Preserved signed input and computed total.'
+            def deliverable_text(self, path): return (path / 'answer.txt').read_text()
+            def deliverable_files(self, path): return {'answer.txt': self.deliverable_text(path)}
+
+        FakeRuntime.no_entry = True
+        adapter, role = Adapter(), self.role()
+        result = run_development('task-k2', adapter=adapter, role=role,
+            work_dir=root / 'cycle-k2', library_dir=root / 'library', k=2)
+        self.assertEqual(result.status, 'ok', result.to_dict())
+        selection = result.selections['seq']
+        self.assertTrue(selection['ok'])
+        self.assertFalse(selection['trivial'])
+        self.assertFalse(selection['fallback'])
+        self.assertEqual(selection['n_candidates'], 2)
+        self.assertIn(selection['chosen_label'], {'c1', 'c2'})
+        self.assertEqual((result.modes['seq']['ledger']['R'], result.modes['seq']['ledger']['P']), (8, 6))
+        self.assertEqual(len(adapter.executions), 8)
+        self.assertEqual(len(FakeRuntime.calls), 8)
+        self.assertEqual({reply.label for reply in role._calls},
+                         {'inv1.a1', 'dom1.a1', 'c1.a1', 'inv2.a1', 'dom2.a1', 'c2.a1',
+                          'select.seq2', 'experience.seq2'})
+        self.assertEqual(result.oak_provenance['library_entries_after'], [])
+        resumed = run_development('task-k2', adapter=adapter, role=self.role(),
+            work_dir=root / 'cycle-k2', library_dir=root / 'library', k=2)
+        self.assertEqual(resumed.status, 'skipped')
+        self.assertEqual((len(adapter.executions), len(FakeRuntime.calls)), (8, 8))
 
     def test_outer_cycle_genuine_upstream_and_completed_restart_protocol(self):
         """Orchestration integration only: media/model observations are fixtures."""

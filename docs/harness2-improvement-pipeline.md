@@ -43,7 +43,7 @@ flowchart LR
 
 | Component | Direct upstream use | Oak adaptation or addition |
 | --- | --- | --- |
-| Search | `core.schedule.run_task`, sequential Propose–Probe–Compose, upstream proposal/composition prompts and validation | `k=1` recipe, a restricted instruction surface and native media benchmark |
+| Search | `core.schedule.run_task`, sequential Propose–Probe–Compose, upstream proposal/composition prompts and validation | Default `k=1` recipe, a restricted instruction surface and native media benchmark |
 | Evidence | Upstream context builders, trajectories, proposal contrasts and selection records | Allowlisted DEV sources, actual native tool traces and original/output image evidence; hidden properties and independent measurements excluded |
 | Experience | Upstream `Library`, adopted harnesses and evidence-supported reflection | Library is private to one project, conversation and domain; Oak acceptance remains separate from upstream internal adoption |
 | Model roles | Upstream `Proposer`/`Reply` contract and explicit proposer/selector injection | `SubscriptionRole` implements every role with existing ChatGPT authentication, `gpt-6.1-sol` and low effort |
@@ -156,6 +156,38 @@ custom manifest can also be scheduled with `schedule --signature ... --manifest
 contain `{ "descriptor": ..., "commitment": ... }` entries produced by
 `materialize_descriptor` and `source_commitment`. Construction controls run
 before the manifest is sealed.
+
+For an operator-reviewed custom search budget and task counts, `schedule` accepts
+`--config /absolute/private/config.json`. This is a complete trusted configuration
+file, prepared from `default_config()` using the current implementation:
+
+```python
+from oak.harness2_pipeline import canonical, default_config
+
+config = default_config()
+config.update(k=2, max_producers=32, max_roles=12, max_role_tools=768)
+config["policy"].update(regression_tasks=4, holdout_tasks=6)
+Path("/absolute/private/config.json").write_text(canonical(config))
+```
+
+```sh
+.venv-media/bin/python -m oak.harness2_pipeline --root /absolute/private/oak-h2-run --project media-demo --chat 1 schedule --signature source-preserving-depth --manifest /absolute/private/manifest.json --config /absolute/private/config.json
+.venv-media/bin/python -m oak.harness2_pipeline --root /absolute/private/oak-h2-run --project media-demo --chat 1 work --max-cycles 1 --runtime-home /absolute/private/existing-codex-home
+```
+
+The manifest must match the declared task counts. The runner currently supports
+one DEV task per cycle. At `k=2`, genuine upstream sequential search makes eight
+nominal DEV producer executions and eight improvement-role calls, including an
+anonymized selector between the two composed finals and reflection. Four
+regression tasks and six fresh holdouts add twenty producer executions. The
+example caps leave four producer and four role reservations for interrupted or
+invalid attempts; per-attempt limits and admission checks remain the same.
+Scheduling runs construction controls itself and binds their actual digest,
+replacing any control digest supplied in the trusted file. Fixed subscription
+model, effort, pin, finite budgets and input freshness remain enforced before
+cycle or holdout reservation. The configuration and manifest are immutable once
+scheduled. Existing scoped experience is retained when the same root and scope
+are used; `work` resumes the scheduled cycle without the two-cycle `--demo` cap.
 
 `feedback --case-id ID --json /absolute/private/correction.json` retains a user
 correction and raises that problem group's queue priority. Feedback and native

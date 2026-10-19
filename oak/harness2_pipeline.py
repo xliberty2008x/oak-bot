@@ -798,6 +798,7 @@ def main(argv=None):
     schedule = commands.add_parser('schedule')
     schedule.add_argument('--signature', required=True)
     schedule.add_argument('--manifest', required=True)
+    schedule.add_argument('--config', help='Complete trusted JSON cycle configuration; defaults to the bounded recipe.')
     args = parser.parse_args(argv)
     store = PipelineStore(args.root, args.project, args.chat, args.domain)
     try:
@@ -817,11 +818,13 @@ def main(argv=None):
         elif args.command == 'schedule':
             from .harness2_media import preflight_descriptors
             manifest = json.loads(Path(args.manifest).read_text())
+            config = json.loads(Path(args.config).read_text()) if args.config else default_config()
+            if not isinstance(config, dict):
+                raise ValueError('The trusted cycle configuration must be a JSON object.')
             controls = preflight_descriptors([r['descriptor'] for rows in manifest.values() for r in rows],
                                             _scope_root(store) / 'construction-controls' / digest(manifest))
             if controls['status'] != 'pass':
                 raise ValueError('Authored construction controls failed.')
-            config = default_config()
             config['construction_controls_sha256'] = digest(controls)
             print(store.create_cycle(args.signature, manifest, config)['id'])
         else:

@@ -1,13 +1,16 @@
 """Durable scheduling and independent admission; no model or provider calls."""
 
 import copy
+import contextlib
+import io
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from oak.harness2_pipeline import (BudgetStopped, MODEL, PipelineStore, UPSTREAM_COMMIT,
-                                  acceptance, approved_development_evidence, canonical, digest, schedule_next)
+                                  acceptance, approved_development_evidence, canonical, default_config,
+                                  digest, main, schedule_next)
 
 
 def descriptor(label, *, content=None):
@@ -117,6 +120,55 @@ class PipelineStoreTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 self.cycle(settings=config(**change))
         self.assertEqual(self.store.cycles(), [])
+
+    def schedule_cli(self, settings):
+        """CLI fixtures bind declared source hashes; no image or model execution."""
+        tasks = {split: [dict(descriptor(split + '-' + str(i)),
+                              descriptor={'id': split + '-' + str(i), 'split': split})
+                         for i in range(count)]
+                 for split, count in (('dev', 1), ('regression', 4), ('holdout', 6))}
+        task_path, config_path = self.root / 'manifest.json', self.root / 'config.json'
+        task_path.write_text(canonical(tasks))
+        config_path.write_text(canonical(settings))
+        controls = {'status': 'pass', 'source': 'mocked construction-control protocol fixture'}
+        with patch('oak.harness2_media.preflight_descriptors', return_value=controls) as preflight:
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                main(['--root', str(self.root), '--project', 'one-project', '--chat', '-71',
+                      'schedule', '--signature', 'source-over-occlusion',
+                      '--manifest', str(task_path), '--config', str(config_path)])
+        preflight.assert_called_once()
+        self.assertCountEqual(preflight.call_args.args[0],
+                              [row['descriptor'] for rows in tasks.values() for row in rows])
+        return output.getvalue().strip(), tasks, controls
+
+    def test_schedule_cli_seals_trusted_custom_k_and_counts_with_actual_control_binding(self):
+        settings = default_config()
+        settings.update(k=2, max_producers=32, max_roles=12, max_role_tools=768,
+                        construction_controls_sha256='untrusted-file-binding')
+        settings['policy'].update(regression_tasks=4, holdout_tasks=6)
+        cycle_id, tasks, controls = self.schedule_cli(settings)
+        cycle = self.store.cycle(cycle_id)
+        expected = {**settings, 'construction_controls_sha256': digest(controls)}
+        self.assertEqual(cycle['config'], expected)
+        self.assertEqual(cycle['manifest'], tasks)
+        self.assertEqual(cycle['phase'], 'queued')
+        self.assertEqual(cycle['config']['k'], 2)
+        self.assertEqual(cycle['config']['policy']['regression_tasks'], 4)
+        self.assertEqual(cycle['config']['policy']['holdout_tasks'], 6)
+        self.assertEqual(self.store.db.execute('SELECT COUNT(*) FROM exposure WHERE scope=? AND split="holdout"',
+                                               (self.store.key,)).fetchone()[0], 6)
+        with self.assertRaises(ValueError):
+            self.store.update(cycle_id, config=default_config())
+
+    def test_schedule_cli_wrong_model_cannot_create_cycle_or_reserve_holdouts(self):
+        settings = default_config()
+        settings['model'] = 'unauthorized-other-model'
+        with self.assertRaisesRegex(ValueError, 'fixes the existing subscription model'):
+            self.schedule_cli(settings)
+        self.assertEqual(self.store.cycles(), [])
+        for table in ('exposure', 'operations'):
+            self.assertEqual(self.store.db.execute('SELECT COUNT(*) FROM '+table+' WHERE scope=?',
+                                                   (self.store.key,)).fetchone()[0], 0)
 
     def test_sealed_config_manifest_freeze_and_decision_cannot_be_replaced(self):
         cycle = self.cycle()
