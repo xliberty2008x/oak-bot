@@ -14,6 +14,10 @@ proposed procedures. A previous artifact's `proven` experience receipt does not
 establish that the procedure improves later tasks. See
 [quality and experience](quality-and-experience.md).
 
+The [completed 2026-10-19 evaluation](evaluations/media-harness-pilot-2026-10-19/README.md)
+records all 30 producer runs. It found equal held-out success and higher
+candidate median latency, so the current procedure was retained.
+
 ## Setup
 
 Use Python 3.12 with the optional pilot dependencies, an existing
@@ -105,7 +109,11 @@ fidelity, natural motion or aesthetic quality. Those rely on the separate
 visual review, which is itself fallible and sampled.
 
 Compare final success, first-review pass, unverified outcomes, review/tool calls
-and elapsed time together. The material-defect count records defects found in
+and elapsed time together. The `unverified` count includes a run with any
+unverified review, even when a later review passes and the run succeeds; it also
+includes incomplete execution or delivery and missing evidence. Read it as a
+verification-interruption diagnostic, not a count of failed final deliveries.
+The material-defect count records defects found in
 any review during a run, including defects subsequently repaired; it is not a
 count of defective final deliveries. One default repetition on six held-out
 tasks provides directional evidence, without a reliable estimate of production

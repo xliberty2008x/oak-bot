@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-media-pilot/
 .env
 .env.*
 !.env.example

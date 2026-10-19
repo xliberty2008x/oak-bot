@@ -1,0 +1,2360 @@
+{
+  "schema_version": 1,
+  "model": "gpt-6.1-sol",
+  "config": {
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "timeout": 420,
+    "repeats": 1,
+    "workers": 3
+  },
+  "suite_sha256": "dac7ae1422fe0307eadfe463812ca77768b7a57343283a2cf0a166ea90a772c3",
+  "implementation_sha256": "638591be9774be53ebcec60b29137383c2269cc7a90ba577b60d39da42b58f25",
+  "environment": {
+    "python": "3.12.15",
+    "Pillow": "12.3.0",
+    "numpy": "2.5.4"
+  },
+  "complete": true,
+  "frozen": {
+    "procedure_id": "candidate-1",
+    "procedure_sha256": "cc54bc81acc2b2df8e92262ba290512c991ef5d50b680bf73a4265e5307c6a33",
+    "challenger_id": "candidate-1",
+    "challenger_sha256": "cc54bc81acc2b2df8e92262ba290512c991ef5d50b680bf73a4265e5307c6a33",
+    "development_evidence_sha256": "29eab6f511080809cace1f21868599243fbdb4e5c9b57f647bf57257ba46f4df",
+    "development_summaries": {
+      "baseline": {
+        "procedure_id": "baseline",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 5,
+        "material_defect_runs": 0,
+        "unverified": 1,
+        "review_calls": 7,
+        "tool_calls": 88,
+        "median_seconds": 79.187
+      },
+      "candidate-1": {
+        "procedure_id": "candidate-1",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 6,
+        "material_defect_runs": 0,
+        "unverified": 0,
+        "review_calls": 6,
+        "tool_calls": 85,
+        "median_seconds": 88.706
+      },
+      "candidate-2": {
+        "procedure_id": "candidate-2",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 5,
+        "material_defect_runs": 0,
+        "unverified": 1,
+        "review_calls": 7,
+        "tool_calls": 90,
+        "median_seconds": 96.354
+      }
+    },
+    "frozen_at": "2026-10-19T10:53:45.140629+00:00",
+    "selection_rule": "Success, verification, defects, first review, review calls; baseline wins ties.",
+    "promotion": "Evaluation only. No live lesson or deployment changes."
+  },
+  "summaries": {
+    "dev": {
+      "baseline": {
+        "procedure_id": "baseline",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 5,
+        "material_defect_runs": 0,
+        "unverified": 1,
+        "review_calls": 7,
+        "tool_calls": 88,
+        "median_seconds": 79.187
+      },
+      "candidate-1": {
+        "procedure_id": "candidate-1",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 6,
+        "material_defect_runs": 0,
+        "unverified": 0,
+        "review_calls": 6,
+        "tool_calls": 85,
+        "median_seconds": 88.706
+      },
+      "candidate-2": {
+        "procedure_id": "candidate-2",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 5,
+        "material_defect_runs": 0,
+        "unverified": 1,
+        "review_calls": 7,
+        "tool_calls": 90,
+        "median_seconds": 96.354
+      }
+    },
+    "holdout": {
+      "baseline": {
+        "procedure_id": "baseline",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 5,
+        "material_defect_runs": 0,
+        "unverified": 1,
+        "review_calls": 7,
+        "tool_calls": 88,
+        "median_seconds": 92.394
+      },
+      "candidate-1": {
+        "procedure_id": "candidate-1",
+        "expected": 6,
+        "finished": 6,
+        "passed": 6,
+        "structural_passed": 6,
+        "first_review_passed": 6,
+        "material_defect_runs": 0,
+        "unverified": 0,
+        "review_calls": 6,
+        "tool_calls": 88,
+        "median_seconds": 105.116
+      }
+    }
+  },
+  "procedures": {
+    "baseline": {
+      "procedure": "",
+      "hypothesis": "Current Oak procedure."
+    },
+    "candidate-1": {
+      "procedure": "Add an artifact-bound checkpoint to Oak’s existing render–inspect–repair loop. All supplied tasks ultimately passed structural checks and had no reported material visual defect; two runs contained a failed render, and one needed another review after technical properties remained unverified. This supports a conservative evidence-handling improvement, not a broad workflow replacement.\n\n1. Before rendering, separate the brief into visual requirements and properties requiring file inspection. Preserve every requirement verbatim in the working checklist.\n2. After each render, establish whether it succeeded and which artifact revision it produced. Never inspect a stale artifact as evidence for a failed or newer render. Keep the last successful revision available without modifying immutable sources.\n3. Inspect the successful artifact visually and verify its required technical properties using the existing permitted checks. Associate views, extraction facts and check results with that same revision. Appearance alone does not establish encoding, exact color, opacity or audio absence.\n4. If rendering fails, use the available diagnostic to make a bounded correction; do not infer a cause from failure alone. If inspection reveals a defect, name the violated requirement and make the smallest justified repair. Re-render and recheck the affected requirement plus potential regressions.\n5. Supply the independent reviewer with the current artifact, source references and relevant artifact-bound facts. Preserve unknowns and limitations explicitly; do not reinterpret an unverified result as a visual defect or a pass. Any subsequent review must address changed evidence or an actual repair, not merely seek a different verdict.\n\nRetain the existing model, permissions, immutable-source rules, independent reviewer, maximum of four review calls, and delivery policy. Deliver only under that policy, using the exact validated revision and accurately reporting unresolved limitations.",
+      "hypothesis": "On comparable tasks, artifact-bound checkpoints will reduce reviews left unresolved solely because available technical facts were omitted, without increasing total tool calls or introducing material defects. Track failed renders, stale-evidence incidents, unresolved technical checks, tool calls and independently assessed defects. The hypothesis is unsupported if evidence-related uncertainty does not decrease or the added checkpoint increases work without improving evidence completeness. The supplied runs do not establish a recurring visual weakness or the causes of render failures."
+    },
+    "candidate-2": {
+      "procedure": "Add a source-envelope check before layout or motion repair. The supplied repairs already preserved complete artwork and corrected clipping, collisions and motion successfully; no recurring source-handling defect is demonstrated. Treat this as a small preventive check rather than a new design system.\n\n1. Inspect each supplied source in its assigned role. Record its aspect ratio and complete visible extent, including thin extensions, tails and detached-looking details. For repairs, use the broken candidate to identify symptoms, not as authority for source geometry or intended wording. Keep all source files immutable.\n2. For static media, reserve the brief’s required clear edge region and allocate distinct space for required text and artwork. Fit artwork proportionally, preserving its abstract appearance and any required completeness. Measure the rendered text extent rather than assuming the nominal text box contains every glyph. Check wording, clipping, collisions and separation against the source and brief before adding optional decoration.\n3. For animation, keep the designated background stationary and move only the designated subject. Plan the path using the complete subject envelope rather than its center or most prominent shape. Check the envelope throughout the trajectory, including endpoints and rise/fall extrema; endpoint safety alone is insufficient. Preserve the supplied style and do not substitute whole-background movement, a slideshow or a repeated still.\n4. Inspect the encoded result, not just the planned composition. For static work, compare the full view and relevant detail views with the sources. For motion, inspect beginning, ending, extrema and consecutive intermediate frames to verify direction, continuity, complete subject visibility and background stability. Distinct sampled frames establish change, not necessarily correct motion. If samples leave uncertainty, extend inspection rather than claiming complete coverage.\n5. Repair only the demonstrated constraint violation, then repeat source comparison and regression checks on the new artifact. Preserve all technical validation and independent visual review.\n\nKeep the task requirements, existing model, permissions, immutable sources, independent reviewer, four-review maximum and delivery policy unchanged. Do not use this check to relax validation or tune submissions merely to receive a pass.",
+      "hypothesis": "A source-envelope check will catch clipping, distortion, text collisions or incorrect motion before independent review on comparable repair tasks, without increasing material defects or median production time. Record constraint violations found before review, defects found independently afterward, source fidelity and elapsed time. If it adds work but catches no additional violations and does not reduce downstream repairs, the proposed benefit is not supported. Existing evidence shows successful source-aware repairs, so any expected improvement is modest."
+    }
+  },
+  "paired_holdout": [
+    {
+      "task_id": "holdout-create-science",
+      "repeat": 1,
+      "outcome": "tie"
+    },
+    {
+      "task_id": "holdout-create-books",
+      "repeat": 1,
+      "outcome": "tie"
+    },
+    {
+      "task_id": "holdout-create-trail",
+      "repeat": 1,
+      "outcome": "tie"
+    },
+    {
+      "task_id": "holdout-repair-ceramics",
+      "repeat": 1,
+      "outcome": "tie"
+    },
+    {
+      "task_id": "holdout-repair-nursery",
+      "repeat": 1,
+      "outcome": "tie"
+    },
+    {
+      "task_id": "holdout-repair-harbor",
+      "repeat": 1,
+      "outcome": "tie"
+    }
+  ],
+  "wins": 0,
+  "losses": 0,
+  "ties": 6,
+  "limitations": [
+    "Twelve synthetic tasks; small directional pilot, not a population estimate.",
+    "One repetition by default; repeats are set before development.",
+    "Independent visual model review and structural checks are not human aesthetic judgments.",
+    "No production memories imported; no live Telegram delivery or external media provider.",
+    "Candidates receive a shared isolated local Python/Pillow/FFmpeg tool adapter.",
+    "Held-out feedback cannot be used to revise a procedure in this experiment."
+  ],
+  "evaluated_source_commit": "c0be72f8449c133ec757bf45926973cbcb3d077e",
+  "input_bytes_identical_between_arms": true,
+  "input_sha256": {
+    "dev-create-market": {
+      "inputs/accent.png": "4cbfd5f59ce3e4084f461e0ed6d9bc6ac9e82a905d58047bc79264f2662b25ef",
+      "inputs/scene.png": "dcbaa63a5f2d05bd67da869c24b4362f7e4b2e74c7ed1ccbaa5c5c56011f26fb"
+    },
+    "dev-create-menu": {
+      "inputs/accent.png": "4a4e96f63f5eecb4e00718ab564221c0b076106b7dbabb226d5de9ad2e0b7395",
+      "inputs/scene.png": "80c5f46168be647886533cea7975a1f53fcb6eef026cd1b5e63b8f740af5b48e"
+    },
+    "dev-create-kite": {
+      "inputs/accent.png": "2be3548d97c0cde6158b226a7834c80ca98ef679fe0ab66a67813a236bdc2c97",
+      "inputs/scene.png": "858b3dc20e150c6eaeeb5c8c8b1d8ae6bec66095eccde8ffd9f963c35b133379"
+    },
+    "dev-repair-workshop": {
+      "inputs/accent.png": "7cb436e192da707fedd09f45b7713c4fd9a065f4c7c1c22f1048b09a39a2c8b7",
+      "inputs/broken-seed.png": "3cb04eae27d14f1f5df8e13b373e54445bc88cf46cfc17a2aec50e1e61fb4946",
+      "inputs/scene.png": "8bfdc01657d5e356349cff91b6bec0d9b469b7589a445c978ca96005057d1393"
+    },
+    "dev-repair-pantry": {
+      "inputs/accent.png": "984b2692cc303f5a11b127af81f011aeaa5159c6997a7c2c85f79a2d8902cd2e",
+      "inputs/broken-seed.png": "475216a53a7197dd21e8dd9171f5d7368f557e2b3e4e16aebeb58c0131ae85ba",
+      "inputs/scene.png": "a29a578ba06118d87af787018276a2462a97e5f025959ac900c9f79aa108a0d4"
+    },
+    "dev-repair-comet": {
+      "inputs/accent.png": "5c3ee8db5e3068cbc6b478645406df5f83f633bf8e4af5a9db542b69e0993081",
+      "inputs/broken-seed.mp4": "8557e830754354ad8667b7c354d9a41603c9f2d4248c95b2b43e2a1b9d2b2ae4",
+      "inputs/scene.png": "2a31af9358a5fc36f6b0a7ae48bd359f5fb754218ca86db21d61a835590b775e"
+    },
+    "holdout-create-science": {
+      "inputs/accent.png": "2e8d12b1a9185fc351105072276fc9d8b26d3b7f5795ca98cef70fae579aed65",
+      "inputs/scene.png": "1cd6d7fa9532d15b93ba42f611a7ec133cc63ebc614b48ab68f508194fef4302"
+    },
+    "holdout-create-books": {
+      "inputs/accent.png": "8e923bfb7f1855fa439a28e8ec1deca2a040a772eb4a42e8bc7284e101fc12a4",
+      "inputs/scene.png": "4e8d69957a11929aac6b4be54904692a93fcb9303c9f00a5e58bb83adaec47c5"
+    },
+    "holdout-create-trail": {
+      "inputs/accent.png": "7db8a5133efeb14a66d9a9caf0eb932948db6a6daa0a0eb5b158b517789bb30a",
+      "inputs/scene.png": "c1fb96865e92d63bfeba8aa5fc41f62e3cb537d8a689444cd2db292d801175d6"
+    },
+    "holdout-repair-ceramics": {
+      "inputs/accent.png": "c5b0b08a5f33be0065fd3de5abf25e41c0e03472b508d3a074057fd84d1e13d0",
+      "inputs/broken-seed.png": "66aaa39c3c303ac884e9b30016b13d86f27e579a8c5cc9ea64a766c693ce7d3c",
+      "inputs/scene.png": "b25677d485693cfe45a229ac06a7ae3a88822ef3e01165981cc0c5f1e924e50d"
+    },
+    "holdout-repair-nursery": {
+      "inputs/accent.png": "a050a280674bb800ac828499273521393066d0cba78565d6da2c42a2def8e2e2",
+      "inputs/broken-seed.png": "2c8e21fc00ed579a00368e80ac64af2a32bb3fef45eb4e3b99f66ffd06074ba3",
+      "inputs/scene.png": "31f0b661ada79f6b7a974ba6b630301d1d3a33ec774a61257b42a93cf0f3d490"
+    },
+    "holdout-repair-harbor": {
+      "inputs/accent.png": "0e19accda1c8a57ce2783285a1810db339cb2e2fd95bc0e5f3d991f512f66656",
+      "inputs/broken-seed.mp4": "d4bde2e5310204ebc7454f4375a6e92ecef59f2964bb4a1198d7853a7a227161",
+      "inputs/scene.png": "9271bfcb5345e63ca390d5a4a2b50aebb91dc208d4c23a0fd550210b0f9b5fb6"
+    }
+  },
+  "producer_runs": 30,
+  "proposal_sessions": 1,
+  "independent_review_sessions": 33,
+  "runs": [
+    {
+      "task_id": "dev-create-market",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "1d444a69b59f1427e60566df715b70273dcbb33c9d07b540dace35c1d62fdbfb",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 2,
+        "tool_calls": 16,
+        "elapsed_seconds": 134.942
+      },
+      "structural": {
+        "task_id": "dev-create-market",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (960, 640); required (960, 640)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/98304 sampled gutter pixels differ from required #f7f1e4."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1727/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "1d444a69b59f1427e60566df715b70273dcbb33c9d07b540dace35c1d62fdbfb",
+          "verdict": "unverified",
+          "summary": "The visible poster meets the design brief with no material visual defects. Exact file-format, opacity, and background-color requirements remain unverified.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 28.281
+        },
+        {
+          "sha256": "1d444a69b59f1427e60566df715b70273dcbb33c9d07b540dace35c1d62fdbfb",
+          "verdict": "pass",
+          "summary": "The poster meets the visible brief: clear hierarchy, three separated labels, and faithfully preserved abstract artwork without apparent stretching.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 21.187
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-menu",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "47aca4a1e308d1754e61cb2b703414c527b5a75eb79121ad3dfbef864b5b6c81",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 12,
+        "elapsed_seconds": 74.439
+      },
+      "structural": {
+        "task_id": "dev-create-menu",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (720, 960); required (720, 960)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/115776 sampled gutter pixels differ from required #fff8ed."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1738/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "47aca4a1e308d1754e61cb2b703414c527b5a75eb79121ad3dfbef864b5b6c81",
+          "verdict": "pass",
+          "summary": "The menu meets the visible brief: readable aligned rows, separate artwork, preserved abstract style, and generous clear gutters.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 15.707
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-kite",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "f2d17f9b9b5292bcfc8e0348baa297cf12dfa21209c88da6d06a4eb6bf60b2c8",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 80.456
+      },
+      "structural": {
+        "task_id": "dev-create-kite",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×360; required (640, 360)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "f2d17f9b9b5292bcfc8e0348baa297cf12dfa21209c88da6d06a4eb6bf60b2c8",
+          "verdict": "pass",
+          "summary": "The supplied kite glides left to right with a gentle rise and fall, remains fully visible, and preserves the abstract artwork over a stationary landscape.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 18.67
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-workshop",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "b5f1a3768e4e3bab861deab3afacfe61f7079c6128a44e7eb3d19f7b4ca91c86",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 89.07
+      },
+      "structural": {
+        "task_id": "dev-repair-workshop",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (900, 600); required (900, 600)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/86400 sampled gutter pixels differ from required #f4f0e8."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1877/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "b5f1a3768e4e3bab861deab3afacfe61f7079c6128a44e7eb3d19f7b4ca91c86",
+          "verdict": "pass",
+          "summary": "The poster visibly resolves the clipping and overlap, preserving the complete stylized artwork beside a clear information column.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 20.143
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-pantry",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "5c328f0c10257137f3eae1045d6617dc7b5bf7dfea21e0ca1130abd1c7a396d7",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 16,
+        "elapsed_seconds": 70.797
+      },
+      "structural": {
+        "task_id": "dev-repair-pantry",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (800, 800); required (800, 800)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/121600 sampled gutter pixels differ from required #faf2dc."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1879/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "5c328f0c10257137f3eae1045d6617dc7b5bf7dfea21e0ca1130abd1c7a396d7",
+          "verdict": "pass",
+          "summary": "The label visibly resolves the clipping and collisions while preserving the supplied abstract artwork without distortion.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 17.349
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-comet",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "b96189378e764a1b6ddf3000d7af7e2c278d2200b5517697b1659246a3468571",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 16,
+        "elapsed_seconds": 77.918
+      },
+      "structural": {
+        "task_id": "dev-repair-comet",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 480×480; required (480, 480)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "b96189378e764a1b6ddf3000d7af7e2c278d2200b5517697b1659246a3468571",
+          "verdict": "pass",
+          "summary": "The supplied comet moves diagonally upward-right across the stationary landscape, retaining its complete tail and the original abstract style.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 16.457
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-market",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "ce577656cec29d8db8e32981866f6a54a4347697accff750c3245d3d12259d6e",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 104.768
+      },
+      "structural": {
+        "task_id": "dev-create-market",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (960, 640); required (960, 640)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/98304 sampled gutter pixels differ from required #f7f1e4."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "2530/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "ce577656cec29d8db8e32981866f6a54a4347697accff750c3245d3d12259d6e",
+          "verdict": "pass",
+          "summary": "The poster meets the visible brief with preserved abstract artwork, clear typography, and well-separated labels.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 26.57
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-market",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "796c8dd8bfa70b5cc2cbca70a31f92444cc0f1fa33de4cb568cff27355ebc5a1",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 116.696
+      },
+      "structural": {
+        "task_id": "dev-create-market",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (960, 640); required (960, 640)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/98304 sampled gutter pixels differ from required #f7f1e4."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1389/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "796c8dd8bfa70b5cc2cbca70a31f92444cc0f1fa33de4cb568cff27355ebc5a1",
+          "verdict": "pass",
+          "summary": "The poster meets the visible brief: clear hierarchy, three separated labels, and faithfully preserved abstract artwork without apparent stretching.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 20.793
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-menu",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "78241f4be8dfa919fab6031e57f2369322d6da7b4dfc60ce148bf52bb6b19b82",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 82.325
+      },
+      "structural": {
+        "task_id": "dev-create-menu",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (720, 960); required (720, 960)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/115776 sampled gutter pixels differ from required #fff8ed."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1719/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "78241f4be8dfa919fab6031e57f2369322d6da7b4dfc60ce148bf52bb6b19b82",
+          "verdict": "pass",
+          "summary": "The menu visibly meets the brief: clear aligned rows, separate artwork, preserved abstract styling, and ample edge clearance.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 20.147
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-menu",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "8024367f4b46d08904b2eff8b2f3eb98b79675dc5addf0e80d7ae23935bea852",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 12,
+        "elapsed_seconds": 71.615
+      },
+      "structural": {
+        "task_id": "dev-create-menu",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (720, 960); required (720, 960)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/115776 sampled gutter pixels differ from required #fff8ed."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1713/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "8024367f4b46d08904b2eff8b2f3eb98b79675dc5addf0e80d7ae23935bea852",
+          "verdict": "pass",
+          "summary": "The menu meets the visible brief: clear typography, aligned drink-and-price rows, generous margins, and faithfully preserved abstract artwork.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 16.778
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-kite",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "d61006907ca58d3d238bf649bd501ce322dcc7e4c2200e1826bcb06e9461a0a4",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 90.753
+      },
+      "structural": {
+        "task_id": "dev-create-kite",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×360; required (640, 360)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "d61006907ca58d3d238bf649bd501ce322dcc7e4c2200e1826bcb06e9461a0a4",
+          "verdict": "pass",
+          "summary": "The kite glides left to right with a gentle rise and fall, remains fully visible, and preserves the supplied abstract artwork over a stationary landscape.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 18.645
+        }
+      ]
+    },
+    {
+      "task_id": "dev-create-kite",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "dabd726ca4dda1bbafad3f41c13a531b333949bdebfe18b01f9b427a53c77613",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 73.86
+      },
+      "structural": {
+        "task_id": "dev-create-kite",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×360; required (640, 360)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "dabd726ca4dda1bbafad3f41c13a531b333949bdebfe18b01f9b427a53c77613",
+          "verdict": "pass",
+          "summary": "The kite glides left to right with a gentle rise and fall, remains fully visible, and preserves the supplied abstract artwork over a stationary landscape.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 17.747
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-workshop",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "a39302bea4670da9e662407c48cec128da69cef7e537573b302730e2f9a84eed",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 17,
+        "elapsed_seconds": 100.122
+      },
+      "structural": {
+        "task_id": "dev-repair-workshop",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (900, 600); required (900, 600)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/86400 sampled gutter pixels differ from required #f4f0e8."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1680/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "a39302bea4670da9e662407c48cec128da69cef7e537573b302730e2f9a84eed",
+          "verdict": "pass",
+          "summary": "The repaired poster visibly meets the brief, with complete artwork and a clear, nonoverlapping information column.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 21.404
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-workshop",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "e9f18331c6532be07737928de7dd764de2bb41c773c3f6f1232f1769b6dd7a5a",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 92.941
+      },
+      "structural": {
+        "task_id": "dev-repair-workshop",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (900, 600); required (900, 600)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/86400 sampled gutter pixels differ from required #f4f0e8."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1651/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "e9f18331c6532be07737928de7dd764de2bb41c773c3f6f1232f1769b6dd7a5a",
+          "verdict": "pass",
+          "summary": "The poster visibly resolves the clipped title and overlapping text, preserving the complete abstract artwork beside a clear information column.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 20.718
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-pantry",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "8c56ea7337fe68cb17a9c91a007fa75294db9ac23471a32682cd8d1c5161fbbe",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 81.012
+      },
+      "structural": {
+        "task_id": "dev-repair-pantry",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (800, 800); required (800, 800)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/121600 sampled gutter pixels differ from required #faf2dc."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1914/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "8c56ea7337fe68cb17a9c91a007fa75294db9ac23471a32682cd8d1c5161fbbe",
+          "verdict": "pass",
+          "summary": "The label restores all wording, separates text from the illustration, and preserves the source artwork without visible distortion.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 22.552
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-pantry",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "974ba3342d1486d71292d638b2c42449c37fa4d9c6dfba32d14266ffe2ae99f1",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 2,
+        "tool_calls": 17,
+        "elapsed_seconds": 143.311
+      },
+      "structural": {
+        "task_id": "dev-repair-pantry",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (800, 800); required (800, 800)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/121600 sampled gutter pixels differ from required #faf2dc."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1220/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "974ba3342d1486d71292d638b2c42449c37fa4d9c6dfba32d14266ffe2ae99f1",
+          "verdict": "unverified",
+          "summary": "The visible repair is successful; required export properties remain unconfirmed.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 35.232
+        },
+        {
+          "sha256": "974ba3342d1486d71292d638b2c42449c37fa4d9c6dfba32d14266ffe2ae99f1",
+          "verdict": "pass",
+          "summary": "The label restores all wording, separates text from artwork, and preserves the source illustration’s abstract style and proportions.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 24.882
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-comet",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "cd957f0f389d26aaf6ebf9eae7d95fcd3a921f79ff02117b8d6a6cadebb7aae8",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 92.586
+      },
+      "structural": {
+        "task_id": "dev-repair-comet",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 480×480; required (480, 480)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "cd957f0f389d26aaf6ebf9eae7d95fcd3a921f79ff02117b8d6a6cadebb7aae8",
+          "verdict": "pass",
+          "summary": "The supplied comet moves diagonally across the stationary landscape, with its whole tail visible and the abstract style preserved. Delivery specifications are satisfied.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 20.64
+        }
+      ]
+    },
+    {
+      "task_id": "dev-repair-comet",
+      "split": "dev",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "ceb44392af9c1d167a1d4e28c79d725a411aa301cece69f63f4589119c81b95d",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 86.659
+      },
+      "structural": {
+        "task_id": "dev-repair-comet",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 480×480; required (480, 480)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.000s; required 3s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.000 fps; required 12."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "12 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "12 distinct sampled frames; 11 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "ceb44392af9c1d167a1d4e28c79d725a411aa301cece69f63f4589119c81b95d",
+          "verdict": "pass",
+          "summary": "The comet moves diagonally across the stationary supplied landscape, with its full tail visible and the abstract style preserved.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 13.948
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-science",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "b38f465723890d01403a8490385d6b5fbdb3bc3546072ec553e1b55efc469657",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 2,
+        "tool_calls": 15,
+        "elapsed_seconds": 164.153
+      },
+      "structural": {
+        "task_id": "holdout-create-science",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (840, 1120); required (840, 1120)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/157584 sampled gutter pixels differ from required #eef4fb."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "2857/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "b38f465723890d01403a8490385d6b5fbdb3bc3546072ec553e1b55efc469657",
+          "verdict": "unverified",
+          "summary": "The visible poster meets the design brief with no material visual defects. Exact file encoding, opacity, and background RGB remain unverified.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 28.193
+        },
+        {
+          "sha256": "b38f465723890d01403a8490385d6b5fbdb3bc3546072ec553e1b55efc469657",
+          "verdict": "pass",
+          "summary": "The visible poster meets the brief, with a strong title, preserved abstract artwork, and three clearly distinguished activity blocks.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 30.958
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-science",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "9edc14658d0c0259aaa12afcfbd9c9bd19f18e6b144abb3c4acbea408bf9218f",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 118.294
+      },
+      "structural": {
+        "task_id": "holdout-create-science",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (840, 1120); required (840, 1120)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/157584 sampled gutter pixels differ from required #eef4fb."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "2762/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "9edc14658d0c0259aaa12afcfbd9c9bd19f18e6b144abb3c4acbea408bf9218f",
+          "verdict": "pass",
+          "summary": "The poster visibly meets the brief, with strong typography, preserved abstract artwork and three clearly separated activity blocks.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 31.248
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-books",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "bbcb337934e4d8caa14d263f84b120edbbf19b8f87beeece758073d0c0f86495",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 18,
+        "elapsed_seconds": 160.014
+      },
+      "structural": {
+        "task_id": "holdout-create-books",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (1120, 700); required (1120, 700)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/122500 sampled gutter pixels differ from required #f6eddf."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1696/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "bbcb337934e4d8caa14d263f84b120edbbf19b8f87beeece758073d0c0f86495",
+          "verdict": "pass",
+          "summary": "The visible design meets the brief: clear hierarchy, three readable columns, preserved abstract artwork, and adequate edge gutters.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 26.811
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-books",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "a1923eefe59372bcc3590213b4c60e46ddebac9e2979fd2dc49606ffb7936258",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 12,
+        "elapsed_seconds": 112.078
+      },
+      "structural": {
+        "task_id": "holdout-create-books",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (1120, 700); required (1120, 700)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/122500 sampled gutter pixels differ from required #f6eddf."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1784/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "a1923eefe59372bcc3590213b4c60e46ddebac9e2979fd2dc49606ffb7936258",
+          "verdict": "pass",
+          "summary": "The display meets the visible brief with clear hierarchy, three readable recommendation-and-price groups, and faithfully preserved artwork.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 30.701
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-trail",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "aedd28249ea73e2dd02292bb45e665d8d1aafe370d558bd6d1a7d2ffe6881fd9",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 94.918
+      },
+      "structural": {
+        "task_id": "holdout-create-trail",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 720×406; required (720, 406)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 4.000s; required 4s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 15.000 fps; required 15."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "16 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "16 distinct sampled frames; 15 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "aedd28249ea73e2dd02292bb45e665d8d1aafe370d558bd6d1a7d2ffe6881fd9",
+          "verdict": "pass",
+          "summary": "The marker travels toward the upper right with a restrained bob, remains fully visible, and preserves the supplied abstract artwork.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 26.545
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-create-trail",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "c2bc2e050aec4160b07d9f5352a617414877b31a30a4a2d27c792568ca0c3a74",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 12,
+        "elapsed_seconds": 88.709
+      },
+      "structural": {
+        "task_id": "holdout-create-trail",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 720×406; required (720, 406)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 4.000s; required 4s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 15.000 fps; required 15."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "16 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "16 distinct sampled frames; 15 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "c2bc2e050aec4160b07d9f5352a617414877b31a30a4a2d27c792568ca0c3a74",
+          "verdict": "pass",
+          "summary": "The marker travels from lower left to upper right with restrained bobbing, while the geometric landscape remains stationary and visually intact.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 22.664
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-ceramics",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "d111bf469079456a10a496c79b4bb362ee73f97dbd9491a57f75a52411c1692b",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 15,
+        "elapsed_seconds": 81.989
+      },
+      "structural": {
+        "task_id": "holdout-repair-ceramics",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (1200, 800); required (1200, 800)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/182784 sampled gutter pixels differ from required #f6eee7."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1450/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "d111bf469079456a10a496c79b4bb362ee73f97dbd9491a57f75a52411c1692b",
+          "verdict": "pass",
+          "summary": "The poster visibly resolves the crowded title and clipped details while preserving the supplied abstract artwork without distortion.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 14.881
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-ceramics",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "66281d3a4d7058756d68053da40187af99fd2890bebf0427c234637403e82355",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 74.802
+      },
+      "structural": {
+        "task_id": "holdout-repair-ceramics",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (1200, 800); required (1200, 800)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/182784 sampled gutter pixels differ from required #f6eee7."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1394/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "66281d3a4d7058756d68053da40187af99fd2890bebf0427c234637403e82355",
+          "verdict": "pass",
+          "summary": "The poster visibly resolves the crowded typography and preserves the supplied abstract artwork in a spacious, balanced layout.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 17.763
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-nursery",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "15f2508c362954c7fc2bde6097f26aa732d1f02d242346aac1ac1fae36644445",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 18,
+        "elapsed_seconds": 89.871
+      },
+      "structural": {
+        "task_id": "holdout-repair-nursery",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (600, 1000); required (600, 1000)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/92400 sampled gutter pixels differ from required #edf3e7."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1933/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "15f2508c362954c7fc2bde6097f26aa732d1f02d242346aac1ac1fae36644445",
+          "verdict": "pass",
+          "summary": "The repaired leaflet has a complete heading, three clearly separated detail lines, and faithfully preserved abstract artwork without visible distortion.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 21.793
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-nursery",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "86591b4ea67de4c1eaca536f7c95e287bc3fa5418c20e2ab3c375e9106e818ae",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 16,
+        "elapsed_seconds": 132.098
+      },
+      "structural": {
+        "task_id": "holdout-repair-nursery",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "png_encoding",
+            "status": "pass",
+            "evidence": "PNG"
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (600, 1000); required (600, 1000)."
+          },
+          {
+            "criterion": "opaque",
+            "status": "pass",
+            "evidence": "Alpha must be fully opaque."
+          },
+          {
+            "criterion": "clear_gutter",
+            "status": "pass",
+            "evidence": "0/92400 sampled gutter pixels differ from required #edf3e7."
+          },
+          {
+            "criterion": "nonblank_composition",
+            "status": "pass",
+            "evidence": "1063/4096 thumbnail pixels contain foreground."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "86591b4ea67de4c1eaca536f7c95e287bc3fa5418c20e2ab3c375e9106e818ae",
+          "verdict": "pass",
+          "summary": "The heading is complete, the three detail lines are clearly separated, and the supplied abstract plant artwork retains its proportions and style.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 37.592
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-harbor",
+      "split": "holdout",
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "d8a47c9386c0373ff31d6ac4a3b518b84550e7e0576baaa9dde1a935124b0774",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 91.938
+      },
+      "structural": {
+        "task_id": "holdout-repair-harbor",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 540×720; required (540, 720)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 4.000s; required 4s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 15.000 fps; required 15."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "16 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "16 distinct sampled frames; 15 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "d8a47c9386c0373ff31d6ac4a3b518b84550e7e0576baaa9dde1a935124b0774",
+          "verdict": "pass",
+          "summary": "The supplied boat moves horizontally across the bottom band while the abstract landscape remains stationary. No material visual defects are evident.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 14.853
+        }
+      ]
+    },
+    {
+      "task_id": "holdout-repair-harbor",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "status": "completed",
+      "artifact_sha256": "81686d3d05e629718c902b7a5f52aa09ef60d0d026063f8c48b0c330dec9c526",
+      "metrics": {
+        "passed": true,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 16,
+        "elapsed_seconds": 77.223
+      },
+      "structural": {
+        "task_id": "holdout-repair-harbor",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_local_artifact",
+            "status": "pass",
+            "evidence": "Required: ordinary workspace file, nonempty, at most 32 MiB."
+          },
+          {
+            "criterion": "mp4_h264",
+            "status": "pass",
+            "evidence": "Container mov,mp4,m4a,3gp,3g2,mj2; codec h264."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 540×720; required (540, 720)."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 4.000s; required 4s ±0.2s."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 15.000 fps; required 15."
+          },
+          {
+            "criterion": "silent_video",
+            "status": "pass",
+            "evidence": "No audio stream requested."
+          },
+          {
+            "criterion": "decoded_frames",
+            "status": "pass",
+            "evidence": "16 frames decoded at 4 fps."
+          },
+          {
+            "criterion": "temporal_change",
+            "status": "pass",
+            "evidence": "16 distinct sampled frames; 15 material transitions. This does not prove natural or correct motion."
+          }
+        ],
+        "structural_only": true,
+        "limitation": "Structural checks do not establish visual quality, text accuracy, source fidelity or natural motion."
+      },
+      "reviews": [
+        {
+          "sha256": "81686d3d05e629718c902b7a5f52aa09ef60d0d026063f8c48b0c330dec9c526",
+          "verdict": "pass",
+          "summary": "The supplied boat travels horizontally across the bottom band while the abstract landscape remains stationary. No material visual defects are evident.",
+          "model": "gpt-6.1-sol",
+          "elapsed_seconds": 13.519
+        }
+      ]
+    }
+  ],
+  "unchanged_byte_verdict_changes": [
+    {
+      "task_id": "dev-create-market",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "from": "unverified",
+      "to": "pass",
+      "sha256": "1d444a69b59f1427e60566df715b70273dcbb33c9d07b540dace35c1d62fdbfb"
+    },
+    {
+      "task_id": "dev-repair-pantry",
+      "split": "dev",
+      "procedure_id": "candidate-2",
+      "from": "unverified",
+      "to": "pass",
+      "sha256": "974ba3342d1486d71292d638b2c42449c37fa4d9c6dfba32d14266ffe2ae99f1"
+    },
+    {
+      "task_id": "holdout-create-science",
+      "split": "holdout",
+      "procedure_id": "baseline",
+      "from": "unverified",
+      "to": "pass",
+      "sha256": "b38f465723890d01403a8490385d6b5fbdb3bc3546072ec553e1b55efc469657"
+    }
+  ],
+  "recommendation": "Retain the current procedure: no held-out success gain, equal tool calls and higher candidate median latency.",
+  "calibration_excluded": true
+}
