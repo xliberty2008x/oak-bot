@@ -1,0 +1,171 @@
+{
+  "disposition": "Excluded DEV construction preflight; no producer or held-out feedback.",
+  "runs": [
+    {
+      "task_id": "dev-create-marten-blink",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "review": {
+        "verdict": "pass",
+        "summary": "The supplied frames support two complete local blinks, with coherent curved eyelids and preserved portrait identity.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Preserve the source portrait, texture and print.",
+            "status": "pass",
+            "evidence": "The initial frame matches the reference; face shape, nose, fur marks, paper and lettering remain visibly unchanged."
+          },
+          {
+            "criterion": "Move only the eye openings and eyelid edges.",
+            "status": "pass",
+            "evidence": "Sampled transitions show localized eyelid movement while the face, forehead, eye surrounds and composition remain stationary."
+          },
+          {
+            "criterion": "Complete two smooth blinks and restore the original open eyes.",
+            "status": "pass",
+            "evidence": "Progressive closure and reopening surround fully closed frames 9 and 26. Original open eyes return between blinks and in the ending frames."
+          },
+          {
+            "criterion": "Use coherent curved lids that occlude unchanged irises and pupils.",
+            "status": "pass",
+            "evidence": "Detail crops show curved openings progressively masking stationary pupils. Beige lids match the source eye surrounds, without visible ghosting, rectangular wipes, detached arcs or conspicuous patch seams."
+          }
+        ],
+        "limitations": [
+          "Assessment uses supplied timestamped frames and detail crops; continuous playback and unsupplied frames were not reviewed."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 19.594,
+        "sha256": "943b94e607928a439957905e05e0be5070365486a0f3f8c7435fa395d6f1f5ad",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "c12fe7e4cf21cba01e51be98fad6b5719326cc4a5f7b43081df85192a7004751",
+      "visual_requirements_sha256": "5ea8a66c99baeba23242b166aa0c0cef7fbead3655534b756894d2b51d8c8c6f",
+      "mechanical_requirements_sha256": "ebfb4f88073dcf877abe2c1675c74d42b8d841c117c9a239d5de6e24f9dd0a94",
+      "source_hashes": {
+        "scene.json": "c12fe7e4cf21cba01e51be98fad6b5719326cc4a5f7b43081df85192a7004751",
+        "scene.png": "e15ca01ce081c9538e5073700b928336fa74ff657eed5e54fa2cfdae7ca403e3"
+      }
+    },
+    {
+      "task_id": "dev-create-glasswing-passage",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "review": {
+        "verdict": "pass",
+        "summary": "The sampled sequence supports a clean crossing behind both plant clusters and in front of the mural, with the original subject and stationary composition preserved.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Preserve the supplied subject’s pattern, colors, proportions and silhouette.",
+            "status": "pass",
+            "evidence": "Visible portions retain the reference’s orange polygon, cream concentric rings, dark diagonal line and outline."
+          },
+          {
+            "criterion": "Keep both foreground plant clusters ahead of the subject and the mural behind it.",
+            "status": "pass",
+            "evidence": "Leaves and stems occlude the subject during both crossings; mural lines disappear beneath the subject."
+          },
+          {
+            "criterion": "Keep the surrounding composition stationary.",
+            "status": "pass",
+            "evidence": "Plant clusters, mural, paper, lettering and border remain aligned across the supplied frames and match the scene reference."
+          },
+          {
+            "criterion": "Maintain clean compositing boundaries.",
+            "status": "pass",
+            "evidence": "Detail crops show coherent subject and leaf edges without obvious halos, rectangular cutouts or carried landscape fragments."
+          },
+          {
+            "criterion": "Travel continuously rather than freeze between sampled views.",
+            "status": "pass",
+            "evidence": "Consecutive sampled frames show advancing positions at the beginning, middle and ending, with continued progress through both crossings."
+          }
+        ],
+        "limitations": [
+          "Review is based on supplied frames and detail crops, not playback of every frame."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 16.081,
+        "sha256": "d27ea8f23bf36607561493cefa2641465ee12daa2f26db11f341a4ae9c4c1e6e",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "80f70080f2eb6e54aed163a5fe48ba2bf2cff6c1c597c229e433decd332073b9",
+      "visual_requirements_sha256": "e15984878da26021e2b83f14893d28bab8c04aa34476308731cfd5cf3e57e455",
+      "mechanical_requirements_sha256": "b23a0fccf105e09b8f6ec0d4b29beb5058ac811544614ddf3f8cbf5942e48d0e",
+      "source_hashes": {
+        "scene.json": "80f70080f2eb6e54aed163a5fe48ba2bf2cff6c1c597c229e433decd332073b9",
+        "scene.png": "53bca51895644d39f15c8fc9183e31a19aebb511abdc4b11248055a04cc421f2",
+        "sprite.png": "0c9e6e74d1c5ba6062a52ae6c035f76fa46464a71c21a58be66e11ef2539e59e"
+      }
+    },
+    {
+      "task_id": "dev-create-herbarium-proof",
+      "authored_valid_example": true,
+      "producer_run": false,
+      "review": {
+        "verdict": "pass",
+        "summary": "The restored print visibly matches the donor and preserves the surrounding original, with no apparent repair artifacts.",
+        "issues": [],
+        "checks": [
+          {
+            "criterion": "Donor registration and engraved-line continuity",
+            "status": "pass",
+            "evidence": "The repaired central stem and curved branches align cleanly with surrounding lines, without visible ghosting or doubled edges."
+          },
+          {
+            "criterion": "Paper texture, lettering, diacritics and rules",
+            "status": "pass",
+            "evidence": "The repaired paper blends with its surroundings; the heading, small lettering, accents and horizontal rule appear coherent with the donor."
+          },
+          {
+            "criterion": "Preservation outside the repair boundary",
+            "status": "pass",
+            "evidence": "The surrounding plants, registration marks, title, footer and border remain visually consistent with the damaged original."
+          },
+          {
+            "criterion": "Removal of stain and guide without visible artifacts",
+            "status": "pass",
+            "evidence": "No purple stain, cyan markings, obvious seam or blurred patch is visible in the finished print."
+          }
+        ],
+        "limitations": [
+          "Assessment is based on the supplied full-image views; pixel-exact preservation and very fine texture differences cannot be established."
+        ],
+        "model": "gpt-6.1-sol",
+        "elapsed_seconds": 19.408,
+        "sha256": "3f67280a23e2471a0b85d51cceab4b4f077a4c198434f1071616500cf625105b",
+        "ok": true,
+        "queued_for_delivery": false
+      },
+      "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+      "specification_sha256": "d582d29ecbdffc78cc379d298dca14a47775472302547f55718bd6c869b562b0",
+      "visual_requirements_sha256": "049257381c11755eba3b3a538b2c3e3f8c166b7f69a0d093ad19ef96227e45d5",
+      "mechanical_requirements_sha256": "46a88e427f70d2561725135354e65ddf71b58da81af20aeab5330739eeb370fe",
+      "source_hashes": {
+        "donor.png": "1060d6b914a9a8808da1a894c18120011376633d732cb855280d0c0e833f3fcd",
+        "guide.png": "630e1f29c00acb6364f90b61b446002e53c43e9ea74593b569cc31618944fb47",
+        "scene.json": "d582d29ecbdffc78cc379d298dca14a47775472302547f55718bd6c869b562b0",
+        "scene.png": "95b5303080e61bff1268b76a298d14f2929a7bb27c0ff8afbd7657db77eb3556"
+      }
+    }
+  ],
+  "excluded_from_main_comparison": true,
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "implementation_sha256": "ad9e6d9bbf092ec055ae89174dca55c206dbc3c041a8e6e90fbfbc7cad7169be",
+  "producer_runs": 0,
+  "holdout_model_runs": 0,
+  "authored_control_validation": {
+    "task_tests_passed": 8,
+    "quality_tests_passed": 12,
+    "valid_authored_task_outputs_passed": 12,
+    "alternate_blink_curves_and_peaks_passed": 8,
+    "visual_qa": "All 36 frames of both triangle/cosine examples for four blink tasks, all 36 frames for four occlusion tasks, and four restored print masters inspected by task and independent quality agents.",
+    "negative_controls": "Frozen eyes, instant closure, iris crossfade, moved pupils, whole-face motion, wrong foreground order, opaque sprite padding, misregistered donor, blurred fine text, unauthorized source edits, non-RGB format and unavailable decode are rejected or unverified."
+  }
+}

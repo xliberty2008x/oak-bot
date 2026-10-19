@@ -392,5 +392,74 @@ class HardPilotAsyncContracts(HardPilotFixture, unittest.IsolatedAsyncioTestCase
         self.assertFalse(record['metrics']['reviewer_false_pass'])
 
 
+class PerceptualPilotContracts(PilotFixture, unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        super().setUp()
+        self.root = Path(self.temporary.name) / 'perceptual-experiment'
+        self.state = pilot.initialize(self.root, suite='perceptual', repeats=2)
+
+    def test_fresh_perceptual_manifest_keeps_balanced_sealed_splits(self):
+        from oak.media_pilot_hard_tasks import TASKS as earlier
+        self.assertTrue({r['id'] for r in earlier}.isdisjoint(r['id'] for r in self.state['tasks']))
+        for split in ('dev', 'holdout'):
+            rows = [r for r in self.state['tasks'] if r['split'] == split]
+            self.assertEqual(len(rows), 6)
+            self.assertEqual(sum(r['kind'] == 'creation' for r in rows), 3)
+            self.assertEqual(sum(r['output_name'] == 'final.mp4' for r in rows), 4)
+        self.state['config']['suite'] = 'hard'
+        self.save()
+        with self.assertRaises(ValueError):
+            pilot.load(self.root)
+
+    async def test_visual_pass_cannot_override_failed_semantic_property(self):
+        artifact = self.root / 'snapshot.png'
+        artifact.write_bytes(b'opaque artifact protocol fixture')
+        digest = pilot._file_hash(artifact)
+        value = receipt()
+        value.update(artifact_path=str(artifact), artifact_sha256=digest,
+                     candidate_path=str(artifact), candidate_sha256=digest, candidate_complete=True)
+        value['reviews'][0]['sha256'] = digest
+        grading = {'status': 'fail', 'structural_status': 'pass', 'quality_score': .3,
+            'checks': [{'criterion': 'content:actual_opaque_foreground_occlusion',
+                        'status': 'fail', 'evidence': 'The subject covers original foreground leaves.'}]}
+        runtime = type('Runtime', (), {'run': AsyncMock(return_value=value)})()
+        row = self.state['tasks'][0]
+        with patch('oak.media_pilot_perceptual_tasks.materialize_task', return_value={'source_hashes': {}}), \
+                patch('oak.media_pilot_perceptual_quality.evaluate_artifact', return_value=grading) as evaluate, \
+                redirect_stdout(io.StringIO()):
+            await pilot._run_attempt(self.root, self.state, 'dev', row, 'baseline', 1, runtime)
+        record = self.state['runs'][pilot._keys(self.state, 'dev', 'baseline')[0]]
+        self.assertFalse(record['metrics']['passed'])
+        self.assertFalse(record['metrics']['quality_passed'])
+        self.assertTrue(record['metrics']['reviewer_false_pass'])
+        original_workspace = self.root / 'workspaces' / pilot._keys(self.state, 'dev', 'baseline')[0] / 'attempt-1'
+        self.assertEqual(evaluate.call_args.args[2], original_workspace)
+        self.assertEqual(evaluate.call_args.kwargs['artifact_root'], artifact.parent)
+
+    def test_only_material_visual_rejection_of_final_bytes_opens_perceptual_gate(self):
+        digest = 'a' * 64
+        row = {'state': 'finished', 'split': 'dev', 'procedure_id': 'baseline',
+               'source_immutable': True,
+               'candidate_quality': {'status': 'pass', 'structural_status': 'pass', 'checks': []},
+               'receipt': {'status': 'unverified', 'candidate_complete': True,
+                           'candidate_sha256': digest,
+                           'reviews': [{'verdict': 'revise', 'sha256': digest,
+                                        'issues': [{'severity': 'major', 'description': 'Rectangular eyelid wipe.'}]}]}}
+        self.assertTrue(pilot._development_quality_failure(row, 'perceptual'))
+        self.assertFalse(pilot._development_quality_failure(row, 'hard'))
+        for field, value in [('sha256', 'b' * 64), ('verdict', 'unverified'),
+                             ('issues', [{'severity': 'minor'}]), ('issues', [])]:
+            invalid = copy.deepcopy(row)
+            invalid['receipt']['reviews'][0][field] = value
+            self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+        for field, value in [('status', 'timeout'), ('candidate_complete', False)]:
+            invalid = copy.deepcopy(row)
+            invalid['receipt'][field] = value
+            self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+        invalid = copy.deepcopy(row)
+        invalid['candidate_quality']['structural_status'] = 'fail'
+        self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+
+
 if __name__ == '__main__':
     unittest.main()

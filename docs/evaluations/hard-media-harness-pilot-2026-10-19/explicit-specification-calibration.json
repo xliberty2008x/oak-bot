@@ -1,0 +1,3408 @@
+{
+  "schema_version": 1,
+  "model": "gpt-6.1-sol",
+  "config": {
+    "suite": "hard",
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "timeout": 600,
+    "repeats": 2,
+    "workers": 1
+  },
+  "suite_sha256": "fa13564395b7b1d98336a5005050a847537975a9d80dfec788dc72c545bf2b31",
+  "implementation_sha256": "6fcf12d858ebe21591f8881efaa7e27c46e76df1a97eca5633ef8f7c0cc313e1",
+  "environment": {
+    "python": "3.12.15",
+    "Pillow": "12.3.0",
+    "numpy": "2.5.4"
+  },
+  "quality_endpoint": "Final completed candidate SOURCE-CONTRACT fidelity; not aesthetic quality. Missing/incomplete attempts score zero.",
+  "delivery_endpoint": "Completed immutable delivery with SHA-matched reviewer and independent content passes.",
+  "summary_denominator": "All finished attempts, including failures; compare only complete splits.",
+  "complete": false,
+  "frozen": null,
+  "summaries": {
+    "dev": {
+      "baseline": {
+        "procedure_id": "baseline",
+        "expected": 12,
+        "finished": 12,
+        "passed": 10,
+        "structural_passed": 10,
+        "quality_passed": 12,
+        "mean_quality_score": 0.996238,
+        "reviewer_false_passes": 0,
+        "first_review_passed": 9,
+        "material_defect_runs": 0,
+        "unverified": 3,
+        "review_calls": 18,
+        "tool_calls": 161,
+        "median_seconds": 113.738
+      }
+    },
+    "holdout": {
+      "baseline": {
+        "procedure_id": "baseline",
+        "expected": 12,
+        "finished": 0,
+        "passed": 0,
+        "structural_passed": 0,
+        "quality_passed": 0,
+        "mean_quality_score": null,
+        "reviewer_false_passes": 0,
+        "first_review_passed": 0,
+        "material_defect_runs": 0,
+        "unverified": 0,
+        "review_calls": 0,
+        "tool_calls": 0,
+        "median_seconds": null
+      }
+    }
+  },
+  "procedures": {
+    "baseline": {
+      "procedure": "",
+      "hypothesis": "Current Oak procedure."
+    }
+  },
+  "paired_holdout": [],
+  "wins": 0,
+  "losses": 0,
+  "ties": 0,
+  "quality_wins": 0,
+  "quality_losses": 0,
+  "quality_ties": 0,
+  "limitations": [
+    "Twelve synthetic tasks; small directional pilot, not a population estimate.",
+    "2 repetitions fixed before development; repeats are not independent task families.",
+    "Constrained source/temporal fidelity and model review are not human aesthetic judgments.",
+    "No production memories imported; no live Telegram delivery or external media provider.",
+    "Candidates receive a shared isolated local Python/Pillow/FFmpeg tool adapter.",
+    "Held-out feedback cannot be used to revise a procedure in this experiment."
+  ],
+  "created_at": "2026-10-19T12:13:49.483967+00:00",
+  "settings_sha256": "defb059e65e682bc80969bf116497bdcf08d4e761c292c825c7b162ca07f287e",
+  "proposal_evidence_sha256": null,
+  "tasks": [
+    {
+      "id": "dev-repair-owl-blink",
+      "split": "dev",
+      "kind": "repair",
+      "brief": "Repair the supplied whole-face bobbing animation. Animate two local eyelids only, using the supplied closed-eye patches. Both eyes must close and reopen twice; the textured face, pupils when open, lettering, border and background must remain fixed.\nProject: CEDAR OWL. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 640×416, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. inputs/broken-seed.mp4 is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "dev-create-woven-pendulum",
+      "split": "dev",
+      "kind": "creation",
+      "brief": "Create a looping articulated pendulum study from the supplied woven or glass subject. Rotate the supplied subject and its tether together around the exact marked pivot. Preserve the detailed stationary print, including its fine lettering.\nProject: WOVEN LANTERN. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 672×448, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "dev-create-koi-occlusion",
+      "split": "dev",
+      "kind": "creation",
+      "brief": "Create a continuous passage of the supplied patterned subject behind the supplied foreground plants. Preserve its complete pattern, keep the source landscape stationary, and maintain the specified background → subject → foreground layer order at every crossing.\nProject: KOI / REED STUDY. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 704×432, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "dev-repair-copper-orbit",
+      "split": "dev",
+      "kind": "repair",
+      "brief": "Repair the supplied sparse-checkpoint orbit. Its apparent positions at a few snapshots are plausible, but it freezes between them. Make the supplied patterned marker travel continuously around the disclosed elliptical path in every frame; preserve the stationary dial and all lettering.\nProject: COPPER OBSERVATORY. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 608×448, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. inputs/broken-seed.mp4 is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "dev-create-linen-collection",
+      "split": "dev",
+      "kind": "creation",
+      "brief": "Create a print-ready collection card by composing the supplied textured artwork and exact fine-lettered transparent label plates. Retain all small type, accent marks, rules, registration details and paper texture. Do not retype the labels, flatten their transparent margins to white, or redraw the artwork.\nProject: LINEN FIELD NOTES. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.png: opaque RGB PNG, exactly 900×660. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.png"
+    },
+    {
+      "id": "dev-repair-moth-archive",
+      "split": "dev",
+      "kind": "repair",
+      "brief": "Repair the supplied archival card: its central artwork is stretched, fine label strips are clipped and some paper areas were painted over. Recompose the card from the supplied original paper and layer plates at their disclosed placements; preserve every fine label and the original texture.\nProject: MOTH ARCHIVE / 07. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.png: opaque RGB PNG, exactly 860×640. inputs/broken-seed.png is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.png"
+    },
+    {
+      "id": "holdout-repair-fox-blink",
+      "split": "holdout",
+      "kind": "repair",
+      "brief": "Repair the supplied whole-face bobbing animation. Animate two local eyelids only, using the supplied closed-eye patches. Both eyes must close and reopen twice; the textured face, pupils when open, lettering, border and background must remain fixed.\nProject: DUNE FOX. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 736×464, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. inputs/broken-seed.mp4 is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "holdout-create-glass-pendulum",
+      "split": "holdout",
+      "kind": "creation",
+      "brief": "Create a looping articulated pendulum study from the supplied woven or glass subject. Rotate the supplied subject and its tether together around the exact marked pivot. Preserve the detailed stationary print, including its fine lettering.\nProject: GLASS MOBILE. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 624×496, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "holdout-create-beetle-occlusion",
+      "split": "holdout",
+      "kind": "creation",
+      "brief": "Create a continuous passage of the supplied patterned subject behind the supplied foreground plants. Preserve its complete pattern, keep the source landscape stationary, and maintain the specified background → subject → foreground layer order at every crossing.\nProject: BEETLE / FERN STUDY. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 752×472, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "holdout-repair-indigo-orbit",
+      "split": "holdout",
+      "kind": "repair",
+      "brief": "Repair the supplied sparse-checkpoint orbit. Its apparent positions at a few snapshots are plausible, but it freezes between them. Make the supplied patterned marker travel continuously around the disclosed elliptical path in every frame; preserve the stationary dial and all lettering.\nProject: INDIGO TIDE CLOCK. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.mp4: silent H.264, 688×512, exactly 3 seconds, 12 fps, 36 indexed frames (0–35), yuv420p. Evaluate the motion at n / 12 seconds; the endpoint at 3 seconds is the next loop, not an extra frame. Inspect motion between sampled thumbnails as well as the overall appearance. inputs/broken-seed.mp4 is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.mp4"
+    },
+    {
+      "id": "holdout-create-seed-collection",
+      "split": "holdout",
+      "kind": "creation",
+      "brief": "Create a print-ready collection card by composing the supplied textured artwork and exact fine-lettered transparent label plates. Retain all small type, accent marks, rules, registration details and paper texture. Do not retype the labels, flatten their transparent margins to white, or redraw the artwork.\nProject: SEED LIBRARY / 18. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.png: opaque RGB PNG, exactly 960×720. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.png"
+    },
+    {
+      "id": "holdout-repair-shell-archive",
+      "split": "holdout",
+      "kind": "repair",
+      "brief": "Repair the supplied archival card: its central artwork is stretched, fine label strips are clipped and some paper areas were painted over. Recompose the card from the supplied original paper and layer plates at their disclosed placements; preserve every fine label and the original texture.\nProject: SHELL ARCHIVE / 23. All assets are original synthetic illustrations. Read inputs/scene.json before rendering: it contains the full layer atlas coordinates, placements, frame timing/formulas, editable regions and acceptance tolerances. These are production specifications, not optional suggestions. Use the supplied raster layers without replacing their style. Only local Python standard libraries, Pillow and ffmpeg are needed. Coordinates use top-left origins; boxes have exclusive right/bottom edges. Deliver final.png: opaque RGB PNG, exactly 920×680. inputs/broken-seed.png is the deliberately flawed starting candidate. The visual references are inputs/scene.png, inputs/atlas.png and, for a repair, the broken seed. Additional layer files named by scene.json are ordinary supplied inputs. Do not alter input bytes.",
+      "output_name": "final.png"
+    }
+  ],
+  "runs": [
+    {
+      "task_id": "dev-create-koi-occlusion",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:28:03.281948+00:00",
+      "finished_at": "2026-10-19T12:29:45.012343+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.997383,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 12,
+        "elapsed_seconds": 99.86
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-koi-occlusion",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 704×432; required 704×432."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999966
+          },
+          {
+            "criterion": "content:subject-sweep",
+            "status": "pass",
+            "evidence": "editable region [44, 125, 660, 303]: every frame checked; p95 MAE 0.051, worst 0.053/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.997471
+          },
+          {
+            "criterion": "content:foreground-1",
+            "status": "pass",
+            "evidence": "occlusion region [218, 108, 340, 357]: every frame checked; p95 MAE 0.066, worst 0.076/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.994537
+          },
+          {
+            "criterion": "content:foreground-2",
+            "status": "pass",
+            "evidence": "occlusion region [422, 108, 544, 357]: every frame checked; p95 MAE 0.080, worst 0.083/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.993352
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 676, 49]: every frame checked; p95 MAE 0.005, worst 0.005/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999545
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 393, 676, 410]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999424
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.997383,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-create-koi-occlusion",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 704×432; required 704×432."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999966
+          },
+          {
+            "criterion": "content:subject-sweep",
+            "status": "pass",
+            "evidence": "editable region [44, 125, 660, 303]: every frame checked; p95 MAE 0.051, worst 0.053/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.997471
+          },
+          {
+            "criterion": "content:foreground-1",
+            "status": "pass",
+            "evidence": "occlusion region [218, 108, 340, 357]: every frame checked; p95 MAE 0.066, worst 0.076/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.994537
+          },
+          {
+            "criterion": "content:foreground-2",
+            "status": "pass",
+            "evidence": "occlusion region [422, 108, 544, 357]: every frame checked; p95 MAE 0.080, worst 0.083/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.993352
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 676, 49]: every frame checked; p95 MAE 0.005, worst 0.005/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999545
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 393, 676, 410]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999424
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.997383,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-create-koi-occlusion/baseline/1",
+      "source_hashes": {
+        "atlas.png": "9b1da055e1528159085883cc481dabfa489918938773c5741bf6ecb7c5d02fe3",
+        "foreground.png": "83347652bc08fa5f92090d6d7ec23488aa091a8f35cbf77f0f7d89a9d6032048",
+        "scene.json": "ce95e2648e7310203cdb20fb8769f35cac713cead36d2140257d93aaf4674252",
+        "scene.png": "e853ac22f5580ad927c7ea3cacb5775e83da1b77b87c63694f203af9b89bcbf4"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "ba9dc2d43be6c844b1dd32ba9217825446d275215d5d9c580088f51dfefce538",
+        "candidate_sha256": "ba9dc2d43be6c844b1dd32ba9217825446d275215d5d9c580088f51dfefce538",
+        "tool_calls": 12,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 6,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 99.86,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "657c4da43b24efa0ee085767ef7ddf791fc35a416a98da746cc0c2eccb332575"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "d58a9601b11e8787895fa4ddc1f141d01aa51c744a7aaecc43928a58fbde8f6f"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The supplied evidence supports the requested passage: the patterned subject moves behind both stationary plants, preserving its appearance and the landscape without visible material defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Required video delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms silent H.264, yuv420p, 704×432, 3 seconds, 12 fps and 36 decoded frames."
+              },
+              {
+                "criterion": "Continuous passage with vertical bob",
+                "status": "pass",
+                "evidence": "Beginning, intermediate and ending samples show progressive horizontal movement and the specified rise-and-fall trajectory."
+              },
+              {
+                "criterion": "Preserve the complete supplied subject and pattern",
+                "status": "pass",
+                "evidence": "Visible unobscured states retain the reference silhouette, eye, cream stripes, tail, colors and linework."
+              },
+              {
+                "criterion": "Background → subject → foreground ordering",
+                "status": "pass",
+                "evidence": "Both plant crossings show leaves and stems covering the subject; magnified transitions show coherent occlusion edges without conspicuous patches or halos."
+              },
+              {
+                "criterion": "Keep landscape and protected printing stationary",
+                "status": "pass",
+                "evidence": "Sampled frames retain the reference border, water lines, title and footer in fixed positions."
+              }
+            ],
+            "limitations": [
+              "Visual review covers supplied samples, not every full-resolution frame.",
+              "Exact regional error tolerances and unchanged input bytes were not independently measured."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 19.942,
+            "sha256": "ba9dc2d43be6c844b1dd32ba9217825446d275215d5d9c580088f51dfefce538",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-create-koi-occlusion",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:29:45.136462+00:00",
+      "finished_at": "2026-10-19T12:31:37.067117+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.995449,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 110.096
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-koi-occlusion",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 704×432; required 704×432."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.002/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999869
+          },
+          {
+            "criterion": "content:subject-sweep",
+            "status": "pass",
+            "evidence": "editable region [44, 125, 660, 303]: every frame checked; p95 MAE 0.085, worst 0.092/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.995751
+          },
+          {
+            "criterion": "content:foreground-1",
+            "status": "pass",
+            "evidence": "occlusion region [218, 108, 340, 357]: every frame checked; p95 MAE 0.120, worst 0.135/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.989972
+          },
+          {
+            "criterion": "content:foreground-2",
+            "status": "pass",
+            "evidence": "occlusion region [422, 108, 544, 357]: every frame checked; p95 MAE 0.130, worst 0.145/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.989167
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 676, 49]: every frame checked; p95 MAE 0.014, worst 0.014/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.998846
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 393, 676, 410]: every frame checked; p95 MAE 0.011, worst 0.011/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99909
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.995449,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-create-koi-occlusion",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 704×432; required 704×432."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.002/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999869
+          },
+          {
+            "criterion": "content:subject-sweep",
+            "status": "pass",
+            "evidence": "editable region [44, 125, 660, 303]: every frame checked; p95 MAE 0.085, worst 0.092/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.995751
+          },
+          {
+            "criterion": "content:foreground-1",
+            "status": "pass",
+            "evidence": "occlusion region [218, 108, 340, 357]: every frame checked; p95 MAE 0.120, worst 0.135/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.989972
+          },
+          {
+            "criterion": "content:foreground-2",
+            "status": "pass",
+            "evidence": "occlusion region [422, 108, 544, 357]: every frame checked; p95 MAE 0.130, worst 0.145/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.989167
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 676, 49]: every frame checked; p95 MAE 0.014, worst 0.014/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.998846
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 393, 676, 410]: every frame checked; p95 MAE 0.011, worst 0.011/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99909
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.995449,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-create-koi-occlusion/baseline/2",
+      "source_hashes": {
+        "atlas.png": "9b1da055e1528159085883cc481dabfa489918938773c5741bf6ecb7c5d02fe3",
+        "foreground.png": "83347652bc08fa5f92090d6d7ec23488aa091a8f35cbf77f0f7d89a9d6032048",
+        "scene.json": "ce95e2648e7310203cdb20fb8769f35cac713cead36d2140257d93aaf4674252",
+        "scene.png": "e853ac22f5580ad927c7ea3cacb5775e83da1b77b87c63694f203af9b89bcbf4"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "bf40689a336175459a6c3cedfcaddf0db09623cbc6c883647079ef4dd0427496",
+        "candidate_sha256": "bf40689a336175459a6c3cedfcaddf0db09623cbc6c883647079ef4dd0427496",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 8,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 110.096,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "e024d21cef5a04601cab0eea998a4ba1f79466a666802f0f73e4f275b6a7fc25"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "108c9272a8373dcc85b76441aafe56c4d67716fb866c59466b09b8c7c86ba203"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The supplied evidence supports the requested passage, preserved koi pattern, stationary landscape and correct foreground occlusion. No material visual defects are apparent.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Continuous prescribed passage and vertical bob",
+                "status": "pass",
+                "evidence": "Beginning, neighboring transition frames and ending show progressive horizontal travel with the specified gentle bob, rather than camera movement or a static slideshow."
+              },
+              {
+                "criterion": "Complete subject and supplied illustration style preserved",
+                "status": "pass",
+                "evidence": "Unobstructed states retain the reference koi’s stripes, eye, outline and tail. Detail crops show coherent edges and colors without conspicuous replacement patches."
+              },
+              {
+                "criterion": "Background → subject → foreground layer order",
+                "status": "pass",
+                "evidence": "Both reed crossings visibly cover the koi with leaves and stems; the subject re-emerges intact without apparent occlusion seams."
+              },
+              {
+                "criterion": "Stationary landscape and protected printing",
+                "status": "pass",
+                "evidence": "Reeds, water lines, border, title and footer remain visually fixed throughout the supplied samples."
+              },
+              {
+                "criterion": "Required video delivery",
+                "status": "pass",
+                "evidence": "Extraction reports silent H.264, yuv420p, 704×432, 3 seconds, 12 fps and exactly 36 decoded frames."
+              }
+            ],
+            "limitations": [
+              "Only supplied sampled frames were visually inspected; every-frame regional error tolerances and unchanged input bytes were not independently verified."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 19.11,
+            "sha256": "bf40689a336175459a6c3cedfcaddf0db09623cbc6c883647079ef4dd0427496",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-create-linen-collection",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:35:22.293326+00:00",
+      "finished_at": "2026-10-19T12:38:14.950037+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": false,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": false,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 4,
+        "tool_calls": 14,
+        "elapsed_seconds": 172.582
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-linen-collection",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (900, 660); required (900, 660)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 837, 365]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 389, 753, 449]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 457, 753, 517]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 525, 753, 585]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 872, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 621, 872, 638]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "status": "unverified",
+        "checks": [],
+        "structural_only": true
+      },
+      "key": "dev/dev-create-linen-collection/baseline/1",
+      "source_hashes": {
+        "artwork.png": "e245fe4d9a11e02069781add63242501592ee45730088c55a7f4e49827ed2fe2",
+        "atlas.png": "58246c53a4eb857b02a7055519de633fe8f0afe6bedfe9ad42dfe10f279fe5b8",
+        "scene.json": "3f399340134a3d325b536f8bfc7161aabd56bab58485725bde178748d32a4530",
+        "scene.png": "15edf96f74956b81f61f9bc396fc740e785ec89dfe52d3faecee4aa563538fc1"
+      },
+      "receipt": {
+        "status": "unverified",
+        "delivered": false,
+        "candidate_complete": true,
+        "artifact_sha256": null,
+        "candidate_sha256": "703bfb94335742f18b3fbefae5a2b37c3c52a98dff17316217878a888a84f45e",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 3,
+          "oak_pilot_inspect": 4,
+          "oak_review_artifact": 4,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 172.582,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "error_code": "no_independently_passed_delivery",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "26990fc51f43f2c78b3aa6ce4c3d986ea1a41c133074b619c9c694a2fd74b826"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "7f1aaa2249ce4a02061f91421a07ef520e4e1ddfc68372405ea7a773b466ea24"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "f4db3dc2df953662cd3c65129b594e56473d0a43ebea8d1c932ae5123ce8b298"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "unverified",
+            "summary": "The visible layout, fine labels and paper texture appear consistent with the brief. Exact artwork preservation cannot be verified because artwork.png is not shown.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Exactly 900×660",
+                "status": "pass",
+                "evidence": "Extraction confirms a 900×660 single-frame image."
+              },
+              {
+                "criterion": "Preserve supplied labels, accents, rules and registration marks",
+                "status": "pass",
+                "evidence": "The three visible labels match the atlas in lettering, accents, rules and registration details at the specified placements."
+              },
+              {
+                "criterion": "Preserve transparent margins and paper texture",
+                "status": "pass",
+                "evidence": "Paper texture remains visible around the labels, without white rectangular margins; the base title, border and footer remain intact."
+              },
+              {
+                "criterion": "Use the original artwork unscaled and within specified error tolerances",
+                "status": "unknown",
+                "evidence": "The artwork occupies the specified area, but its source image is absent from the supplied visual evidence."
+              },
+              {
+                "criterion": "Opaque RGB PNG delivery",
+                "status": "unknown",
+                "evidence": "The image appears opaque, but extraction does not report its encoding or color mode."
+              }
+            ],
+            "limitations": [
+              "No artwork.png reference is displayed for comparison.",
+              "The supplied evidence does not establish numerical regional error tolerances or unchanged input bytes."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 22.469,
+            "sha256": "703bfb94335742f18b3fbefae5a2b37c3c52a98dff17316217878a888a84f45e",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "unverified",
+            "summary": "The visible layout and labels appear consistent with the specification, but exact artwork preservation cannot be verified from the supplied evidence.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "900×660 PNG delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms a complete, single-frame 900×660 PNG."
+              },
+              {
+                "criterion": "Preserve label lettering, accents, rules and registration details",
+                "status": "pass",
+                "evidence": "The three labels visually match the atlas, including small text, É accent, rules and registration ticks."
+              },
+              {
+                "criterion": "Preserve transparent margins and paper texture",
+                "status": "pass",
+                "evidence": "Paper texture continues around the labels without visible white rectangles or compositing seams."
+              },
+              {
+                "criterion": "Preserve title, footer and base scene",
+                "status": "pass",
+                "evidence": "The title, footer, border and exposed paper visually match the scene reference."
+              },
+              {
+                "criterion": "Use the original artwork unscaled and satisfy regional error tolerances",
+                "status": "unknown",
+                "evidence": "Artwork occupies the specified area, but artwork.png is not shown as a reference, and no regional comparison measurements are supplied."
+              },
+              {
+                "criterion": "Opaque RGB output",
+                "status": "unknown",
+                "evidence": "The image appears opaque, but extraction does not report its color mode or alpha-channel status."
+              }
+            ],
+            "limitations": [
+              "Only the supplied still images and extraction facts were assessed.",
+              "Exact pixel tolerances and unchanged input bytes cannot be established from visual inspection."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 21.125,
+            "sha256": "703bfb94335742f18b3fbefae5a2b37c3c52a98dff17316217878a888a84f45e",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "unverified",
+            "summary": "The visible layout, labels and transparent margins look consistent with the specification, but exact preservation of the artwork cannot be verified without its source reference.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "900×660 PNG delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms a complete, single-image PNG measuring 900×660."
+              },
+              {
+                "criterion": "Preserve label lettering, accents, rules and registration details",
+                "status": "pass",
+                "evidence": "All three plates visually match the atlas, including small text, accents, horizontal rules and registration strokes."
+              },
+              {
+                "criterion": "Preserve transparent margins and underlying paper texture",
+                "status": "pass",
+                "evidence": "Paper texture remains visible around the labels; no white rectangular margins or conspicuous compositing seams are visible."
+              },
+              {
+                "criterion": "Preserve supplied artwork without redrawing or rescaling",
+                "status": "unknown",
+                "evidence": "Artwork occupies the specified area, but artwork.png is not included among the displayed references."
+              },
+              {
+                "criterion": "Opaque RGB output and specified numerical tolerances",
+                "status": "unknown",
+                "evidence": "The supplied facts do not report color mode, alpha status or regional comparison measurements."
+              }
+            ],
+            "limitations": [
+              "Assessment is limited to the supplied images and extraction facts; exact pixel fidelity and input-byte preservation were not established."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 21.145,
+            "sha256": "703bfb94335742f18b3fbefae5a2b37c3c52a98dff17316217878a888a84f45e",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "unverified",
+            "summary": "The visible composition appears clean and consistent with the layout, but preservation of the original artwork cannot be confirmed without its reference image.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Exactly 900×660",
+                "status": "pass",
+                "evidence": "Extraction confirms the required dimensions."
+              },
+              {
+                "criterion": "Preserve supplied label lettering, accents, rules and registration details",
+                "status": "pass",
+                "evidence": "All three labels visually match the atlas, including small text, accents, horizontal rules and registration strokes."
+              },
+              {
+                "criterion": "Preserve transparent label margins and paper texture",
+                "status": "pass",
+                "evidence": "Paper texture remains visible around the lettering and through the label margins; no white rectangles or conspicuous seams appear."
+              },
+              {
+                "criterion": "Preserve scene title, footer and border",
+                "status": "pass",
+                "evidence": "These elements remain visually consistent with the supplied scene reference."
+              },
+              {
+                "criterion": "Use the original artwork unscaled and satisfy regional error tolerances",
+                "status": "unknown",
+                "evidence": "The artwork appears in the specified area, but artwork.png and numerical comparison results were not supplied."
+              },
+              {
+                "criterion": "Deliver an opaque RGB PNG",
+                "status": "unknown",
+                "evidence": "The extraction facts do not establish PNG encoding, RGB mode or absence of alpha."
+              }
+            ],
+            "limitations": [
+              "Only the scene and atlas reference images are shown; original-artwork fidelity cannot be compared.",
+              "Visual inspection does not establish the specified pixel-error tolerances."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 24.471,
+            "sha256": "703bfb94335742f18b3fbefae5a2b37c3c52a98dff17316217878a888a84f45e",
+            "ok": false,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-create-linen-collection",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:38:15.326430+00:00",
+      "finished_at": "2026-10-19T12:40:38.094133+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": false,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": false,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 3,
+        "tool_calls": 13,
+        "elapsed_seconds": 142.695
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-linen-collection",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (900, 660); required (900, 660)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 837, 365]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 389, 753, 449]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 457, 753, 517]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 525, 753, 585]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 872, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 621, 872, 638]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "status": "unverified",
+        "checks": [],
+        "structural_only": true
+      },
+      "key": "dev/dev-create-linen-collection/baseline/2",
+      "source_hashes": {
+        "artwork.png": "e245fe4d9a11e02069781add63242501592ee45730088c55a7f4e49827ed2fe2",
+        "atlas.png": "58246c53a4eb857b02a7055519de633fe8f0afe6bedfe9ad42dfe10f279fe5b8",
+        "scene.json": "3f399340134a3d325b536f8bfc7161aabd56bab58485725bde178748d32a4530",
+        "scene.png": "15edf96f74956b81f61f9bc396fc740e785ec89dfe52d3faecee4aa563538fc1"
+      },
+      "receipt": {
+        "status": "unverified",
+        "delivered": false,
+        "candidate_complete": true,
+        "artifact_sha256": null,
+        "candidate_sha256": "02571057a6fdea3ba7aaa43ec86ec7b26b541af74dbbce56ad9173b76d035878",
+        "tool_calls": 13,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 3,
+          "oak_pilot_inspect": 4,
+          "oak_review_artifact": 3,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 142.695,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "error_code": "no_independently_passed_delivery",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "bd00b109e3516f255c0e23ffd08e4ee9bcc4e26a868ed6273eb07d265ab9e686"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "7d070ee34fabbeff3672598e1c9ededb20aa114554137fdd2cd11267d0c73779"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "6b1677d2ab107441fb84507298bf17b1286392b9c28f105eaa46d0fdc54e8cb8"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "unverified",
+            "summary": "The visible composition is clean and the label plates appear preserved, but exact artwork fidelity cannot be confirmed from the supplied references.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "900×660 output dimensions",
+                "status": "pass",
+                "evidence": "Extraction confirms exactly 900×660 pixels."
+              },
+              {
+                "criterion": "Preserved label typography, accents, rules and transparent margins",
+                "status": "pass",
+                "evidence": "The three labels visually match the atlas, including É, small text, fine rules and registration marks. Paper texture remains visible around the lettering without white rectangles."
+              },
+              {
+                "criterion": "Preserved base scene",
+                "status": "pass",
+                "evidence": "The title, border, footer, lower registration marks and paper texture remain visually consistent with the scene reference."
+              },
+              {
+                "criterion": "Unscaled, unaltered supplied artwork",
+                "status": "unknown",
+                "evidence": "The artwork occupies the specified area and looks coherent, but artwork.png is not among the supplied visual references."
+              },
+              {
+                "criterion": "Opaque RGB PNG and specified regional error tolerances",
+                "status": "unknown",
+                "evidence": "The extraction does not report color mode, opacity or regional comparison measurements."
+              }
+            ],
+            "limitations": [
+              "Assessment uses the displayed images; the original artwork reference and numerical fidelity checks are unavailable."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 25.598,
+            "sha256": "02571057a6fdea3ba7aaa43ec86ec7b26b541af74dbbce56ad9173b76d035878",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "unverified",
+            "summary": "The visible layout and labels look consistent with the brief, with no apparent rendering defects. Preservation of the supplied artwork cannot be confirmed without its reference image.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "900×660 single-image delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms a fully decoded 900×660 image."
+              },
+              {
+                "criterion": "Fine label details and transparent-margin appearance",
+                "status": "pass",
+                "evidence": "Labels visually match the atlas lettering, accents, rules and registration marks. Paper texture continues through their margins without white rectangles."
+              },
+              {
+                "criterion": "Preserve the scene background, title and footer",
+                "status": "pass",
+                "evidence": "The border, paper texture, title, footer and bottom registration marks visibly match the scene reference."
+              },
+              {
+                "criterion": "Preserve the original artwork without replacement or alteration",
+                "status": "unknown",
+                "evidence": "The artwork is present in the specified area, but artwork.png is not included among the supplied reference images."
+              },
+              {
+                "criterion": "Opaque RGB PNG and specified numerical tolerances",
+                "status": "unknown",
+                "evidence": "The supplied facts do not establish encoding, color mode, opacity or measured regional errors."
+              }
+            ],
+            "limitations": [
+              "Assessment uses only the displayed images and extraction facts; exact pixel comparisons were not supplied."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 23.188,
+            "sha256": "02571057a6fdea3ba7aaa43ec86ec7b26b541af74dbbce56ad9173b76d035878",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "unverified",
+            "summary": "The visible composition looks consistent with the brief, but preservation of the supplied artwork cannot be verified without its reference image.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "900×660 PNG delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms a complete, single-frame PNG at 900×660."
+              },
+              {
+                "criterion": "Label content, placement and transparent margins",
+                "status": "pass",
+                "evidence": "All three label plates visually match the atlas, including accents, small type, rules and registration ticks. Paper texture remains visible through their margins."
+              },
+              {
+                "criterion": "Preserve scene texture, title, footer and border",
+                "status": "pass",
+                "evidence": "These elements appear consistent with the supplied scene reference, with no conspicuous patches or white rectangles."
+              },
+              {
+                "criterion": "Preserve artwork without redrawing or rescaling",
+                "status": "unknown",
+                "evidence": "Artwork occupies the specified area, but artwork.png is not included among the displayed references."
+              },
+              {
+                "criterion": "Opaque RGB mode and specified regional error tolerances",
+                "status": "unknown",
+                "evidence": "The supplied facts do not establish RGB mode, absence of alpha, or numerical compliance with the regional MAE limits."
+              }
+            ],
+            "limitations": [
+              "Assessment is limited to the displayed images and extraction facts; exact pixel preservation cannot be established visually."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 19.655,
+            "sha256": "02571057a6fdea3ba7aaa43ec86ec7b26b541af74dbbce56ad9173b76d035878",
+            "ok": false,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-create-woven-pendulum",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:24:10.653796+00:00",
+      "finished_at": "2026-10-19T12:26:14.506636+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.993973,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 120.684
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-woven-pendulum",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 672×448; required 672×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999972
+          },
+          {
+            "criterion": "content:pendulum-sweep",
+            "status": "pass",
+            "evidence": "editable region [226, 96, 490, 379]: every frame checked; p95 MAE 0.458, worst 0.483/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.977116
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 644, 49]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999397
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 644, 426]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999408
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.993973,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-create-woven-pendulum",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 672×448; required 672×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999972
+          },
+          {
+            "criterion": "content:pendulum-sweep",
+            "status": "pass",
+            "evidence": "editable region [226, 96, 490, 379]: every frame checked; p95 MAE 0.458, worst 0.483/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.977116
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 644, 49]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999397
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 644, 426]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999408
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.993973,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-create-woven-pendulum/baseline/1",
+      "source_hashes": {
+        "atlas.png": "64468bd67993ae4f39aa5439e2a97970efb15263cdfea1c3dc0189c7e7521fde",
+        "scene.json": "af0d314602d16f5529155d61e0242657963b6bec86548d6c5232b674d1ef3759",
+        "scene.png": "adbb2a11d952d85f67488a7445377ae6429343886c3fbe0fb8dd26acaa9726a7"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "dcfca591754f022449c53bfc3132063dd89d777c53e13605364ec3d65f1694a7",
+        "candidate_sha256": "dcfca591754f022449c53bfc3132063dd89d777c53e13605364ec3d65f1694a7",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 3,
+          "oak_pilot_inspect": 7,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 120.684,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "7939449ae7a892e76eb2fa1032417583f14462ddc71c3af7789be1bddb8439d3"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "7596030482cb023b1d9c568acdb41214ab2af4d1e95a881b237bf8efad0af764"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "846d3920d7baff34b69035eab8e6c642752914ddacecfeb2aab6df293b8912ba"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The supplied evidence supports a coherent looping pendulum study with preserved artwork and stationary print. No material visual defect is apparent.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Required video delivery",
+                "status": "pass",
+                "evidence": "Extraction confirms silent H.264, 672×448, yuv420p, 3 seconds, 12 fps and 36 decoded frames."
+              },
+              {
+                "criterion": "Subject and tether rotate together around the stationary marked pivot",
+                "status": "pass",
+                "evidence": "Sampled transitions show connected, coordinated rotation through both swings while the pivot and background remain fixed."
+              },
+              {
+                "criterion": "Specified pendulum cycle and loop boundary",
+                "status": "pass",
+                "evidence": "The sampled positions follow the specified sinusoidal cycle, cross vertical at frame 18 and approach the initial pose through frames 33–35 without duplicating the endpoint."
+              },
+              {
+                "criterion": "Preserve supplied raster style and stationary fine print",
+                "status": "pass",
+                "evidence": "Reference comparisons retain the woven linework, colors, paper texture, title and fine footer lettering. Enlarged moving-region crops show no conspicuous seams, replacement patches or detached parts."
+              }
+            ],
+            "limitations": [
+              "Visual review covers the supplied sampled frames and crops, not full-resolution inspection of every frame.",
+              "Exact numerical regional tolerances and unchanged input bytes are not independently established by the supplied evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 38.979,
+            "sha256": "dcfca591754f022449c53bfc3132063dd89d777c53e13605364ec3d65f1694a7",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-create-woven-pendulum",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:26:14.630032+00:00",
+      "finished_at": "2026-10-19T12:28:03.158625+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.989155,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 104.342
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-create-woven-pendulum",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 672×448; required 672×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.002/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999861
+          },
+          {
+            "criterion": "content:pendulum-sweep",
+            "status": "pass",
+            "evidence": "editable region [226, 96, 490, 379]: every frame checked; p95 MAE 0.775, worst 0.830/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.961255
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 644, 49]: every frame checked; p95 MAE 0.014, worst 0.015/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.998833
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 644, 426]: every frame checked; p95 MAE 0.016, worst 0.060/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99667
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.989155,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-create-woven-pendulum",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 672×448; required 672×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.002/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999861
+          },
+          {
+            "criterion": "content:pendulum-sweep",
+            "status": "pass",
+            "evidence": "editable region [226, 96, 490, 379]: every frame checked; p95 MAE 0.775, worst 0.830/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.961255
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 644, 49]: every frame checked; p95 MAE 0.014, worst 0.015/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.998833
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 644, 426]: every frame checked; p95 MAE 0.016, worst 0.060/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99667
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.989155,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-create-woven-pendulum/baseline/2",
+      "source_hashes": {
+        "atlas.png": "64468bd67993ae4f39aa5439e2a97970efb15263cdfea1c3dc0189c7e7521fde",
+        "scene.json": "af0d314602d16f5529155d61e0242657963b6bec86548d6c5232b674d1ef3759",
+        "scene.png": "adbb2a11d952d85f67488a7445377ae6429343886c3fbe0fb8dd26acaa9726a7"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "26b218704b27a263e72d253a600d2c54e65dcf03ab9e810425eac5879db12b92",
+        "candidate_sha256": "26b218704b27a263e72d253a600d2c54e65dcf03ab9e810425eac5879db12b92",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 4,
+          "oak_pilot_inspect": 6,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 104.342,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "75c7e0e2b7295f38ce5055651bb387a4c69d2f90328b628c473a2e9c63f70814"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "30f99333d424fa5d01612928b10d8a3827dec0049b2477860a1a07a3afb890da"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "f19d8dcff5251e3d6083aee9e30416c581b7a181f717624ecad4bdcc910264f8"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "195c43aab64de883b143384f40759685863cddd03ff1dd5fcce44df137f940b3"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The sampled frames show a coherent pendulum loop, preserved woven artwork, and stationary detailed print with no material visible defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Required video delivery format",
+                "status": "pass",
+                "evidence": "Extraction confirms silent H.264, yuv420p, 672×448, 3 seconds, 12 fps, and 36 decoded frames."
+              },
+              {
+                "criterion": "Subject and tether rotate together around the marked pivot",
+                "status": "pass",
+                "evidence": "Sampled transitions show rigid, coordinated rotation with the tether anchored to the stationary pivot; positions are visually consistent with the specified sinusoidal swing."
+              },
+              {
+                "criterion": "Loop continuity",
+                "status": "pass",
+                "evidence": "Beginning, return-through-center, and ending samples show consistent progression. Frame 35 approaches frame 0 from the opposite side without a visible discontinuity."
+              },
+              {
+                "criterion": "Preserve supplied raster artwork and stationary print",
+                "status": "pass",
+                "evidence": "Reference comparisons retain the woven pattern, irregular linework, paper texture, title, fine footer lettering, and stationary framing. Detail crops show no conspicuous seams, replacement patches, or detached moving parts."
+              }
+            ],
+            "limitations": [
+              "Review covers supplied sampled frames and detail crops, not every full-resolution frame. Exact numerical regional-error tolerances and unchanged input bytes were not independently verified."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 28.603,
+            "sha256": "26b218704b27a263e72d253a600d2c54e65dcf03ab9e810425eac5879db12b92",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-copper-orbit",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:31:38.065465+00:00",
+      "finished_at": "2026-10-19T12:33:46.552746+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.982512,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 124.238
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-copper-orbit",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 608×448; required 608×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.007/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999494
+          },
+          {
+            "criterion": "content:orbit-sweep",
+            "status": "pass",
+            "evidence": "editable region [98, 98, 510, 368]: every frame checked; p95 MAE 1.306, worst 1.352/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.934689
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 580, 49]: every frame checked; p95 MAE 0.035, worst 0.036/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.997054
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 580, 426]: every frame checked; p95 MAE 0.014, worst 0.014/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99881
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.982512,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-copper-orbit",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 608×448; required 608×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.007/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999494
+          },
+          {
+            "criterion": "content:orbit-sweep",
+            "status": "pass",
+            "evidence": "editable region [98, 98, 510, 368]: every frame checked; p95 MAE 1.306, worst 1.352/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.934689
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 580, 49]: every frame checked; p95 MAE 0.035, worst 0.036/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.997054
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 580, 426]: every frame checked; p95 MAE 0.014, worst 0.014/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.99881
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.982512,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-copper-orbit/baseline/1",
+      "source_hashes": {
+        "atlas.png": "23d0746a99753a8ba54d415edda7469d6753386e18c0b5f23057ba8d27e15d12",
+        "broken-seed.mp4": "629b2b26790c1f48c155a86b2385b31e5cf3e8a40f89363c0f9ea968b9638372",
+        "scene.json": "d6c8dd1adb568e84f9ef179f48df41fef63894ac72ece1ae7d1065d2967afac3",
+        "scene.png": "372fca9cb8d0fbcc7184ec2be35e3a6419f959bca278b7959614f7e8f267f5ab"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "9b2d037e6d9d6085310570ba21428fb325cfb291390d21555399187baee7fb46",
+        "candidate_sha256": "9b2d037e6d9d6085310570ba21428fb325cfb291390d21555399187baee7fb46",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 3,
+          "oak_pilot_inspect": 7,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 124.238,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "4875e0202f8c64ed92f14a3b8481acea8bf98361ba00d6e2caf22355865f6396"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "563a10fcb83e7ad0215dd160b79f920315e657329747dd712092a29be81ac006"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "ff0fe8b03e2101ef3f7f5cd87b76d0067bb1a738822147265f1cb413ea051567"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The supplied evidence supports the orbit repair: the patterned marker advances around the ellipse while the dial, lettering and background remain fixed. No material visual defects are apparent.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Continuous elliptical motion rather than frozen checkpoints",
+                "status": "pass",
+                "evidence": "Adjacent sampled frames show distinct, progressive positions along the ellipse. Beginning, intermediate and ending samples follow the specified orbit direction and phase."
+              },
+              {
+                "criterion": "Preserve the supplied marker artwork and clean composition",
+                "status": "pass",
+                "evidence": "Magnified transitions retain the nested diamond pattern, colors and upright orientation, without visible trails, rectangular patches or damaged background."
+              },
+              {
+                "criterion": "Preserve the stationary dial and all lettering",
+                "status": "pass",
+                "evidence": "The ellipse, decorative marks, border, title, central lettering and footer remain visually consistent with the source."
+              },
+              {
+                "criterion": "Required video delivery specifications",
+                "status": "pass",
+                "evidence": "Extraction reports H.264 MP4, 608×448, 3.0 seconds, 12 fps, 36 decoded frames, yuv420p and no audio stream."
+              }
+            ],
+            "limitations": [
+              "Visual evidence samples 28 of 36 frames; unsupplied frames were not individually inspected.",
+              "Exact per-frame geometry and regional pixel-error tolerances were not measured in the supplied evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 22.819,
+            "sha256": "9b2d037e6d9d6085310570ba21428fb325cfb291390d21555399187baee7fb46",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-copper-orbit",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:33:47.627298+00:00",
+      "finished_at": "2026-10-19T12:35:21.912294+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 13,
+        "elapsed_seconds": 92.946
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-copper-orbit",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 608×448; required 608×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:orbit-sweep",
+            "status": "pass",
+            "evidence": "editable region [98, 98, 510, 368]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 580, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 580, 426]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-copper-orbit",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 608×448; required 608×448."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:orbit-sweep",
+            "status": "pass",
+            "evidence": "editable region [98, 98, 510, 368]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤10 and worst ≤15; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 580, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 409, 580, 426]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-copper-orbit/baseline/2",
+      "source_hashes": {
+        "atlas.png": "23d0746a99753a8ba54d415edda7469d6753386e18c0b5f23057ba8d27e15d12",
+        "broken-seed.mp4": "629b2b26790c1f48c155a86b2385b31e5cf3e8a40f89363c0f9ea968b9638372",
+        "scene.json": "d6c8dd1adb568e84f9ef179f48df41fef63894ac72ece1ae7d1065d2967afac3",
+        "scene.png": "372fca9cb8d0fbcc7184ec2be35e3a6419f959bca278b7959614f7e8f267f5ab"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "e50b41638e36ae4e2f4428b725e37fa3bd6aaaf1c83f11e115da323694cb8e64",
+        "candidate_sha256": "e50b41638e36ae4e2f4428b725e37fa3bd6aaaf1c83f11e115da323694cb8e64",
+        "tool_calls": 13,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 7,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 92.946,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "ef104e27798fec98ca17c84d0c3a0a66ae4970cb8cbaa1f992b88570dffa1812"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "f402b040485bfeb8bffe5745394abc158a685684bfab700a494e4dd35d951b1f"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The sampled transitions repair the checkpoint freezes: the supplied patterned marker advances around the ellipse while the dial, lettering and background remain stationary.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Continuous elliptical motion with the specified phase and direction",
+                "status": "pass",
+                "evidence": "Consecutive frames 3–16, 21–25 and 29–35 show distinct, progressive positions along the ellipse. Frame 35 approaches frame 0 consistently with the next loop."
+              },
+              {
+                "criterion": "Preserve the supplied marker and stationary artwork",
+                "status": "pass",
+                "evidence": "Reference comparisons and magnified crops show consistent diamond pattern, color and edges, without visible trails, patch seams or changes to the dial and lettering."
+              },
+              {
+                "criterion": "Required video format and timing",
+                "status": "pass",
+                "evidence": "Extraction reports silent H.264, yuv420p, 608×448, 3.0 seconds, 12 fps and 36 decoded frames."
+              }
+            ],
+            "limitations": [
+              "Visual evidence covers 28 of 36 frames; unsupplied frames were not individually inspected.",
+              "Exact geometry and regional pixel-error tolerances were not numerically measured in the supplied evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 17.907,
+            "sha256": "e50b41638e36ae4e2f4428b725e37fa3bd6aaaf1c83f11e115da323694cb8e64",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-moth-archive",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:40:38.499241+00:00",
+      "finished_at": "2026-10-19T12:42:36.031460+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": false,
+        "material_defect": false,
+        "unverified": true,
+        "review_calls": 2,
+        "tool_calls": 15,
+        "elapsed_seconds": 117.465
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-moth-archive",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (860, 640); required (860, 640)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 797, 348]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 372, 753, 432]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 440, 753, 500]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 508, 753, 568]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 832, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 601, 832, 618]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-moth-archive",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (860, 640); required (860, 640)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 797, 348]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 372, 753, 432]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 440, 753, 500]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 508, 753, 568]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 832, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 601, 832, 618]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-moth-archive/baseline/1",
+      "source_hashes": {
+        "artwork.png": "3656a0b07d2d93cd5dd823b3f8ee4aa701f782f1435b5f15a4ca762d495a7207",
+        "atlas.png": "a1428ec65f0e0a11b29dbf5977f35451f34cd408260b36595a24fdc62b5c3bd3",
+        "broken-seed.png": "1e4ed23b74e48ec0931678103c72f5b960342aa938b92e8cc3365bff8f68311b",
+        "scene.json": "2e6f0a0bde5255748086d17f1b0101a5374fbe38fd11f7991827a527316b0f37",
+        "scene.png": "937b17d526a8eb41f3b5919994519ca7cd89c30ec294715b95c733150fb323f4"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+        "candidate_sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+        "tool_calls": 15,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 3,
+          "oak_pilot_inspect": 7,
+          "oak_review_artifact": 2,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 117.465,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "603cd3728d3947e4c005e76aa47226706943d3a4d32718b947450a4d42e3afb7"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "bfb43d932fbd03ecd77480f2a3350023318e708f0bc11bcf033d9d182e1d0ba1"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "3dae4b7bfaee89ddf8c51d1c3975bb081594bac594051f35e1a5418871d0f2e9"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "unverified",
+            "summary": "The visible repair follows the specified layout, restores complete labels and textured paper, and removes the seed’s artwork distortion. No material visual defects are apparent.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Artwork restored at the prescribed placement and proportions",
+                "status": "pass",
+                "evidence": "The artwork occupies the specified upper panel; its motifs are no longer horizontally stretched, and their linework remains coherent."
+              },
+              {
+                "criterion": "All three raster label strips preserved without clipping",
+                "status": "pass",
+                "evidence": "Headings, fine subtitles, rules and right-hand tick marks are complete and visually consistent with the atlas."
+              },
+              {
+                "criterion": "Original paper texture and protected printing preserved",
+                "status": "pass",
+                "evidence": "The seed’s flat painted-over area is absent. Paper grain, title, footer and surrounding borders remain consistent with the scene reference."
+              },
+              {
+                "criterion": "Required canvas dimensions",
+                "status": "pass",
+                "evidence": "Extraction confirms a complete, single-frame 860×640 image."
+              },
+              {
+                "criterion": "Exact pixel tolerances and opaque RGB encoding",
+                "status": "unknown",
+                "evidence": "The supplied evidence does not include numerical comparison results or color-mode verification."
+              }
+            ],
+            "limitations": [
+              "The standalone artwork plate was not displayed; artwork comparison uses the broken seed and disclosed geometry.",
+              "Visual inspection cannot establish exact per-region pixel-error tolerances."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 22.964,
+            "sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+            "ok": false,
+            "queued_for_delivery": false
+          },
+          {
+            "verdict": "pass",
+            "summary": "The visible repair restores the artwork layout, complete label strips and textured paper without apparent material defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Artwork geometry and placement",
+                "status": "pass",
+                "evidence": "The artwork occupies the specified panel bounds, with coherent outlines and fine internal markings."
+              },
+              {
+                "criterion": "Complete raster labels",
+                "status": "pass",
+                "evidence": "All three labels retain their headings, secondary text, right-hand ticks and full horizontal rules, matching the supplied atlas."
+              },
+              {
+                "criterion": "Original paper and protected printing",
+                "status": "pass",
+                "evidence": "Paper texture is restored throughout the previously painted-over area; the title, footer and border remain visibly intact."
+              },
+              {
+                "criterion": "Output dimensions",
+                "status": "pass",
+                "evidence": "Extraction confirms a complete, single-frame 860×640 image."
+              }
+            ],
+            "limitations": [
+              "Native artwork was not shown separately; exact pixel-error tolerances and encoded RGB mode cannot be independently verified from the supplied evidence."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 25.225,
+            "sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-moth-archive",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:42:36.457980+00:00",
+      "finished_at": "2026-10-19T12:43:50.830567+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 8,
+        "elapsed_seconds": 74.304
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-moth-archive",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (860, 640); required (860, 640)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 797, 348]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 372, 753, 432]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 440, 753, 500]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 508, 753, 568]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 832, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 601, 832, 618]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-moth-archive",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "opaque_static_png",
+            "status": "pass",
+            "evidence": "Required: a static RGB PNG with fully opaque output pixels."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed (860, 640); required (860, 640)."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 1 frames: worst stationary-region MAE 0.000/255; allowed 2, per-channel noise allowance 0. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:original-artwork",
+            "status": "pass",
+            "evidence": "art region [63, 80, 797, 348]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-1",
+            "status": "pass",
+            "evidence": "text region [63, 372, 753, 432]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-2",
+            "status": "pass",
+            "evidence": "text region [63, 440, 753, 500]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:fine-label-3",
+            "status": "pass",
+            "evidence": "text region [63, 508, 753, 568]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 832, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 601, 832, 618]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤2 and worst ≤3; 0/1 frames exceed the nominal tolerance; per-channel noise allowance 0. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-moth-archive/baseline/2",
+      "source_hashes": {
+        "artwork.png": "3656a0b07d2d93cd5dd823b3f8ee4aa701f782f1435b5f15a4ca762d495a7207",
+        "atlas.png": "a1428ec65f0e0a11b29dbf5977f35451f34cd408260b36595a24fdc62b5c3bd3",
+        "broken-seed.png": "1e4ed23b74e48ec0931678103c72f5b960342aa938b92e8cc3365bff8f68311b",
+        "scene.json": "2e6f0a0bde5255748086d17f1b0101a5374fbe38fd11f7991827a527316b0f37",
+        "scene.png": "937b17d526a8eb41f3b5919994519ca7cd89c30ec294715b95c733150fb323f4"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+        "candidate_sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+        "tool_calls": 8,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 2,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 74.304,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "b9cc7f10d5dd2d45f2331f5568718e71c6623988e3dc705fcb2e168ef9d796c5"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "93bd0d576f736536224f19d59c9f9e8e32ebfcb5cdda3a81f702d99a2cafd283"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The repair visibly restores the artwork proportions, complete label strips and textured paper without apparent material defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Required canvas and layer placements",
+                "status": "pass",
+                "evidence": "The output is 860×640; the artwork and three label strips visibly align with the specified placements."
+              },
+              {
+                "criterion": "Artwork proportions and style",
+                "status": "pass",
+                "evidence": "The artwork no longer has the broken seed’s horizontal stretching; its contours, shading and fine linework remain coherent."
+              },
+              {
+                "criterion": "Preservation of fine labels",
+                "status": "pass",
+                "evidence": "All three atlas labels retain their headings, small text, tick marks and complete rules without visible clipping."
+              },
+              {
+                "criterion": "Original paper and protected printing",
+                "status": "pass",
+                "evidence": "Paper texture remains visible around and beneath the labels, without the seed’s flat painted-over patches. The title, footer and border remain intact."
+              }
+            ],
+            "limitations": [
+              "Visual assessment only: exact pixel-error tolerances, RGB encoding and unchanged input bytes were not independently verified.",
+              "The separate artwork plate was not displayed; artwork comparison used the broken seed and specified geometry."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 29.712,
+            "sha256": "2b95e28db589a98b009acccdb7307f6a448537f12e265e5f9deb2089188992ed",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-owl-blink",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "attempt": 2,
+      "started_at": "2026-10-19T12:20:19.215199+00:00",
+      "finished_at": "2026-10-19T12:22:15.849994+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 0.996389,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 16,
+        "elapsed_seconds": 115.249
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-owl-blink",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×416; required 640×416."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.001/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999934
+          },
+          {
+            "criterion": "content:eye-1",
+            "status": "pass",
+            "evidence": "editable region [205, 174, 289, 230]: every frame checked; p95 MAE 0.104, worst 0.152/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.991355
+          },
+          {
+            "criterion": "content:eye-2",
+            "status": "pass",
+            "evidence": "editable region [351, 174, 435, 230]: every frame checked; p95 MAE 0.100, worst 0.136/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.991702
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 612, 49]: every frame checked; p95 MAE 0.006, worst 0.006/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999526
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 377, 612, 394]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999426
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.996389,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-owl-blink",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×416; required 640×416."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.001/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 0.999934
+          },
+          {
+            "criterion": "content:eye-1",
+            "status": "pass",
+            "evidence": "editable region [205, 174, 289, 230]: every frame checked; p95 MAE 0.104, worst 0.152/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.991355
+          },
+          {
+            "criterion": "content:eye-2",
+            "status": "pass",
+            "evidence": "editable region [351, 174, 435, 230]: every frame checked; p95 MAE 0.100, worst 0.136/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.991702
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 612, 49]: every frame checked; p95 MAE 0.006, worst 0.006/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999526
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 377, 612, 394]: every frame checked; p95 MAE 0.007, worst 0.007/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 0.999426
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 0.996389,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-owl-blink/baseline/1",
+      "source_hashes": {
+        "atlas.png": "073041240c4c517933353460433fc2b38969702b62e488a00ed78331135c8b4d",
+        "broken-seed.mp4": "b71505ca53842ce25194b9e43b8645bd2319b10134faf6d3d11b84b2215abd2e",
+        "scene.json": "fa7068dd2db59c5874f05ee0973da30e51219928f477e989ed707a8570f6a964",
+        "scene.png": "d829e36650f61bebdb8bd88889b9d18638ecbd7f83872aa15be9283f02ffcb07"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "3f0ccb559bc96aa21d8038427979fb4c064bf8f9a47813222f7d4263528bf5d6",
+        "candidate_sha256": "3f0ccb559bc96aa21d8038427979fb4c064bf8f9a47813222f7d4263528bf5d6",
+        "tool_calls": 16,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 10,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 115.249,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "26990fc51f43f2c78b3aa6ce4c3d986ea1a41c133074b619c9c694a2fd74b826"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "47517eb4fb075e296ce9d64402a124749f5719cc53986a92a0839bebe08c6ff2"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The evidence supports a successful local-eyelid repair: two complete blinks, preserved artwork and no visible whole-face bobbing or material rendering defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Both eyes close and reopen twice at the specified timing",
+                "status": "pass",
+                "evidence": "Both eyes progressively close at frames 7–10 and 24–27, are fully closed at frames 10 and 27, and return fully open by frames 14 and 31."
+              },
+              {
+                "criterion": "Only eyelids move; original pupils remain fixed behind curved apertures",
+                "status": "pass",
+                "evidence": "Transition crops show vertically narrowing elliptical openings clipping stationary irises and pupils, rather than squashing or translating them."
+              },
+              {
+                "criterion": "Supplied artwork and closed-eye patches retain coherent appearance",
+                "status": "pass",
+                "evidence": "Closed states match the atlas’s single shallow lid seams. Intermediate fills and outlines blend with the surrounding face without visible patch edges or detached strips."
+              },
+              {
+                "criterion": "Face, lettering, border and background remain fixed",
+                "status": "pass",
+                "evidence": "Supplied beginning, transition and ending frames preserve their positions and source appearance; the seed’s whole-face movement is absent."
+              },
+              {
+                "criterion": "Required video format and duration",
+                "status": "pass",
+                "evidence": "Extraction confirms H.264, yuv420p, 640×416, 3 seconds, 12 fps, 36 decoded frames and no audio stream."
+              }
+            ],
+            "limitations": [
+              "Review is limited to the supplied frames, detail crops and extraction facts; exact regional error tolerances and input-byte preservation were not independently measured."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 26.665,
+            "sha256": "3f0ccb559bc96aa21d8038427979fb4c064bf8f9a47813222f7d4263528bf5d6",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "dev-repair-owl-blink",
+      "split": "dev",
+      "procedure_id": "baseline",
+      "repeat": 2,
+      "attempt": 1,
+      "started_at": "2026-10-19T12:22:16.704644+00:00",
+      "finished_at": "2026-10-19T12:24:10.530817+00:00",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "metrics": {
+        "passed": true,
+        "quality_passed": true,
+        "quality_score": 1.0,
+        "reviewer_false_pass": false,
+        "structural_passed": true,
+        "first_review_passed": true,
+        "material_defect": false,
+        "unverified": false,
+        "review_calls": 1,
+        "tool_calls": 14,
+        "elapsed_seconds": 112.227
+      },
+      "source_immutable": true,
+      "candidate_quality": {
+        "task_id": "dev-repair-owl-blink",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×416; required 640×416."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-1",
+            "status": "pass",
+            "evidence": "editable region [205, 174, 289, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-2",
+            "status": "pass",
+            "evidence": "editable region [351, 174, 435, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 612, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 377, 612, 394]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "structural": {
+        "task_id": "dev-repair-owl-blink",
+        "status": "pass",
+        "checks": [
+          {
+            "criterion": "bounded_regular_artifact",
+            "status": "pass",
+            "evidence": "Frozen nonempty regular-file bytes, at most 32 MiB."
+          },
+          {
+            "criterion": "silent_h264_mp4",
+            "status": "pass",
+            "evidence": "Required: one H.264 video stream in MP4 and no audio or auxiliary streams."
+          },
+          {
+            "criterion": "yuv420p",
+            "status": "pass",
+            "evidence": "Observed yuv420p; required yuv420p."
+          },
+          {
+            "criterion": "dimensions",
+            "status": "pass",
+            "evidence": "Observed 640×416; required 640×416."
+          },
+          {
+            "criterion": "frame_rate",
+            "status": "pass",
+            "evidence": "Observed 12.0000 fps; required 12 fps."
+          },
+          {
+            "criterion": "duration",
+            "status": "pass",
+            "evidence": "Observed 3.0000s; required 3s ±one frame."
+          },
+          {
+            "criterion": "complete_regular_timestamps",
+            "status": "pass",
+            "evidence": "36 timestamped frames; all must occur at their declared frame times within one tenth of a frame."
+          },
+          {
+            "criterion": "complete_decoded_sequence",
+            "status": "pass",
+            "evidence": "36 full-resolution frames decoded; required 36."
+          },
+          {
+            "criterion": "stationary_source_preservation",
+            "status": "pass",
+            "evidence": "All 36 frames: worst stationary-region MAE 0.000/255; allowed 7, per-channel noise allowance 2. Outside disclosed editable/layer regions.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-1",
+            "status": "pass",
+            "evidence": "editable region [205, 174, 289, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:eye-2",
+            "status": "pass",
+            "evidence": "editable region [351, 174, 435, 230]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:title-print",
+            "status": "pass",
+            "evidence": "text region [28, 25, 612, 49]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          },
+          {
+            "criterion": "content:footer-print",
+            "status": "pass",
+            "evidence": "text region [28, 377, 612, 394]: every frame checked; p95 MAE 0.000, worst 0.000/255; allowed p95 ≤6 and worst ≤9; 0/36 frames exceed the nominal tolerance; per-channel noise allowance 2. Uses source/text layers, alpha and disclosed timing.",
+            "score": 1.0
+          }
+        ],
+        "structural_only": false,
+        "quality_score": 1.0,
+        "structural_status": "pass",
+        "limitation": "Measures the disclosed synthetic source-layer, text-layer, spatial and temporal requirements in every decoded frame. It does not establish naturalistic motion, general aesthetics, OCR accuracy for arbitrary fonts, or quality on external media."
+      },
+      "key": "dev/dev-repair-owl-blink/baseline/2",
+      "source_hashes": {
+        "atlas.png": "073041240c4c517933353460433fc2b38969702b62e488a00ed78331135c8b4d",
+        "broken-seed.mp4": "b71505ca53842ce25194b9e43b8645bd2319b10134faf6d3d11b84b2215abd2e",
+        "scene.json": "fa7068dd2db59c5874f05ee0973da30e51219928f477e989ed707a8570f6a964",
+        "scene.png": "d829e36650f61bebdb8bd88889b9d18638ecbd7f83872aa15be9283f02ffcb07"
+      },
+      "receipt": {
+        "status": "completed",
+        "delivered": true,
+        "candidate_complete": true,
+        "artifact_sha256": "63fd55f08224cb2c5f9f7b6c92cb58afd51a93372e44bfd0758f30f23f1884cc",
+        "candidate_sha256": "63fd55f08224cb2c5f9f7b6c92cb58afd51a93372e44bfd0758f30f23f1884cc",
+        "tool_calls": 14,
+        "tool_counts": {
+          "oak_experience": 2,
+          "oak_pilot_render": 2,
+          "oak_pilot_inspect": 8,
+          "oak_review_artifact": 1,
+          "oak_send_file": 1
+        },
+        "elapsed_seconds": 112.227,
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "context_sha256": "9bbf5c6ff735f434247cce569e7838e6dd2d538057b9a3c8cf63e076634795b8",
+        "reviewer_policy_sha256": "3d6f4748cc7d757464bf42952ac92ec56d50c26f6227c219b902193c06033e09",
+        "source_immutable": true,
+        "adapter": "oak-controller-with-offline-bwrap-media-tools-v2",
+        "render_calls": [
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "c5a04da35bc0115b6a4429eeaccac2bae7dbaabd45add8c034180feccac30124"
+          },
+          {
+            "ok": true,
+            "error_code": null,
+            "code_sha256": "14a70a4d54b7e8420a9d78172dd09bea725276affb53815c4f2df7d25004d424"
+          }
+        ],
+        "reviews": [
+          {
+            "verdict": "pass",
+            "summary": "The repair shows two synchronized local blinks with coherent eyelid artwork and no visible whole-face bobbing or material defects.",
+            "issues": [],
+            "checks": [
+              {
+                "criterion": "Both eyes close and reopen twice at the specified frame timing.",
+                "status": "pass",
+                "evidence": "Frames 6–14 and 23–31 show complete closing/reopening sequences, with full closure at frames 10 and 27."
+              },
+              {
+                "criterion": "Use curved local apertures, preserve pupils, and use complete closed-eye patches.",
+                "status": "pass",
+                "evidence": "Detail crops show narrowing elliptical apertures clipping stationary pupils rather than squashing them. Closed eyes have single shallow seams matching the supplied atlas, without detached strips or conspicuous patch boundaries."
+              },
+              {
+                "criterion": "Preserve the face, lettering, border and background.",
+                "status": "pass",
+                "evidence": "The first frame visually matches the source. Across the supplied sequence, movement remains confined to the eyes; surrounding artwork stays fixed, including the beginning and ending."
+              },
+              {
+                "criterion": "Deliver the specified video format and duration.",
+                "status": "pass",
+                "evidence": "Extraction reports H.264, yuv420p, 640×416, 12 fps, exactly 3 seconds and 36 decoded frames, with no audio stream."
+              }
+            ],
+            "limitations": [
+              "Review is limited to the supplied frames, detail crops and extraction facts. Exact numerical regional-error tolerances and preservation of input bytes were not independently verified."
+            ],
+            "model": "gpt-6.1-sol",
+            "elapsed_seconds": 17.926,
+            "sha256": "63fd55f08224cb2c5f9f7b6c92cb58afd51a93372e44bfd0758f30f23f1884cc",
+            "ok": true,
+            "queued_for_delivery": false
+          }
+        ]
+      }
+    }
+  ],
+  "interrupted_attempt_count": 1,
+  "execution_notes": {
+    "infrastructure_recovery": {
+      "interrupted_attempt": "dev/dev-repair-owl-blink/baseline/1 attempt-1",
+      "reason": "Host memory pressure >80% with no swap caused render/codec timeouts and a subprocess broken-pipe callback failure before any completed measured outcome.",
+      "action": "Preserved interrupted attempt; enabled two private temporary local 1GiB swap files (2GiB total) before any completed formal outcome; resumed same sealed settings in fresh attempt-2 before candidate or held-out execution.",
+      "healthy_ffmpeg_probe_seconds": 0.32,
+      "completed_results_retried": false
+    },
+    "codex_distribution": "0.159.2",
+    "ffmpeg": "4.4.2-0ubuntu0.22.04.1",
+    "source_commit": "8d3d9bf274bd3a037f05ec7f5d571cf05f4d1cef"
+  },
+  "audit": {
+    "all_source_and_snapshot_hashes_rechecked": true,
+    "holdout_used_for_candidate_authoring": false,
+    "production_memory_imported": false,
+    "live_delivery": false
+  },
+  "excluded_construction_audit": "excluded-construction-audit.json",
+  "excluded_calibration": {
+    "producer_runs": 1,
+    "stage": "development-only infrastructure preflight before final suite/scorer seal",
+    "outcome": "timeout under memory and disk contention; incomplete candidate not credited",
+    "used_for_candidate_authoring": false
+  }
+}

@@ -2,8 +2,10 @@
 
 import asyncio
 import base64
+import copy
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -13,7 +15,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from oak.media_pilot_runtime import PilotRuntime, _PilotTools, _video_codec_facts
+from oak.media_pilot_runtime import (
+    PilotRuntime, _PilotTools, _canonical_sha, _image_codec_facts, _video_codec_facts)
 from oak.quality_media import codec_environment
 from oak.runtime import MODEL
 
@@ -205,7 +208,7 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             factory = FakeFactory(plan)
             result = await self.runtime(factory).run(task, self.workspace, procedure)
             self.assertEqual(result['status'], 'completed')
-            self.assertEqual(result['adapter'], 'oak-controller-with-offline-bwrap-media-tools-v2')
+            self.assertEqual(result['adapter'], 'oak-controller-with-offline-bwrap-media-tools-v3')
             reviewer = next(client for client in factory.clients if client.role == 'review')
             inputs = next(params['input'] for method, params in reviewer.calls if method == 'turn/start')
             metadata = json.loads(inputs[0]['text'])
@@ -217,6 +220,150 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('forged-reference.png', json.dumps(inputs))
             review_inputs.append(inputs)
         self.assertEqual(review_inputs[0], review_inputs[1])
+
+    def manifest_specification(self):
+        return {'unscoped_private_to_subreview': 'FULL_SPEC_ONLY_CANARY',
+                'review_manifest': {
+                    'visual': {'brief': 'Assess visible source identity, coherence and layer order.',
+                               'specification': {'source_identity': 'ÉTUDE original',
+                                                 'visible_checks': ['No cutout seams.', 'Preserve labels.']}},
+                    'mechanical': {'error_tolerance': 6, 'marker': 'MECHANICAL_ONLY_CANARY'}}}
+
+    def manifest_task(self, content=None):
+        content = self.manifest_specification() if content is None else content
+        task = self.specification_task(json.dumps(content, ensure_ascii=False).encode())
+        task.update(brief='Create the requested result. Read scene.json. FULL_TASK_ONLY_CANARY',
+                    reference_roles={str(self.source): 'original scene'})
+        return task
+
+    async def test_public_manifest_scopes_only_original_visual_projection_and_hashes_each_section(self):
+        specification = self.manifest_specification()
+        task = self.manifest_task(specification)
+        originals = []
+        for name, role in (('scene.png', 'damaged print'), ('donor.png', 'original source artwork'),
+                           ('guide.png', 'placement guide')):
+            path = self.workspace / name
+            path.write_bytes(PNG_BYTES + name.encode())
+            originals.append((path, role))
+        task.update(reference_paths=[str(path) for path, _ in originals],
+                    reference_roles={str(path): role for path, role in originals})
+        task['source_hashes'].update({str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                                      for path, _ in originals})
+
+        async def plan(client):
+            tools = client.options['tool_handler'].__self__
+            # The complete original public task/specification stays available
+            # in the producer's own task filesystem, including mechanical rules.
+            self.assertEqual(json.loads(tools.read(task['specification_path'])), specification)
+            result = await client.tool('oak_review_artifact', path='result.png',
+                requirements='PRODUCER_SCOPE_OVERRIDE', reference_paths=['forged-reference.png'])
+            self.assertTrue(result['ok'])
+            await client.tool('oak_send_file', path='result.png')
+            client.events.put_nowait(completed())
+
+        reviewer_inputs = []
+        for procedure in ('', 'Check visible source fidelity.'):
+            factory = FakeFactory(plan)
+            result = await self.runtime(factory).run(task, self.workspace, procedure)
+            self.assertEqual(result['status'], 'completed')
+            original_sha = hashlib.sha256(Path(task['specification_path']).read_bytes()).hexdigest()
+            visual = specification['review_manifest']['visual']
+            mechanical = specification['review_manifest']['mechanical']
+            self.assertEqual(result['specification_sha256'], original_sha)
+            self.assertEqual(result['visual_requirements_sha256'], _canonical_sha(visual))
+            self.assertEqual(result['mechanical_requirements_sha256'], _canonical_sha(mechanical))
+            producer = next(client for client in factory.clients if client.role == 'producer')
+            producer_turn = next(params for method, params in producer.calls if method == 'turn/start')
+            self.assertIn('FULL_TASK_ONLY_CANARY', json.dumps(producer_turn))
+            reviewer = next(client for client in factory.clients if client.role == 'review')
+            inputs = next(params['input'] for method, params in reviewer.calls if method == 'turn/start')
+            request = json.loads(inputs[0]['text'])
+            self.assertEqual(request['owner_brief'], visual['brief'])
+            metadata = request['extraction_facts']
+            self.assertEqual(metadata['supplied_requirements_specification'], {
+                'path': '/workspace/scene.json', 'source_sha256': original_sha,
+                'projection': 'review_manifest.visual.specification',
+                'visual_requirements_sha256': _canonical_sha(visual), 'content': visual['specification']})
+            for item, (path, role) in zip(metadata['references'], originals, strict=True):
+                digest = task['source_hashes'][str(path)]
+                self.assertEqual(item['source_path'], '/workspace/' + path.name)
+                self.assertEqual(item['source_role'], role)
+                self.assertEqual(item['sha256'], digest)
+                self.assertTrue(any(role in row.get('text', '') and path.name in row.get('text', '')
+                                    and digest in row.get('text', '') for row in inputs))
+            serialized = json.dumps(inputs)
+            for canary in ('FULL_TASK_ONLY_CANARY', 'FULL_SPEC_ONLY_CANARY',
+                           'MECHANICAL_ONLY_CANARY', 'PRODUCER_SCOPE_OVERRIDE', 'forged-reference.png'):
+                self.assertNotIn(canary, serialized)
+            reviewer_inputs.append(inputs)
+        self.assertEqual(reviewer_inputs[0], reviewer_inputs[1])
+
+    async def test_manifest_hashes_are_canonical_and_include_visual_brief(self):
+        content = self.manifest_specification()
+        specification_changed = copy.deepcopy(content)
+        specification_changed['review_manifest']['visual']['specification']['source_identity'] = 'Changed original'
+        outcomes = []
+        for changed, kwargs in ((content, {}), (content, {'sort_keys': True, 'indent': 2}),
+                ({**content, 'review_manifest': {**content['review_manifest'],
+                    'visual': {**content['review_manifest']['visual'], 'brief': 'A changed visual brief.'}}}, {}),
+                ({**content, 'review_manifest': {**content['review_manifest'],
+                    'mechanical': {'error_tolerance': 4}}}, {})):
+            task = self.manifest_task(changed)
+            raw = json.dumps(changed, ensure_ascii=False, **kwargs).encode()
+            Path(task['specification_path']).write_bytes(raw)
+            task['source_hashes'][task['specification_path']] = hashlib.sha256(raw).hexdigest()
+            factory = FakeFactory(self.passing_plan)
+            result = await self.runtime(factory).run(task, self.workspace)
+            self.assertEqual(result['status'], 'completed')
+            outcomes.append(result)
+        first, reformatted, visual_changed, mechanical_changed = outcomes
+        self.assertNotEqual(first['specification_sha256'], reformatted['specification_sha256'])
+        for key in ('visual_requirements_sha256', 'mechanical_requirements_sha256'):
+            self.assertEqual(first[key], reformatted[key])
+        self.assertNotEqual(first['visual_requirements_sha256'], visual_changed['visual_requirements_sha256'])
+        self.assertEqual(first['mechanical_requirements_sha256'], visual_changed['mechanical_requirements_sha256'])
+        self.assertEqual(first['visual_requirements_sha256'], mechanical_changed['visual_requirements_sha256'])
+        self.assertNotEqual(first['mechanical_requirements_sha256'], mechanical_changed['mechanical_requirements_sha256'])
+        task = self.manifest_task(specification_changed)
+        changed = await self.runtime(FakeFactory(self.passing_plan)).run(task, self.workspace)
+        self.assertNotEqual(first['visual_requirements_sha256'], changed['visual_requirements_sha256'])
+        self.assertEqual(first['mechanical_requirements_sha256'], changed['mechanical_requirements_sha256'])
+        expected = hashlib.sha256(json.dumps(content['review_manifest']['visual'],
+            sort_keys=True, ensure_ascii=False, allow_nan=False).encode('utf-8')).hexdigest()
+        self.assertEqual(first['visual_requirements_sha256'], expected)
+
+    async def test_invalid_public_review_manifests_are_denied_before_model_scope(self):
+        visual = self.manifest_specification()['review_manifest']['visual']
+        manifests = (None, {}, {'visual': visual}, {'visual': visual, 'mechanical': [],},
+            {'visual': visual, 'mechanical': {}, 'extra': {}},
+            *({'visual': {**visual, **change}, 'mechanical': {}} for change in (
+                {'brief': None}, {'brief': ''}, {'brief': ' '}, {'brief': 'x' * 16001},
+                {'brief': ' ' * 16000 + 'x'}, {'specification': []}, {'extra': 'not permitted'})))
+        for manifest in manifests:
+            with self.subTest(manifest=str(manifest)[:100]):
+                content = {'review_manifest': manifest}
+                task = self.manifest_task(content)
+                factory = FakeFactory(self.passing_plan)
+                result = await self.runtime(factory).run(task, self.workspace)
+                self.assertEqual(result['status'], 'failed')
+                self.assertEqual(factory.clients, [])
+
+    async def test_reference_roles_require_complete_original_hash_bound_paths(self):
+        for roles, remove_hash in (({}, False), ([], False),
+                ({'/workspace/unknown.png': 'unknown original'}, False),
+                ({str(self.source): ''}, False), ({str(self.source): 'x' * 81}, False),
+                ({str(self.source): 'injected\nrole'}, False), ({str(self.source): 3}, False),
+                ({str(self.source): 'original scene'}, True),
+                ({str(self.source): 'original scene', '/workspace/source.png': 'alias'}, False)):
+            with self.subTest(roles=roles, missing_hash=remove_hash):
+                task = self.manifest_task()
+                task['reference_roles'] = roles
+                if remove_hash:
+                    task['source_hashes'].pop(str(self.source))
+                factory = FakeFactory(self.passing_plan)
+                result = await self.runtime(factory).run(task, self.workspace)
+                self.assertEqual(result['status'], 'failed')
+                self.assertEqual(factory.clients, [])
 
     async def test_specification_must_be_explicitly_allowlisted_and_match_source_hash(self):
         task = self.specification_task(b'{"production":true}')
@@ -530,6 +677,107 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('LEFT_PROCEDURE', value)
             self.assertNotIn('RIGHT_PROCEDURE', value)
             self.assertFalse(self.task['brief'] in value and other_task['brief'] in value)
+
+
+@unittest.skipUnless(importlib.util.find_spec('PIL'), 'Pillow is required for actual image facts')
+class PilotImageFactsTests(unittest.IsolatedAsyncioTestCase):
+    def image_bytes(self, mode='RGB', *, transparent=False, palette=False, unused_transparency=False):
+        from PIL import Image
+        image = Image.new('P' if palette else mode, (8, 6), 1 if palette else 'white')
+        options = {}
+        if palette:
+            image.putpalette([255, 0, 0, 25, 70, 100] + [0] * (256 * 3 - 6))
+            options['transparency'] = 0  # Index zero must not disappear in a truthiness check.
+            if not unused_transparency:
+                image.putpixel((0, 0), 0)
+        elif transparent:
+            image.putpixel((0, 0), (25, 70, 100, 0))
+        output = io.BytesIO()
+        image.save(output, format='PNG', **options)
+        return output.getvalue()
+
+    def test_png_original_mode_opacity_and_palette_transparency_come_from_encoded_bytes(self):
+        cases = [({}, 'RGB', False, [255, 255], True),
+                 ({'mode': 'RGBA'}, 'RGBA', True, [255, 255], True),
+                 ({'mode': 'RGBA', 'transparent': True}, 'RGBA', True, [0, 255], False),
+                 ({'palette': True}, 'P', True, [0, 255], False),
+                 ({'palette': True, 'unused_transparency': True}, 'P', True, [255, 255], True)]
+        for options, mode, alpha_present, alpha_extrema, opaque in cases:
+            with self.subTest(options=options):
+                raw = self.image_bytes(**options)
+                digest = hashlib.sha256(raw).hexdigest()
+                facts = _image_codec_facts(raw, digest)
+                self.assertEqual(facts, {'sha256': digest, 'format': 'PNG', 'mode': mode,
+                    'dimensions': {'width': 8, 'height': 6}, 'frame_count': 1,
+                    'alpha_present': alpha_present, 'alpha_extrema': alpha_extrema,
+                    'fully_opaque': opaque, 'decode_status': 'complete'})
+
+    def test_image_facts_reject_hash_mismatch_invalid_bytes_and_decoding_limits(self):
+        from PIL import Image
+        raw = self.image_bytes()
+        with self.assertRaises(ValueError):
+            _image_codec_facts(raw + b'changed bytes', hashlib.sha256(raw).hexdigest())
+        with self.assertRaises(OSError):
+            _image_codec_facts(b'invalid image', hashlib.sha256(b'invalid image').hexdigest())
+        with patch('oak.media_pilot_runtime.MAX_PIXELS', 1), self.assertRaises(ValueError):
+            _image_codec_facts(raw, hashlib.sha256(raw).hexdigest())
+        with patch('oak.media_pilot_runtime._MAX_ARTIFACT', len(raw) - 1), self.assertRaises(ValueError):
+            _image_codec_facts(raw, hashlib.sha256(raw).hexdigest())
+        animated = io.BytesIO()
+        Image.new('RGB', (3, 3), 'white').save(animated, format='PNG', save_all=True,
+            append_images=[Image.new('RGB', (3, 3), 'black')], duration=100, loop=0)
+        data = animated.getvalue()
+        with self.assertRaises(ValueError):
+            _image_codec_facts(data, hashlib.sha256(data).hexdigest())
+
+    async def test_real_image_inspection_preserves_encoded_facts_and_sha_despite_filename(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            workspace, state = root / 'workspace', root / 'control'
+            workspace.mkdir()
+            state.mkdir()
+            raw = self.image_bytes(mode='RGBA', transparent=True)
+            path = workspace / 'candidate.data'
+            path.write_bytes(raw)
+            tools = _PilotTools(SimpleNamespace(), {'brief': 'Inspect actual source image.'},
+                                workspace, state, None)
+            try:
+                data = await tools.inspect(path)
+                self.assertEqual(data['type'], 'image')
+                self.assertEqual(data['decode_status'], 'complete')
+                self.assertTrue(data['evidence'])
+                self.assertEqual(data['image_facts'], _image_codec_facts(raw, hashlib.sha256(raw).hexdigest()))
+                self.assertEqual(data['image_facts']['mode'], 'RGBA')
+                self.assertEqual(tools.files.handles, {})
+            finally:
+                tools.files.close_all()
+
+    async def test_image_mutation_between_visual_and_encoded_facts_invalidates_observation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            workspace, state = root / 'workspace', root / 'control'
+            workspace.mkdir()
+            state.mkdir()
+            original = self.image_bytes()
+            modified = self.image_bytes(mode='RGBA', transparent=True)
+            tools = _PilotTools(SimpleNamespace(), {'brief': 'Inspect output and original source.'},
+                                workspace, state, None)
+            try:
+                for name in ('result.png', 'source.png'):
+                    with self.subTest(name=name):
+                        path = workspace / name
+                        path.write_bytes(original)
+
+                        def changed(data, digest):
+                            path.write_bytes(modified)
+                            return _image_codec_facts(data, digest)
+
+                        with patch('oak.media_pilot_runtime._image_codec_facts', side_effect=changed):
+                            with self.assertRaises(ValueError):
+                                await tools.inspect(path)
+                        self.assertEqual(tools.files.handles, {})
+            finally:
+                tools.files.close_all()
 
 
 class PilotCodecProtocolTests(unittest.IsolatedAsyncioTestCase):

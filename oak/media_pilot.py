@@ -49,6 +49,9 @@ def _suite(name):
     if name == 'hard':
         from . import media_pilot_hard_tasks as tasks, media_pilot_hard_quality as quality
         return tasks, quality
+    if name == 'perceptual':
+        from . import media_pilot_perceptual_tasks as tasks, media_pilot_perceptual_quality as quality
+        return tasks, quality
     raise ValueError('Unknown pilot suite.')
 
 
@@ -59,6 +62,9 @@ def _implementation(suite='basic'):
              'runtime.py', 'tools.py')
     if suite == 'hard':
         names += ('media_pilot_hard_tasks.py', 'media_pilot_hard_quality.py')
+    if suite == 'perceptual':
+        names += ('media_pilot_hard_tasks.py', 'media_pilot_hard_quality.py',
+                  'media_pilot_perceptual_tasks.py', 'media_pilot_perceptual_quality.py')
     return _hash({name: _file_hash(directory / name) for name in names})
 
 
@@ -262,7 +268,7 @@ async def _run_attempt(root, state, split, row, procedure_id, repeat, runtime):
             digest = receipt.get(prefix + '_sha256')
             if not path.is_file() or _file_hash(path) != digest:
                 raise ValueError('Artifact snapshot digest changed.')
-            if state['config'].get('suite') == 'hard':
+            if state['config'].get('suite') in {'hard', 'perceptual'}:
                 value = await asyncio.to_thread(quality_module.evaluate_artifact, row['id'],
                     path, workspace, artifact_root=path.parent)
             else:
@@ -390,20 +396,38 @@ async def baseline(root, runtime):
     return state
 
 
+def _development_quality_failure(row, suite):
+    receipt = row.get('receipt', {})
+    quality = row.get('candidate_quality', {})
+    if not (row.get('state') == 'finished' and row.get('split') == 'dev'
+            and row.get('procedure_id') == BASELINE and row.get('source_immutable')
+            and receipt.get('status') in {'completed', 'unverified'}
+            and receipt.get('candidate_complete')
+            and quality.get('structural_status') == 'pass'):
+        return False
+    if any(check.get('status') == 'fail' and
+           (check.get('criterion', '').startswith('content:')
+            or check.get('criterion') == 'stationary_source_preservation')
+           for check in quality.get('checks', [])):
+        return True
+    # Property-valid animation can still have visibly incoherent eyelids or
+    # halos. Only a material visual rejection of these exact final bytes opens
+    # the perceptual gate; missing evidence and an earlier repaired defect do not.
+    digest = receipt.get('candidate_sha256')
+    return suite == 'perceptual' and isinstance(digest, str) and any(
+        review.get('verdict') == 'revise' and review.get('sha256') == digest
+        and any(issue.get('severity') in {'major', 'blocker'} for issue in review.get('issues', []))
+        for review in receipt.get('reviews', []))
+
+
 async def develop(root, runtime, *, runtime_home=None):
     state = load(root)
     if state['frozen'] or state['holdout_started']:
         raise ValueError('Development is closed for this experiment.')
     await _run_split(root, state, 'dev', [BASELINE], runtime)
-    if state['config'].get('suite') == 'hard':
-        failures = [row for row in state['runs'].values() if row.get('state') == 'finished' and row.get('split') == 'dev'
-            and row.get('receipt', {}).get('status') in {'completed', 'unverified'}
-            and row.get('procedure_id') == BASELINE and row.get('source_immutable')
-            and row.get('receipt', {}).get('candidate_complete')
-            and row.get('candidate_quality', {}).get('structural_status') == 'pass'
-            and any(check.get('status') == 'fail' and (check.get('criterion', '').startswith('content:')
-                or check.get('criterion') == 'stationary_source_preservation')
-                for check in row.get('candidate_quality', {}).get('checks', []))]
+    if state['config'].get('suite') in {'hard', 'perceptual'}:
+        failures = [row for row in state['runs'].values()
+                    if _development_quality_failure(row, state['config']['suite'])]
         if not failures:
             raise ValueError('Hard pilot needs a completed baseline artifact with an independent quality failure.')
     if len(state['procedures']) == 1:
@@ -431,7 +455,7 @@ def freeze(root):
         raise ValueError('All development runs must finish before selection.')
     base = summaries[BASELINE]
     # Baseline participates; no automatic adoption of the last edited harness.
-    hard = state['config'].get('suite') == 'hard'
+    hard = state['config'].get('suite') in {'hard', 'perceptual'}
     if hard:
         eligible = [BASELINE] + [key for key, row in summaries.items() if key != BASELINE
             and row['quality_passed'] >= base['quality_passed']
@@ -530,7 +554,7 @@ def report(root):
                   'Candidates receive a shared isolated local Python/Pillow/FFmpeg tool adapter.',
                   'Held-out feedback cannot be used to revise a procedure in this experiment.']}
     _write(Path(root) / 'report.json', result)
-    title = 'Oak harder media procedure pilot' if state['config'].get('suite') == 'hard' else 'Oak media procedure pilot'
+    title = 'Oak harder media procedure pilot' if state['config'].get('suite') in {'hard', 'perceptual'} else 'Oak media procedure pilot'
     lines = ['# ' + title, '',
              f'Model: `{MODEL}`. Held-out evaluation complete: **{complete}**.', '',
              '| Split | Procedure | Finished | Delivered quality pass | Source contract pass | Mean source fidelity | First-review pass | Unverified | Median seconds |',
@@ -585,7 +609,7 @@ def main(argv=None):
     parser.add_argument('command', choices=('init', 'baseline', 'develop', 'freeze', 'evaluate', 'report'))
     parser.add_argument('--output', required=True, help='Private experiment directory, outside the source checkout.')
     parser.add_argument('--runtime-home', help='Existing ChatGPT-authenticated runtime home; never copied.')
-    parser.add_argument('--suite', default='basic', choices=('basic', 'hard'))
+    parser.add_argument('--suite', default='basic', choices=('basic', 'hard', 'perceptual'))
     parser.add_argument('--effort', default='high', choices=('low', 'medium', 'high'))
     parser.add_argument('--timeout', type=int, default=300)
     parser.add_argument('--repeats', type=int, default=1, choices=(1, 2, 3))

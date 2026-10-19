@@ -1,165 +1,200 @@
 # Harder media procedure pilot
 
-This second opt-in pilot tests whether a reusable procedure improves Oak's
-results on harder, source-preserving media tasks. It builds on the first
-[media procedure pilot](media-harness-pilot.md) and its implementation in
+This opt-in experiment compares Oak's current procedure with two reusable
+procedures on synthetic media tasks that require visual inference. It builds
+on the first [media procedure pilot](media-harness-pilot.md) and
 [PR #103](https://github.com/xliberty2008x/oak-bot/pull/103). The first experiment
-found equal held-out success and slower candidate execution. Its tasks, results
-and procedures are not reused as held-out evidence in this experiment.
+found equal held-out success and slower candidate execution. None of these
+commands changes live Oak procedures or promotes conversation experience.
 
-The harder suite has 12 new synthetic tasks: six development tasks and six
-held-out tasks, with two repetitions fixed before development. Each split has
-three creation and three repair tasks. The tasks cover local eyelid animation,
-pivoted pendulum motion, foreground occlusion, continuous elliptical motion,
-composition of fine text layers, and restoration of textured archival cards.
-The held-out versions use new artwork, text, dimensions and motion parameters.
-They test transfer within these six task families, rather than six unrelated
-media capabilities.
+The main comparison uses `--suite perceptual`: 12 new tasks, split into six
+development and six held-out tasks. Each split has one creation and one repair
+task in each of three families:
 
-The supplied broken repair seeds contain deliberate defects. They establish
-that the task requires repair; they do not establish that the current Oak
-procedure fails. The baseline stage measures current behavior on development
-tasks before candidate procedures are authored. A ceiling result must be
-reported as such, not converted into a claimed improvement.
+- Infer the eye openings in an original portrait and animate coherent curved
+  blinks. No eye boxes, masks, closed-eye patches or prescribed blink movie
+  are supplied.
+- Recover foreground plant silhouettes from a flattened landscape and move
+  the supplied patterned subject behind them. No foreground alpha matte or
+  unobstructed background is supplied.
+- Register a cropped, rotated and translated donor to a damaged print, then
+  restore the area marked by a separate guide. The registration transform is
+  not supplied; shared printed landmarks make it recoverable.
 
-## What the quality measurement means
+The held-out tasks use new artwork, text, dimensions and scene parameters.
+They test transfer within three families, not six independent capabilities.
+Two repetitions are fixed before development. Broken repair seeds establish
+that repair is needed; the main baseline must establish whether current Oak
+actually fails these tasks before candidate procedures are authored.
 
-Each task supplies original synthetic raster layers and a `scene.json`
-production specification. Placements, timing formulas, protected regions and
-acceptance tolerances are disclosed to every arm. The producer can read its
-own task inputs; it cannot read the reference compositor, scorer, other tasks
-or held-out results. Tasks require preserving supplied artwork and text layers,
-not approximating them with redrawn shapes or retyped text.
+## Earlier calibration evidence
 
-The existing Oak controller and sampled independent artifact reviewer remain
-fixed across arms. Adapter v2 supplies the reviewer with the original hashed
-JSON production specification and trusted FFprobe pixel-format facts. These
-are the same requirements and factual media metadata available to each
-producer, without independent scorer results or producer-authored assertions. A separate deterministic scorer decodes the resulting
-artifact at full resolution and, for video, checks every frame. It measures
-source preservation, critical small regions, layering, continuous motion and
-the disclosed composition rules, alongside format and timing requirements.
-Compression and small placement tolerances avoid requiring identical encoded
-bytes. For video, source compositions and the stationary baseline pass through
-FFmpeg's uncompressed RGB → yuv420p → RGB conversion before comparison. A fixed
-2/255 channel allowance accounts for small H.264 quantization errors; PNG uses
-native RGB and no allowance. These rules and regional thresholds are disclosed
-in the input contract and frozen before model measurement. SHA-256 binds a
-score to the exact immutable output that was measured.
+The preliminary development-only
+[construction audit](evaluations/hard-media-harness-pilot-2026-10-19/excluded-construction-audit.json)
+found that an exact supplied blink formula could produce detached intermediate
+contours. Its source-contract score was perfect while the visual reviewer
+reported a material defect. That run and an interrupted attempt remain
+excluded from the comparison. The corrected blink was inspected across every
+intermediate frame before a separate experiment.
 
-Authored correct compositions for all 12 tasks and deliberate negative controls
-validate the scorer before the experiment. This construction check contains no
-Oak model results. Candidate authors receive only development evidence, and
-held-out model runs begin only after procedure selection is frozen.
+The subsequent
+[explicit-specification calibration](evaluations/hard-media-harness-pilot-2026-10-19/explicit-specification-calibration.json)
+completed 12 development baseline attempts: **12/12 passed the source contract,
+10/12 passed joint delivered checks, and no review reported a material defect**.
+The two PNG attempts remained unverified: reviewer evidence omitted the original
+artwork reference and encoded PNG mode/opacity facts. No candidate procedures
+or held-out model runs were produced in that calibration.
 
-The source-contract endpoint scores the final candidate after a completed
-producer turn in every arm. Finished attempts with missing candidates or
-incomplete execution count as zero, so a reviewer rejection cannot selectively remove difficult outputs
-from the denominator. `quality_passed` and `quality_score` describe this
-endpoint, rather than general aesthetic quality; invalid formats also receive zero score. Failed or timed-out attempts remain failures even if partial bytes
-were retained for diagnosis.
+Those results show a source-compliance ceiling in the suite that supplied exact
+composition formulas. They do not demonstrate a quality improvement or a
+material visual weakness in the current procedure. The perceptual suite and
+adapter v3 therefore start a new experiment with fresh settings fingerprints;
+the earlier receipts are preserved separately and are never pooled into its
+main comparison.
 
-The end-to-end `passed` endpoint separately requires an actually delivered
-artifact whose exact SHA-256 has both a reviewer pass and an independent
-content pass, as well as completed execution and unchanged source inputs. A
-reviewer pass cannot override a disclosed defect; a passing undelivered
-candidate is not a successful user result. If final candidate bytes differ
-from the delivered bytes, both outputs receive their own measurement.
+## Complementary checks on the same output
 
-This measures adherence to explicit synthetic media requirements. It does not
-measure general aesthetics, naturalistic animation, arbitrary OCR, external
-generation providers, audio, live Telegram delivery or quality on real user
-artwork. A higher score supports a bounded claim about this suite only.
+Every task supplies original synthetic files and a complete public
+`inputs/scene.json`. Its requirements describe visible objectives and disclose
+the numeric acceptance rules. The producer can read its own full specification
+and input files, but not the scorer, runner annotations, another run or held-out
+results. Semantic masks used for independent measurement are regenerated by
+the runner and are not written into the producer workspace.
+
+Adapter v3 uses a public `review_manifest` with separate `visual` and
+`mechanical` sections. The former contains a scoped review brief and source
+specification: visible source identity, local motion, coherent eyelids, clean
+occlusion boundaries and faithful print restoration. The latter contains
+machine-checkable requirements such as format, timing, source-preservation
+properties and numeric tolerances. These scopes are authored before the seal;
+the producer still receives the original complete task and specification.
+
+The existing `QualityReviewer` instructions and permissions remain unchanged.
+The reviewer receives only the original visual projection, original references
+and trusted extraction facts. It does not receive mechanical grader outcomes,
+expected output images, candidate procedures or producer-written requirements.
+Its verdict concerns the assigned visible criteria; missing visual evidence
+remains unverified. Exact numeric error thresholds belong to the independent
+grader rather than a request for the reviewer to prove unseen pixel arithmetic.
+
+Original references are selected by task purpose and carry source path, role
+and SHA-256. Restoration reviews receive the damaged print, undamaged donor
+and separate guide. The adapter measures encoded image format, original mode,
+dimensions, frame count and actual alpha opacity from the same bounded bytes
+used for visual evidence, before display conversion. Video codec and pixel-format
+facts come from trusted FFprobe. The raw specification SHA and canonical visual
+and mechanical section hashes are recorded in receipts.
+
+The independent grader decodes every video frame at full resolution, including
+frames between reviewer thumbnails. Blink checks concern properties such as
+source-eye occlusion, pupil preservation, open-state restoration and temporal
+regularity; they do not require one hidden target animation. Occlusion and
+restoration checks compare recoverable original source content under disclosed
+geometry and codec tolerances. These measurements cannot establish coherent
+eyelid shape or the absence of every visible seam, so the visual review remains
+a necessary independent veto.
+
+The primary endpoint, `passed`, requires completed execution, unchanged source
+inputs, and an actually delivered immutable artifact with **both a visual pass
+and an independent property pass for the same SHA-256**. Neither result can
+override the other.
+
+`quality_passed` and `quality_score` separately describe independently measured
+properties of the final candidate after a completed producer turn. Finished
+attempts with missing candidates, incomplete execution or invalid format receive
+zero credit. A passing undelivered candidate is not a successful delivered result.
+If final candidate bytes differ from delivered bytes, both are measured
+separately. These source/property scores are not human aesthetic ground truth.
+
+## Validation and split discipline
+
+Authored technical controls check task construction and grader behavior before
+the experiment is sealed. They include valid source-based outputs and deliberate
+defects such as frozen motion, misplaced pupils, wrong foreground order,
+damaged labels or registration errors. Construction checks may cover generated
+assets from both splits; they contain no model-produced held-out feedback.
+
+A separate development-only reviewer preflight may verify that authored valid
+outputs have complete visual evidence. Its receipts are kept outside the main
+comparison. It is not a baseline result or evidence that a learned procedure
+works. Candidate authors receive only the main development evidence. Native
+held-out task runs begin only after selection is frozen, and their feedback
+must never be used to change a procedure in the same experiment.
 
 ## Setup and run
 
-Use the setup and sandbox dependencies described in the
-[first-pilot guide](media-harness-pilot.md#setup): Python 3.12, the optional pilot
+Use the setup and sandbox dependencies in the
+[first-pilot guide](media-harness-pilot.md#setup): Python 3.12, optional pilot
 requirements, Pillow, NumPy, Bubblewrap, FFmpeg/FFprobe with H.264 support, and
-DejaVu Sans fonts. Use a complete Codex distribution, including its matching
-code-mode host, on `PATH` and an existing ChatGPT-authenticated runtime home.
-The model remains `gpt-6.1-sol`; there is no API-key fallback.
+DejaVu Sans fonts. Use a complete Codex distribution with its matching code-mode
+host on `PATH` and an existing ChatGPT-authenticated runtime home. The model
+remains `gpt-6.1-sol`; no API-key fallback is used.
 
-Choose an empty private experiment directory outside the checkout. The
-following commands use portable example paths; supply the existing authorized
-runtime home directly without copying authentication state.
+Choose an empty private output directory outside the checkout. These portable
+example commands fix high reasoning effort, a 600-second per-attempt budget,
+two repetitions and one worker. Supply the authorized runtime home directly
+without copying its authentication state.
 
 ```sh
-.venv-media-pilot/bin/python -m oak.media_pilot init --suite hard --output /private/oak-hard-media-run --repeats 2 --timeout 600 --effort high --workers 1
-.venv-media-pilot/bin/python -m oak.media_pilot baseline --suite hard --output /private/oak-hard-media-run --runtime-home /private/existing-codex-home
-.venv-media-pilot/bin/python -m oak.media_pilot develop --suite hard --output /private/oak-hard-media-run --runtime-home /private/existing-codex-home
-.venv-media-pilot/bin/python -m oak.media_pilot freeze --suite hard --output /private/oak-hard-media-run
-.venv-media-pilot/bin/python -m oak.media_pilot evaluate --suite hard --output /private/oak-hard-media-run --runtime-home /private/existing-codex-home
-.venv-media-pilot/bin/python -m oak.media_pilot report --suite hard --output /private/oak-hard-media-run
+.venv-media-pilot/bin/python -m oak.media_pilot init --suite perceptual --output /private/oak-perceptual-media-run --repeats 2 --timeout 600 --effort high --workers 1
+.venv-media-pilot/bin/python -m oak.media_pilot baseline --suite perceptual --output /private/oak-perceptual-media-run --runtime-home /private/existing-codex-home
+.venv-media-pilot/bin/python -m oak.media_pilot develop --suite perceptual --output /private/oak-perceptual-media-run --runtime-home /private/existing-codex-home
+.venv-media-pilot/bin/python -m oak.media_pilot freeze --suite perceptual --output /private/oak-perceptual-media-run
+.venv-media-pilot/bin/python -m oak.media_pilot evaluate --suite perceptual --output /private/oak-perceptual-media-run --runtime-home /private/existing-codex-home
+.venv-media-pilot/bin/python -m oak.media_pilot report --suite perceptual --output /private/oak-perceptual-media-run
 ```
 
-`baseline` runs only the six development tasks, twice, under the current
-procedure. Inspect its independently measured defects before proceeding. The
-hard-pilot development gate requires observed content failures; unavailable
-runtime access or a ceiling result does not satisfy this condition.
-`develop` authors two bounded reusable procedures from development evidence
-and runs each on the same six tasks, twice. The proposer receives development
-briefs and findings, without tools or access to the experiment directory.
+`baseline` measures the six development tasks twice. Before candidate authoring,
+the perceptual gate requires a completed, immutable, structurally valid candidate
+with either an independent content failure or a major/blocker visual rejection
+for that exact final SHA. A rejection of earlier repaired bytes does not qualify.
+Unavailable execution, unverified evidence, minor issues or a ceiling result
+are not evidence of a material quality weakness. `develop` proposes two bounded
+reusable procedures from development findings and runs each on those same six
+tasks twice. The proposer has no tools or access to the experiment directory.
 
-`freeze` records the selected procedure, challenger, selection evidence and
-hashes. It prioritizes joint delivered quality success, then source-contract success
-and mean source fidelity. Candidates cannot worsen delivery, source compliance,
-structural validity, reviewer uncertainty or reviewed material-defect counts. The baseline stays eligible and
-wins exact ties. `evaluate` compares
-the baseline with the frozen challenger on the six new held-out tasks, twice.
-It does so even if the development selection retained the baseline, allowing
-the challenger to be tested without promoting it. A complete experiment has
-60 producer attempts: 12 baseline development, 24 candidate development and
-24 held-out attempts, plus proposal and artifact-review calls.
+`freeze` prioritizes joint delivered success, then independent property passes
+and mean source fidelity. A candidate cannot worsen delivery, measured source
+compliance, structure, review uncertainty or reviewed material-defect counts.
+The baseline remains eligible and wins exact ties. `evaluate` compares baseline
+with the frozen challenger on the six new held-out tasks twice, even if the
+development selection retained the baseline.
 
-Model, reasoning effort, reviewer, permissions, review budget, task inputs and
-per-task execution budget are identical across arms. Arm order rotates across
-tasks and repetitions. Each producer starts with empty conversation memory.
-The renderer exposes only its run workspace and public dependencies; it has
-no network or access to the scorer, checkout, runtime home or another run.
+A complete main comparison has 60 producer attempts: 12 baseline development,
+24 candidate development and 24 held-out attempts, plus proposal and review
+calls. Earlier construction/calibration work and reviewer preflight are separate.
+Model, effort, permissions, reviewer, input bytes, four-review budget and execution
+budget are identical across main arms. Arm order rotates by task and repetition.
+Every producer begins with empty conversation memory and an isolated offline
+workspace containing only its own inputs and public rendering dependencies.
 
-The private state records completed attempts and can resume them. Interrupted
-attempts remain in its ledger, and a retry uses a fresh workspace. Experiment
-implementation, task suite, selected settings and frozen procedures are bound
-by hashes. Changes require a new experiment directory. Do not edit receipts,
-artifacts or task definitions to repair a score. Held-out feedback must not
-be used to revise a procedure in the same experiment.
+Completed attempts are retained on resume. Interrupted attempts remain in the
+ledger; retries use fresh workspaces. Implementation, suite, settings and frozen
+procedures are bound by hashes. Changes require a fresh experiment directory.
+Do not edit receipts, source files or artifacts to repair a score.
 
-## Read and report the evidence
+## Read the evidence
 
-Use `report.json` and `report.md` alongside the individual receipts. Compare
-independently passing delivered outputs, execution and delivery completion,
-source preservation, reviewer disagreements, first-review outcomes, review and
-tool calls, and elapsed time. Inspect the named failed content checks, rather
-than treating a continuous score as a universal quality scale.
+Use `report.json`, `report.md` and the individual receipts together. Report joint
+delivered successes and independent candidate-property passes separately, with
+paired held-out wins, losses and ties. Keep missing and failed attempts visible
+against their expected counts. In-progress means cover finished attempts only;
+make comparison claims only after the planned split is complete.
 
-Keep joint delivered quality success and completed-candidate source compliance separate. In
-particular, distinguish a reviewer-approved delivered artifact that fails a
-content check from a completed passing candidate blocked before delivery.
-The latter is evidence about a pipeline bottleneck; attribute it to the
-reviewer only when the rejection and candidate concern the same SHA-256.
-Earlier defects that were repaired are not defects in the final delivered
-file. A failed pair on both arms is a tie, never a success.
+Read named failed checks, visual findings, review/tool counts and elapsed time
+alongside the totals. A lower measured error without additional passing tasks
+does not mean more successful tasks. Earlier repaired defects are not defects
+in the final delivery, and two failed outputs form a paired tie. Attribute a
+blocked passing candidate to a reviewer rejection only when both concern the
+same SHA and the relevant evidence was actually available.
 
-Report paired outcomes by held-out task and repetition, with all missing and
-failed attempts in the denominator. Two repetitions help reveal instability
-but do not turn six task families into 12 independent task families. Use
-task-level agreement and regressions when judging whether an observed gain
-is credible; do not claim statistical certainty from this small suite.
-The mean score in an in-progress report covers finished attempts only. Read
-it alongside finished/expected counts and make improvement claims only after
-the planned comparison is complete.
+Two repetitions help expose instability but do not create new independent task
+families. Gains concentrated in one task or one repetition are directional
+evidence. Neither the property grader nor the visual model provides human
+aesthetic ground truth, and neither establishes general media quality, quality
+on real user artwork, audio quality, external-provider behavior or live Telegram
+delivery.
 
-A preliminary development-only construction audit exposed an incoherent blink
-formula: its exact output passed the source-contract check while the visual
-reviewer correctly reported detached intermediate contours. That run and one
-interrupted attempt are preserved in the excluded construction ledger. No
-candidate or held-out model run had occurred. The corrected curved-aperture
-reference was inspected on every intermediate frame before a new experiment.
-This is why source compliance is reported separately from joint visual success.
-
-The actual comparison results are pending. This guide describes the protocol
-and commands; it does not assert that the current procedure fails the new
-development set or that any challenger improves held-out quality. None of
-these commands promotes a procedure into production experience or changes
-Oak's live behavior.
+The main perceptual comparison results are pending. This guide records the
+protocol and earlier calibration honestly; it does not claim that a challenger
+improves quality or that current Oak fails the new development set.
