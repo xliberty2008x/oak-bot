@@ -137,3 +137,7 @@ silently repeated. Exactly-once external delivery is not promised.
 Read the [architecture](docs/design.md), [configuration](docs/configuration.md)
 and [validation record](docs/validation.md). Keep account credentials, browser
 profiles, private instructions, user data and generated artifacts out of commits.
+
+The opt-in [media procedure pilot](docs/media-harness-pilot.md) compares the
+current Oak guidance with two proposed procedures on six development tasks,
+then checks a frozen challenger on six held-out tasks using local synthetic media.
