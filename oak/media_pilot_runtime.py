@@ -159,6 +159,10 @@ class _PilotTools:
         self.thread_id = None
         self.turn_id = None
         self.reviews, self.cache, self.tool_counts, self.render_calls = [], {}, {}, []
+        # A cancelled asyncio.to_thread await does not stop its render process.
+        # Keep shielded workers until client shutdown, then join them before
+        # freezing any candidate bytes or closing file-transfer descriptors.
+        self.render_jobs = []
         self.artifact_path = self.artifact_sha256 = None
         self.violation = False
         self.lock = asyncio.Lock()
@@ -264,8 +268,11 @@ class _PilotTools:
                     if len(self.render_calls) >= 16:
                         return _native_result({'ok': False, 'error_code': 'pilot_render_budget_exhausted'})
                     from .media_pilot_render import render_python
-                    result = await asyncio.to_thread(render_python, self.workspace, args['code'],
-                                                     timeout=min(60, self.runtime.timeout))
+                    job = asyncio.create_task(asyncio.to_thread(
+                        render_python, self.workspace, args['code'],
+                        timeout=min(60, self.runtime.timeout)))
+                    self.render_jobs.append(job)
+                    result = await asyncio.shield(job)
                     self.render_calls.append({'ok': result.get('ok') is True,
                                               'error_code': result.get('error_code', result.get('error')),
                                               'code_sha256': _sha(str(args['code']).encode())})
@@ -341,6 +348,14 @@ class _PilotTools:
             return {'ok': False, 'queued_for_delivery': False, 'error_code': 'source_is_not_an_output'}
         if path.name != self.task.get('output_name', path.name):
             return {'ok': False, 'queued_for_delivery': False, 'error_code': 'requested_output_name_required'}
+        destination = self.snapshot(data, path)
+        self.artifact_path, self.artifact_sha256 = destination, sha
+        return {'ok': True, 'queued_for_delivery': True, 'local_only': True,
+                'sha256': sha, 'review_id': review['review_id']}
+
+    def snapshot(self, data, path):
+        """Freeze descriptor-read bytes outside the producer's filesystem."""
+        sha = _sha(data)
         destination = self.state / (sha + path.suffix.lower())
         if not destination.exists():
             with destination.open('xb') as output:
@@ -348,9 +363,25 @@ class _PilotTools:
             destination.chmod(0o400)
         if _sha(destination.read_bytes()) != sha:
             raise ValueError('Artifact sink integrity failed.')
-        self.artifact_path, self.artifact_sha256 = destination, sha
-        return {'ok': True, 'queued_for_delivery': True, 'local_only': True,
-                'sha256': sha, 'review_id': review['review_id']}
+        return destination
+
+    def capture_candidate(self):
+        """Retain the final requested output without implying review or delivery.
+
+        Called only after the native client and all render workers have stopped.
+        Sources are checked on both sides of the bounded descriptor read; a
+        missing, mutable, symlinked or oversized output supplies no candidate.
+        """
+        output_name = self.task.get('output_name')
+        if not isinstance(output_name, str):
+            return None
+        path = self.path(output_name)
+        if str(path) in self.source_hashes:
+            return None
+        self.check_sources()
+        data = self.read(path)
+        self.check_sources()
+        return self.snapshot(data, path), _sha(data)
 
     def experience(self, args):
         memory = self.controller.memory
@@ -384,6 +415,7 @@ class PilotRuntime:
     async def run(self, task, workspace, procedure=''):
         started = time.monotonic()
         result = {'status': 'failed', 'artifact_path': None, 'artifact_sha256': None,
+                  'candidate_path': None, 'candidate_sha256': None, 'candidate_complete': False,
                   'delivered': False, 'reviews': [], 'tool_calls': 0, 'tool_counts': {},
                   'elapsed_seconds': 0, 'model': MODEL, 'effort': self.effort,
                   'context_sha256': None, 'reviewer_policy_sha256': _sha(REVIEW_INSTRUCTIONS.encode()),
@@ -464,6 +496,25 @@ class PilotRuntime:
             result.update(status='failed', error_code='pilot_runtime_unavailable')
         finally:
             if tools is not None:
+                # RuntimeClient closes and cancels its callbacks before this
+                # block. Shielded render threads still own a bounded sandbox;
+                # join them so a timeout never snapshots a file being rendered.
+                await asyncio.gather(*tools.render_jobs, return_exceptions=True)
+                try:
+                    tools.check_sources()
+                    result['source_immutable'] = True
+                except (OSError, ValueError):
+                    result.update(source_immutable=False, delivered=False,
+                                  artifact_path=None, artifact_sha256=None)
+                if result['source_immutable'] and not tools.violation:
+                    try:
+                        candidate = tools.capture_candidate()
+                        if candidate is not None:
+                            path, sha = candidate
+                            result.update(candidate_path=str(path), candidate_sha256=sha,
+                                          candidate_complete=result['status'] in {'completed', 'unverified'})
+                    except (OSError, ValueError):
+                        pass
                 result.update(reviews=tools.reviews, tool_calls=sum(tools.tool_counts.values()),
                               tool_counts=tools.tool_counts, render_calls=tools.render_calls)
                 tools.files.close_all()

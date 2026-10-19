@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -129,6 +130,9 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot.read_bytes(), self.output.read_bytes())
         self.assertFalse(snapshot.is_relative_to(self.workspace))
         self.assertEqual(result['artifact_sha256'], hashlib.sha256(snapshot.read_bytes()).hexdigest())
+        self.assertEqual(result['candidate_path'], result['artifact_path'])
+        self.assertEqual(result['candidate_sha256'], result['artifact_sha256'])
+        self.assertTrue(result['candidate_complete'])
         self.assertEqual(len(factory.clients), 2)
         producer, reviewer = factory.clients
         self.assertTrue(producer.options['config']['features.code_mode_host'])
@@ -166,6 +170,57 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['status'], 'unverified')
         self.assertFalse(result['delivered'])
         self.assertIsNone(result['artifact_path'])
+        candidate = Path(result['candidate_path'])
+        self.assertEqual(candidate.read_bytes(), self.output.read_bytes())
+        self.assertEqual(result['candidate_sha256'], hashlib.sha256(candidate.read_bytes()).hexdigest())
+        self.assertFalse(candidate.is_relative_to(self.workspace))
+        self.assertEqual(candidate.stat().st_mode & 0o777, 0o400)
+        self.assertTrue(result['candidate_complete'])
+        self.output.write_bytes(b'changed after run')
+        self.assertEqual(candidate.read_bytes(), PNG_BYTES)
+
+    async def test_rejected_output_remains_available_without_independent_pass_or_delivery(self):
+        async def plan(client):
+            rejected = await client.tool('oak_review_artifact', path='result.png')
+            self.assertEqual(rejected['verdict'], 'revise')
+            client.events.put_nowait(completed())
+        result = await self.runtime(FakeFactory(plan, [review('revise')])).run(self.task, self.workspace)
+        self.assertEqual(result['status'], 'unverified')
+        self.assertFalse(result['delivered'])
+        self.assertIsNone(result['artifact_path'])
+        self.assertTrue(result['candidate_complete'])
+        self.assertEqual(Path(result['candidate_path']).read_bytes(), PNG_BYTES)
+
+    async def test_final_candidate_does_not_reuse_previously_delivered_bytes(self):
+        async def plan(client):
+            await self.passing_plan(client)
+            self.output.write_bytes(PNG_BYTES + b'unreviewed final candidate')
+        result = await self.runtime(FakeFactory(plan)).run(self.task, self.workspace)
+        self.assertTrue(result['delivered'])
+        self.assertEqual(Path(result['artifact_path']).read_bytes(), PNG_BYTES)
+        self.assertEqual(Path(result['candidate_path']).read_bytes(), self.output.read_bytes())
+        self.assertNotEqual(result['candidate_sha256'], result['artifact_sha256'])
+
+    async def test_missing_unsafe_or_oversized_requested_output_never_supplies_candidate(self):
+        async def plan(client):
+            client.events.put_nowait(completed())
+        for name in ('missing.png', 'linked.png', '../outside.png', 'source.png'):
+            with self.subTest(name=name):
+                if name == 'linked.png':
+                    (self.workspace / name).symlink_to(self.output)
+                task = {**self.task, 'output_name': name}
+                result = await self.runtime(FakeFactory(plan)).run(task, self.workspace)
+                self.assertIsNone(result['candidate_path'])
+                self.assertIsNone(result['candidate_sha256'])
+                self.assertFalse(result['candidate_complete'])
+                self.assertFalse(result['delivered'])
+        with patch('oak.media_pilot_runtime._MAX_ARTIFACT', len(PNG_BYTES) - 1):
+            # Avoid oversized source rejection so the output snapshot itself
+            # supplies the failure under test.
+            task = {**self.task, 'reference_paths': [], 'source_hashes': {}}
+            result = await self.runtime(FakeFactory(plan)).run(task, self.workspace)
+        self.assertIsNone(result['candidate_path'])
+        self.assertFalse(result['delivered'])
 
     async def test_repair_loop_reviews_new_bytes_and_does_not_reuse_old_pass(self):
         async def plan(client):
@@ -205,6 +260,8 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result['source_immutable'])
         self.assertFalse(result['delivered'])
         self.assertIsNone(result['artifact_path'])
+        self.assertIsNone(result['candidate_path'])
+        self.assertFalse(result['candidate_complete'])
 
     async def test_unknown_dynamic_tool_and_native_tool_use_are_denied(self):
         async def unknown(client):
@@ -227,6 +284,8 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         result = await self.runtime(FakeFactory(plan)).run(self.task, self.workspace)
         self.assertEqual(result['status'], 'failed')
         self.assertFalse(result['delivered'])
+        self.assertEqual(Path(result['candidate_path']).read_bytes(), PNG_BYTES)
+        self.assertFalse(result['candidate_complete'])
 
     async def test_timeout_is_bounded_does_not_retry_and_closes_client(self):
         factory = FakeFactory()
@@ -236,6 +295,41 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(factory.clients), 1)
         self.assertTrue(factory.clients[0].closed)
         self.assertIn('turn/interrupt', [m for m, _ in factory.clients[0].calls])
+        self.assertEqual(Path(result['candidate_path']).read_bytes(), PNG_BYTES)
+        self.assertFalse(result['candidate_complete'])
+        self.assertFalse(result['delivered'])
+
+    async def test_timeout_waits_for_render_worker_after_client_closes_before_snapshot(self):
+        closed = threading.Event()
+        finished = threading.Event()
+        original_exit = FakeClient.__aexit__
+
+        async def exit_client(client, *args):
+            await original_exit(client, *args)
+            closed.set()
+
+        def render(workspace, code, timeout):
+            self.output.write_bytes(PNG_BYTES + b'partial')
+            if not closed.wait(2):
+                raise AssertionError('Render cleanup started before native client shutdown.')
+            self.output.write_bytes(PNG_BYTES + b'finished after client closed')
+            finished.set()
+            return {'ok': True, 'stdout': '', 'stderr': ''}
+
+        async def plan(client):
+            await client.tool('oak_pilot_render', code='render synthetic output')
+            client.events.put_nowait(completed())
+
+        factory = FakeFactory(plan)
+        with patch.object(FakeClient, '__aexit__', exit_client), patch.dict(
+                'sys.modules', {'oak.media_pilot_render': SimpleNamespace(render_python=render)}):
+            result = await self.runtime(factory, timeout=.02).run(self.task, self.workspace)
+        self.assertTrue(finished.is_set())
+        self.assertEqual(result['status'], 'timeout')
+        self.assertFalse(result['candidate_complete'])
+        self.assertFalse(result['delivered'])
+        self.assertEqual(Path(result['candidate_path']).read_bytes(), PNG_BYTES + b'finished after client closed')
+        self.assertEqual(result['candidate_sha256'], hashlib.sha256(self.output.read_bytes()).hexdigest())
 
     async def test_account_diagnostics_and_ambiguous_mcp_never_escape(self):
         for account_error in (True, False):
@@ -364,7 +458,7 @@ class PilotCodecFactsTests(unittest.IsolatedAsyncioTestCase):
             path = workspace / 'candidate.data'
             subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
                 '-i', 'testsrc2=size=96x64:rate=6:duration=1', '-an', '-c:v', 'libx264',
-                '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-f', 'mp4', str(path)],
+                '-threads', '1', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-f', 'mp4', str(path)],
                 check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 timeout=20, env=codec_environment())
             tools = _PilotTools(SimpleNamespace(), {'brief': 'Inspect this actual video.'},
