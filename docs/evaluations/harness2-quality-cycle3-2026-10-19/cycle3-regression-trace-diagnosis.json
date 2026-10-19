@@ -1,0 +1,1871 @@
+{
+  "schema": "oak-cycle3-regression-trace-diagnosis-v1",
+  "recorded_at": "2026-10-19T21:18:37.694258+00:00",
+  "visibility": "public_fixture",
+  "scope": {
+    "project": "harness2-demo",
+    "chat_id": 1,
+    "domain": "media-depth"
+  },
+  "cycle_id": "17268cd68f3c3ab4c0700286095bc22f8aea549696428bf35b25eed15e302c31",
+  "status": "read_only_diagnosis_of_completed_regression_subset_while_fresh_holdouts_run",
+  "constraints": {
+    "sealed_core_edited": false,
+    "optimizer_inputs_changed": false,
+    "findings_fed_to_optimizer": false,
+    "new_native_or_model_calls": 0,
+    "new_ffmpeg_or_codec_calls": 0,
+    "new_grader_calls": 0,
+    "new_heldout_examples_opened": 0,
+    "media_read_only_operations": "Existing small PNG masks/source scenes sampled with Pillow; delivered MP4 bytes hashed without decoding."
+  },
+  "candidate": {
+    "version_id": "1430b6e94f036bec9d435b66b043a3446dd03ccab37fa431b065d458149c4481",
+    "procedure_sha256": "01b61391dace305843fa57547b4322ed77bac5dae99c26c772dcd00b52e40c2e",
+    "freeze": {
+      "path_relative_to_cycle": "freeze.json",
+      "sha256": "b57d71a451b4f22cecbcf350b84d216c69b2118b2d9d10f8b5362598071ca5da"
+    },
+    "candidate_instruction_lines": [
+      {
+        "line": 1,
+        "text": "# Source-preserving compositing"
+      },
+      {
+        "line": 2,
+        "text": ""
+      },
+      {
+        "line": 3,
+        "text": "For foreground layers recovered from flattened artwork, derive coverage from guide-identified stems and attached object contours, not shared pigments or guide rectangles. Solid interiors occlude; genuine negative spaces remain transparent; internal veins are not holes. Preserve original boundary pixels and restore source scene pixels only within verified foreground coverage. Closing and flood-fill can bridge real gaps: verify their result against local contours rather than assuming connected regions are foreground."
+      },
+      {
+        "line": 4,
+        "text": ""
+      },
+      {
+        "line": 5,
+        "text": "Before batch rendering, test a difficult crossing using aligned source, transformed unoccluded sprite and composite crops, with a thin mask-boundary overlay. Check neighboring frames and both sides of the boundary: original detail must remain visible through genuine gaps and disappear within solid occluders, respecting the requested layer order. These are internal diagnostics, not added deliverables. A filled mask preview or favorable sampled review alone is insufficient."
+      },
+      {
+        "line": 6,
+        "text": ""
+      },
+      {
+        "line": 7,
+        "text": "Reserve work for export and delivery. If detail is already missing in a raw frame, repair compositing first; regenerate affected frames, reopen the actual export, verify the repaired crossing and requested dimensions/timing, then deliver that checked file."
+      }
+    ]
+  },
+  "criteria": {
+    "aggregation": "Across all applicable frames, p95 MAE must be <= budget and worst <= 1.5*budget, after fixed deadband and disclosed spatial allowance.",
+    "moving_actor_mae_budget": 10,
+    "foreground_veil_mae_budget": 6,
+    "geometry_tolerance_px": 2,
+    "channel_noise_deadband": 2,
+    "crossing_support": "Visible eroded support of the upper layer intersected with a lower moving actor; checks actual overlap rather than a broad ROI.",
+    "source_references": [
+      {
+        "repository_path": "oak/media_pilot_perceptual_quality.py",
+        "sha256": "93121468f1fb788936a259315df48a2790802e5b6bdb571bc00bacc67b9b5924",
+        "line_start": 89,
+        "line_end": 120,
+        "meaning": "Supported MAE and p95/worst aggregation."
+      },
+      {
+        "repository_path": "oak/media_pilot_complex_quality.py",
+        "sha256": "5b2fc3ea1689d704a1d2883b922cab776f2525e15bdda7573ccfa8a9220c9467",
+        "line_start": 263,
+        "line_end": 315,
+        "meaning": "Visible pattern support, crossing support and emitted checks."
+      },
+      {
+        "repository_path": "oak/media_pilot_complex_tasks.py",
+        "sha256": "911e59d7e65121d450fdec7399d7d12df0c9a6b85d131ca00e8720e90c88039f",
+        "line_start": 43,
+        "line_end": 54,
+        "meaning": "Public fixed tolerances."
+      },
+      {
+        "repository_path": "oak/media_pilot_complex_tasks.py",
+        "sha256": "911e59d7e65121d450fdec7399d7d12df0c9a6b85d131ca00e8720e90c88039f",
+        "line_start": 300,
+        "line_end": 325,
+        "meaning": "Shared mural pigments and true solid stem/leaf construction."
+      }
+    ]
+  },
+  "cases": [
+    {
+      "task_id": "media-3074f8eddcea292782f1",
+      "split": "regression",
+      "paired_sources_identical": true,
+      "arms": {
+        "baseline": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-3074f8eddcea292782f1-baseline.json",
+            "sha256": "778320eda9a70734d0079fcb36222692b0707c093e6c87b911ccc33112139ccf"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/receipt.json",
+            "sha256": "73ed6fe48758c7f0b8a157c908b838222f50518527c4039ae698439313b914b7"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/trace.json",
+            "sha256": "e6d87a1e1d078b446ccdc822756d0b8bc1c5c460c7623632889db5529c1eccd9"
+          },
+          "artifact_sha256": "06344606f731b8aa8fd7a394fbd8680d305b3733e237877c2556fba0252c76cc",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "f159cee3162cfdc24564082973cc17d13302ee2112026e3ead92c3bc672963ed",
+          "procedure_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": true,
+          "visual_passed": true,
+          "mechanical_passed": true,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 92.259,
+          "tool_calls": 19,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Review is based on supplied sampled frames and detail crops, not uninterrupted playback or inspection of every frame."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.817, worst 1.906; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.136, worst 0.161; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.593, worst 0.662; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.310, worst 1.558; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.871, worst 0.887; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.133, worst 0.136; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.521, worst 0.649; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.051, worst 0.061; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.137, worst 0.180; allowed 7 and 10.5."
+            }
+          ]
+        },
+        "candidate": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-3074f8eddcea292782f1-candidate.json",
+            "sha256": "4882db6d4d2b9f6025fc3afb06c005ec7f91557e557c94d41e1571e65ee8b900"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/receipt.json",
+            "sha256": "b6b7690d13c5458a86f73ad297e6bd933e770fc98a2cde263ea34246527564fa"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/trace.json",
+            "sha256": "91e797b71b4aa83d6055fac0d857a0610c6bb99622663c2afac5bb7254f19f4d"
+          },
+          "artifact_sha256": "6ea3bd449e6175a80731ec2dc404871f6d1e0f1f09ce280b84940db2d7a86d06",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "f159cee3162cfdc24564082973cc17d13302ee2112026e3ead92c3bc672963ed",
+          "procedure_sha256": "01b61391dace305843fa57547b4322ed77bac5dae99c26c772dcd00b52e40c2e",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": false,
+          "visual_passed": true,
+          "mechanical_passed": false,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 81.45,
+          "tool_calls": 20,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Review is based on supplied timestamped frames and detail crops, not playback of every frame."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "fail",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 21.031, worst 21.301; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.090, worst 0.123; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.466, worst 0.493; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "fail",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 17.367, worst 31.370; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.699, worst 0.705; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.092, worst 0.106; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.404, worst 0.537; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.039, worst 0.047; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.111, worst 0.136; allowed 7 and 10.5."
+            }
+          ]
+        }
+      },
+      "saved_final_mask_samples": [
+        {
+          "veil": "I",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/attempt-1/workspace/maskI.png",
+              "sha256": "f50e22289ef57e40d7c1e0807c828045d801b66791a7be9142da9fc5326d7170",
+              "dimensions": [
+                840,
+                568
+              ],
+              "nonzero_pixels": 17485,
+              "nonzero_bbox_exclusive": [
+                246,
+                103,
+                366,
+                492
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/attempt-1/workspace/maskI.png",
+              "sha256": "2d9414647e56f31135f31eef1f1b9795063c88af04584be2275695a8cb185034",
+              "dimensions": [
+                840,
+                568
+              ],
+              "nonzero_pixels": 18400,
+              "nonzero_bbox_exclusive": [
+                246,
+                103,
+                366,
+                491
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 2700,
+            "baseline_only_nonzero_pixels_vs_candidate": 1785
+          }
+        },
+        {
+          "veil": "II",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/attempt-1/workspace/maskII.png",
+              "sha256": "9b09f119f7a93ab0b6c34205f1e2f4b840389a0329669c97ef22a84e941a0fd6",
+              "dimensions": [
+                840,
+                568
+              ],
+              "nonzero_pixels": 18105,
+              "nonzero_bbox_exclusive": [
+                490,
+                103,
+                611,
+                492
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/attempt-1/workspace/maskII.png",
+              "sha256": "8ea24171cc5c6de15fe7df8b56cbde38f18c536ce82abfec4f9da163901fd9ed",
+              "dimensions": [
+                840,
+                568
+              ],
+              "nonzero_pixels": 18400,
+              "nonzero_bbox_exclusive": [
+                490,
+                103,
+                610,
+                491
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 2621,
+            "baseline_only_nonzero_pixels_vs_candidate": 2326
+          }
+        }
+      ],
+      "targeted_mask_source_sample": {
+        "xy": [
+          330,
+          230
+        ],
+        "baseline_mask_value": 0,
+        "candidate_mask_value": 255,
+        "source_scene": {
+          "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/attempt-1/workspace/inputs/scene.png",
+          "sha256": "ea50781b59af55953328c044f92be1fb8e132c86cd2289e4c9035ef945b877b6"
+        },
+        "source_rgb": [
+          120,
+          148,
+          153
+        ]
+      },
+      "likely_mechanism": {
+        "classification": "excess restoration across genuine gaps plus incomplete stem fill",
+        "inference": "The candidate uses broad cream-contour thresholding followed by MaxFilter(3), flood fill and MinFilter(3). The saved mask covers background pixel (330,230), which is unmasked by the passed baseline; its source color is the blue mural field. Both arms paste the same supplied actors at the same indexed motion. Extra restoration across negative spaces is strongly consistent with the observed loss of visible actor patterns. The saved candidate also omits some stem interiors; this is not a pure uniform expansion.",
+        "boundary": "This identifies a saved mask defect and code path consistent with the recorded loss. It does not apportion the delivered MP4 MAE to individual pixels or prove that this one sample caused the full loss."
+      },
+      "final_mask_use": {
+        "candidate_virtual_paths": [
+          "/workspace/maskI.png",
+          "/workspace/maskII.png"
+        ],
+        "candidate_last_recorded_mask_write_tool_index": 13,
+        "candidate_final_render_read_tool_index": 15,
+        "baseline_last_recorded_mask_write_and_final_render_tool_index": 14,
+        "no_later_mask_mutating_render_recorded": true,
+        "binding_limit": "Current mask-file SHAs are observations after completion, not separate native read-time commitments. The code and matching render-call hashes establish that final render reads these same paths after their last recorded writes."
+      },
+      "code_references": [
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/trace.json",
+            "sha256": "91e797b71b4aa83d6055fac0d857a0610c6bb99622663c2afac5bb7254f19f4d"
+          },
+          "zero_based_tool_index": 11,
+          "code_sha256": "e1fb8af276e90b62df25c1ea472099404eb45d5169376f1cab1bec6d9fdb43cb",
+          "line_start": 4,
+          "line_end": 23,
+          "meaning": "Contour threshold and initial outside flood; opaque filled previews.",
+          "source_lines": [
+            {
+              "line": 4,
+              "text": "# Recover opaque stencil coverage by the continuous cream outlines, including their enclosed interiors."
+            },
+            {
+              "line": 5,
+              "text": "for name,x0,x1 in [('I',240,371),('II',484,615)]:"
+            },
+            {
+              "line": 6,
+              "text": " w,h=x1-x0,394"
+            },
+            {
+              "line": 7,
+              "text": " p=im.load(); blocked=set()"
+            },
+            {
+              "line": 8,
+              "text": " for y in range(100,494):"
+            },
+            {
+              "line": 9,
+              "text": "  for x in range(x0,x1):"
+            },
+            {
+              "line": 10,
+              "text": "   r,g,b=p[x,y]"
+            },
+            {
+              "line": 11,
+              "text": "   if r>190 and g>175 and 130<b<185 and r-g>10: blocked.add((x-x0,y-100))"
+            },
+            {
+              "line": 12,
+              "text": " # Flood outside the outlined stencil, leaving enclosed opaque interiors."
+            },
+            {
+              "line": 13,
+              "text": " outside=set();q=deque([(0,0)])"
+            },
+            {
+              "line": 14,
+              "text": " while q:"
+            },
+            {
+              "line": 15,
+              "text": "  x,y=q.popleft()"
+            },
+            {
+              "line": 16,
+              "text": "  if not(0<=x<w and 0<=y<h) or (x,y) in outside or (x,y) in blocked:continue"
+            },
+            {
+              "line": 17,
+              "text": "  outside.add((x,y));q.extend([(x-1,y),(x+1,y),(x,y-1),(x,y+1)])"
+            },
+            {
+              "line": 18,
+              "text": " mask=Image.new('L',im.size);mp=mask.load()"
+            },
+            {
+              "line": 19,
+              "text": " for y in range(h):"
+            },
+            {
+              "line": 20,
+              "text": "  for x in range(w):"
+            },
+            {
+              "line": 21,
+              "text": "   if (x,y) not in outside:mp[x+x0,y+100]=255"
+            },
+            {
+              "line": 22,
+              "text": " mask.save('/workspace/mask'+name+'.png')"
+            },
+            {
+              "line": 23,
+              "text": " preview=im.copy();preview.paste((255,50,130),(0,0),mask);preview.save('/workspace/mask-preview'+name+'.png')"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/trace.json",
+            "sha256": "91e797b71b4aa83d6055fac0d857a0610c6bb99622663c2afac5bb7254f19f4d"
+          },
+          "zero_based_tool_index": 13,
+          "code_sha256": "a6f83cc1f907f6e0dcfcac758012b12dcdb025548fd832b872ee952ec7718e95",
+          "line_start": 3,
+          "line_end": 8,
+          "meaning": "Last mask mutation before final render.",
+          "source_lines": [
+            {
+              "line": 3,
+              "text": "for name in ['I','II']:"
+            },
+            {
+              "line": 4,
+              "text": " m=Image.open('/workspace/mask'+name+'.png').filter(ImageFilter.MaxFilter(3))"
+            },
+            {
+              "line": 5,
+              "text": " ImageDraw.floodfill(m,(0,0),128)"
+            },
+            {
+              "line": 6,
+              "text": " m=m.point(lambda p:0 if p==128 else 255).filter(ImageFilter.MinFilter(3))"
+            },
+            {
+              "line": 7,
+              "text": " m.save('/workspace/mask'+name+'.png')"
+            },
+            {
+              "line": 8,
+              "text": " preview=im.copy();preview.paste((255,50,130),(0,0),m);preview.save('/workspace/mask-preview'+name+'.png')"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/a4473394769df6ba85f6b462aaf7185b74e1668ddaeb079727b677445122cb5a/trace.json",
+            "sha256": "91e797b71b4aa83d6055fac0d857a0610c6bb99622663c2afac5bb7254f19f4d"
+          },
+          "zero_based_tool_index": 15,
+          "code_sha256": "00255827d7c366695eda3220d2840eacb4909d2f75659971a33fba58ca99a32e",
+          "line_start": 3,
+          "line_end": 12,
+          "meaning": "Final render reads those mask paths and restores source over actors.",
+          "source_lines": [
+            {
+              "line": 3,
+              "text": "s=json.load(open('/workspace/inputs/scene.json'));bg=Image.open('/workspace/inputs/scene.png').convert('RGB'); masks=[Image.open('/workspace/mask'+n+'.png') for n in ['I','II']]"
+            },
+            {
+              "line": 4,
+              "text": "a=[Image.open('/workspace/inputs/actor-'+n+'.png').convert('RGBA') for n in ['far','near']]"
+            },
+            {
+              "line": 5,
+              "text": "os.makedirs('/workspace/frames',exist_ok=True)"
+            },
+            {
+              "line": 6,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 7,
+              "text": " u=n/35;f=bg.copy()"
+            },
+            {
+              "line": 8,
+              "text": " for i,key in enumerate(['actor_far','actor_near']):"
+            },
+            {
+              "line": 9,
+              "text": "  t=s['motion'][key];x=round(t['start'][0]+(t['end'][0]-t['start'][0])*u);y=round(t['start'][1]+t['bob']*math.sin(2*math.pi*u))"
+            },
+            {
+              "line": 10,
+              "text": "  f.paste(a[i],(x,y),a[i]);f.paste(bg,(0,0),masks[i])"
+            },
+            {
+              "line": 11,
+              "text": " f.save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 12,
+              "text": "subprocess.run(['ffmpeg','-y','-framerate','12','-i','/workspace/frames/%02d.png','-c:v','libx264','-crf','15','-pix_fmt','yuv420p','-an','-frames:v','36','/workspace/final.mp4'],capture_output=True,check=True)"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/trace.json",
+            "sha256": "e6d87a1e1d078b446ccdc822756d0b8bc1c5c460c7623632889db5529c1eccd9"
+          },
+          "zero_based_tool_index": 14,
+          "code_sha256": "2c7327079b817f38392af66791f7df784adc8712bdbd4c2c872ec453496066fc",
+          "line_start": 4,
+          "line_end": 15,
+          "meaning": "Passed baseline uses explicit stem and leaf interiors plus exact outline pixels.",
+          "source_lines": [
+            {
+              "line": 4,
+              "text": "for name,dx in [('I',0),('II',245)]:"
+            },
+            {
+              "line": 5,
+              "text": " m=Image.new('L',im.size);d=ImageDraw.Draw(m)"
+            },
+            {
+              "line": 6,
+              "text": " d.polygon([(307+dx,106),(319+dx,106),(299+dx,491),(287+dx,491)],fill=255)"
+            },
+            {
+              "line": 7,
+              "text": " for i in range(6):"
+            },
+            {
+              "line": 8,
+              "text": "  y=39*i"
+            },
+            {
+              "line": 9,
+              "text": "  d.polygon([(246+dx,106+y),(271+dx,149+y),(310+dx,134+y)],fill=255)"
+            },
+            {
+              "line": 10,
+              "text": "  d.polygon([(365+dx,104+y),(341+dx,153+y),(310+dx,134+y)],fill=255)"
+            },
+            {
+              "line": 11,
+              "text": " # preserve exact outlined perimeter"
+            },
+            {
+              "line": 12,
+              "text": " for y in range(100,494):"
+            },
+            {
+              "line": 13,
+              "text": "  for x in range(240+dx,371+dx):"
+            },
+            {
+              "line": 14,
+              "text": "   if im.getpixel((x,y))==(219,199,155):m.putpixel((x,y),255)"
+            },
+            {
+              "line": 15,
+              "text": " m.save('/workspace/mask'+name+'.png')"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/5ba729e3ba2cb034e3e7b95dad66517158ff9732275869fda5054cf1616fc29f/trace.json",
+            "sha256": "e6d87a1e1d078b446ccdc822756d0b8bc1c5c460c7623632889db5529c1eccd9"
+          },
+          "zero_based_tool_index": 14,
+          "code_sha256": "2c7327079b817f38392af66791f7df784adc8712bdbd4c2c872ec453496066fc",
+          "line_start": 18,
+          "line_end": 23,
+          "meaning": "Passed baseline same source sprites, motion, layer restoration and H264 export.",
+          "source_lines": [
+            {
+              "line": 18,
+              "text": "a=Image.open('/workspace/inputs/actor-far.png').convert('RGBA');b=Image.open('/workspace/inputs/actor-near.png').convert('RGBA')"
+            },
+            {
+              "line": 19,
+              "text": "print(a.size,b.size)"
+            },
+            {
+              "line": 20,
+              "text": "m1=Image.open('/workspace/maskI.png');m2=Image.open('/workspace/maskII.png')"
+            },
+            {
+              "line": 21,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 22,
+              "text": " u=n/35;f=im.copy();f.paste(a,(round(40+648*u),round(226+13*math.sin(2*math.pi*u))),a);f.paste(im,(0,0),m1);f.paste(b,(round(688-648*u),round(242-11*math.sin(2*math.pi*u))),b);f.paste(im,(0,0),m2);f.save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 23,
+              "text": "subprocess.run(['ffmpeg','-y','-framerate','12','-i','/workspace/frames/%02d.png','-c:v','libx264','-crf','16','-pix_fmt','yuv420p','-an','/workspace/final.mp4'],capture_output=True,check=True)"
+            }
+          ]
+        }
+      ],
+      "diagnostic_compliance": {
+        "recorded": "Filled mask preview inspected before and after morphology; an unannotated three-frame composite strip was inspected. One sampled independent visual review passed.",
+        "missing_from_recorded_tools": "No aligned source/unoccluded-sprite/composite comparison with a thin mask-boundary overlay appears in the recorded render/inspect calls. The full requested candidate diagnostic was not demonstrated."
+      }
+    },
+    {
+      "task_id": "media-201befa8a5e4ea2ce23e",
+      "split": "regression",
+      "paired_sources_identical": true,
+      "arms": {
+        "baseline": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-201befa8a5e4ea2ce23e-baseline.json",
+            "sha256": "1af8cf4fbaa831bd1cac80fd3e83be1b4f516d7ec2561728b5cfca1920edb828"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/receipt.json",
+            "sha256": "84e403c3eba83527eb6282c76cf7aba78f4a9d440411d77fa705ee63c0761980"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/trace.json",
+            "sha256": "b439f43bc11ed0b7b2d130e10c0d8f529de441b86d3c3888b829f43c93726362"
+          },
+          "artifact_sha256": "b50069519e5b29c4a333a9b00a9cfb6ab2b482320520b168e6b3b9d1113708ca",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "e0b8bf01d9f8e4ee198cdbb105aba75bb1e9f7f633f39c505ababaf2cf43b26f",
+          "procedure_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": true,
+          "visual_passed": true,
+          "mechanical_passed": true,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 66.668,
+          "tool_calls": 16,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Review is limited to the supplied sampled frames and detail crops; every intervening frame was not visually inspected."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.642, worst 1.780; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.101, worst 0.108; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.362, worst 0.390; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.318, worst 1.349; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 1.120, worst 1.146; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.122, worst 0.126; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.754, worst 0.909; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.052, worst 0.061; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.143, worst 0.232; allowed 7 and 10.5."
+            }
+          ]
+        },
+        "candidate": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-201befa8a5e4ea2ce23e-candidate.json",
+            "sha256": "b5ff1e4e6c9d13b93f435b5c10b9b96826b4eaf364b2eb7a556a61c98c1f6588"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/receipt.json",
+            "sha256": "9dd4de707879d08ee300c427e71aae2fd74db99dd7535fce92101f7d483859f8"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/trace.json",
+            "sha256": "89e77001abf986f72d4c512e86f9ab1c0e7828d9a39de9c8b7906df24a004a4b"
+          },
+          "artifact_sha256": "0e8f0653ff39cf5a04391674c4ff839f720a3c616fbefcd2d967d91baecf69e2",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "e0b8bf01d9f8e4ee198cdbb105aba75bb1e9f7f633f39c505ababaf2cf43b26f",
+          "procedure_sha256": "01b61391dace305843fa57547b4322ed77bac5dae99c26c772dcd00b52e40c2e",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": false,
+          "visual_passed": true,
+          "mechanical_passed": false,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 87.433,
+          "tool_calls": 20,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Review is based on supplied timestamped frames and detail crops, not uninterrupted playback or inspection of every frame."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.655, worst 1.784; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 2.870, worst 3.395; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "fail",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 17.266, worst 17.419; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.348, worst 1.472; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 1.034, worst 1.053; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 3.480, worst 4.010; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "fail",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 20.791, worst 30.788; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.051, worst 0.061; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.139, worst 0.221; allowed 7 and 10.5."
+            }
+          ]
+        }
+      },
+      "saved_final_mask_samples": [
+        {
+          "veil": "I",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/attempt-1/workspace/veil1.png",
+              "sha256": "bdd0aadd4b934cfb2fe25679ebb2636e2fa0ca0cf59f8d4337dca0717bd79685",
+              "dimensions": [
+                800,
+                544
+              ],
+              "nonzero_pixels": 17071,
+              "nonzero_bbox_exclusive": [
+                232,
+                103,
+                352,
+                468
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/attempt-1/workspace/mask-I.png",
+              "sha256": "d5c837620aed20247def64e11c3b957273865f0e97361a7a775e0601418a9a5e",
+              "dimensions": [
+                800,
+                544
+              ],
+              "nonzero_pixels": 15562,
+              "nonzero_bbox_exclusive": [
+                232,
+                103,
+                352,
+                467
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 310,
+            "baseline_only_nonzero_pixels_vs_candidate": 1819
+          }
+        },
+        {
+          "veil": "II",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/attempt-1/workspace/veil2.png",
+              "sha256": "37c3b17d31bfe795e4b1f9268c5eea8c5630ebddd6a42081c71c72b439baf832",
+              "dimensions": [
+                800,
+                544
+              ],
+              "nonzero_pixels": 17071,
+              "nonzero_bbox_exclusive": [
+                464,
+                103,
+                584,
+                468
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/attempt-1/workspace/mask-II.png",
+              "sha256": "6736791fe1b6aceb7152286d620bf2a5422b221810eb16c8b2e017be7f01fc91",
+              "dimensions": [
+                800,
+                544
+              ],
+              "nonzero_pixels": 15562,
+              "nonzero_bbox_exclusive": [
+                464,
+                103,
+                584,
+                467
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 310,
+            "baseline_only_nonzero_pixels_vs_candidate": 1819
+          }
+        }
+      ],
+      "targeted_mask_source_sample": {
+        "xy": [
+          292,
+          230
+        ],
+        "baseline_mask_value": 255,
+        "candidate_mask_value": 0,
+        "source_scene": {
+          "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/attempt-1/workspace/inputs/scene.png",
+          "sha256": "93c69c4e8923bcfe98ae8f5faa6aef5eb95912e5476c55aba9c2b1ddb7f07f4a"
+        },
+        "source_rgb": [
+          71,
+          100,
+          91
+        ]
+      },
+      "likely_mechanism": {
+        "classification": "incomplete occluder interiors rather than pigment or actor replacement",
+        "inference": "The candidate flood-fills cream outline pixels after sealing stem endpoints, then adds approximate leaf polygons. The saved mask leaves the inside of the actual source stem transparent at (292,230), while the passed baseline fills it. Candidate mask rows around y220–320 frequently retain only two outline strips across the stem. Both source-actor checks still pass, while rear and front veil crossing checks fail. This is consistent with actors showing through solid occluder interiors.",
+        "boundary": "The stored-mask holes and narrower manual leaf vertices are observed. Their separate contributions to the delivered MP4 error are not measured. The NumPy import failure was recovered using Pillow and is not shown to be the quality cause."
+      },
+      "final_mask_use": {
+        "candidate_virtual_paths": [
+          "/workspace/mask-I.png",
+          "/workspace/mask-II.png"
+        ],
+        "candidate_last_recorded_mask_write_tool_index": 14,
+        "candidate_final_render_read_tool_index": 15,
+        "baseline_last_recorded_mask_write_and_final_render_tool_index": 11,
+        "no_later_mask_mutating_render_recorded": true,
+        "binding_limit": "Current mask-file SHAs are observations after completion, not separate native read-time commitments. The matching trace/render hashes and final reader paths establish which saved mask names the final export uses."
+      },
+      "code_references": [
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/trace.json",
+            "sha256": "89e77001abf986f72d4c512e86f9ab1c0e7828d9a39de9c8b7906df24a004a4b"
+          },
+          "zero_based_tool_index": 12,
+          "code_sha256": "735a272ae33bdcd18bb2dcae657a7b43d9305c7d59ef5488d1b517a5d13b67ca",
+          "line_start": 4,
+          "line_end": 15,
+          "meaning": "Endpoint caps, outline flood fill, initial mask files and initial filled preview.",
+          "source_lines": [
+            {
+              "line": 4,
+              "text": "def veil(x0,x1,stemtop,stembottom):"
+            },
+            {
+              "line": 5,
+              "text": " m=Image.new('L',base.size); p=m.load(); b=base.load()"
+            },
+            {
+              "line": 6,
+              "text": " for y in range(100,469):"
+            },
+            {
+              "line": 7,
+              "text": "  for x in range(x0,x1):"
+            },
+            {
+              "line": 8,
+              "text": "   if b[x,y]==(219,199,155): p[x,y]=255"
+            },
+            {
+              "line": 9,
+              "text": " d=ImageDraw.Draw(m);d.line((stemtop[0],106,stemtop[1],106),fill=255);d.line((stembottom[0],466,stembottom[1],466),fill=255)"
+            },
+            {
+              "line": 10,
+              "text": " f=m.copy();ImageDraw.floodfill(f,(0,0),128)"
+            },
+            {
+              "line": 11,
+              "text": " f=f.point(lambda v:0 if v==128 else 255)"
+            },
+            {
+              "line": 12,
+              "text": " return f"
+            },
+            {
+              "line": 13,
+              "text": "m1=veil(230,354,(293,305),(273,285));m2=veil(462,586,(525,537),(505,517))"
+            },
+            {
+              "line": 14,
+              "text": "m1.save('/workspace/mask-I.png');m2.save('/workspace/mask-II.png')"
+            },
+            {
+              "line": 15,
+              "text": "preview=base.copy(); preview.paste((255,0,128),(0,0,800,544),ImageChops.lighter(m1,m2));preview.save('/workspace/masks.png')"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/trace.json",
+            "sha256": "89e77001abf986f72d4c512e86f9ab1c0e7828d9a39de9c8b7906df24a004a4b"
+          },
+          "zero_based_tool_index": 14,
+          "code_sha256": "9b97d961f81783cd1624be2e686af1a93a286e04c4b2b67a36faf7b88f9bd1a2",
+          "line_start": 2,
+          "line_end": 8,
+          "meaning": "Last leaf polygon edits mutate the same masks used by final render.",
+          "source_lines": [
+            {
+              "line": 2,
+              "text": "for name,dx in [('I',0),('II',232)]:"
+            },
+            {
+              "line": 3,
+              "text": " m=Image.open('/workspace/mask-'+name+'.png');d=ImageDraw.Draw(m)"
+            },
+            {
+              "line": 4,
+              "text": " for k in range(6):"
+            },
+            {
+              "line": 5,
+              "text": "  dy=39*k"
+            },
+            {
+              "line": 6,
+              "text": "  d.polygon([(234+dx,108+dy),(257+dx,148+dy),(296+dx,134+dy)],fill=255)"
+            },
+            {
+              "line": 7,
+              "text": "  d.polygon([(350+dx,104+dy),(326+dx,152+dy),(297+dx,134+dy)],fill=255)"
+            },
+            {
+              "line": 8,
+              "text": " m.save('/workspace/mask-'+name+'.png')"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/27cd1c43491e05544f61acdd476b59616b09c445132557035cd7a0af9b8f7384/trace.json",
+            "sha256": "89e77001abf986f72d4c512e86f9ab1c0e7828d9a39de9c8b7906df24a004a4b"
+          },
+          "zero_based_tool_index": 15,
+          "code_sha256": "0562799dc22d1da8b51231154d702e6045bfa175807c23d896d745abbfd53b75",
+          "line_start": 3,
+          "line_end": 10,
+          "meaning": "Final renderer reads post-edit mask-I/mask-II and restores scene after actors.",
+          "source_lines": [
+            {
+              "line": 3,
+              "text": "base=Image.open('/workspace/inputs/scene.png').convert('RGBA');m1=Image.open('/workspace/mask-I.png');m2=Image.open('/workspace/mask-II.png')"
+            },
+            {
+              "line": 4,
+              "text": "actors=[Image.open('/workspace/inputs/actor-'+s+'.png').convert('RGBA') for s in ['far','near']]"
+            },
+            {
+              "line": 5,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 6,
+              "text": " u=n/35;out=base.copy()"
+            },
+            {
+              "line": 7,
+              "text": " for i,(start,end,y,bob,mask) in enumerate([(40,648,214,13,m1),(648,40,230,-11,m2)]):"
+            },
+            {
+              "line": 8,
+              "text": "  out.alpha_composite(actors[i],(round(start+(end-start)*u),round(y+bob*math.sin(2*math.pi*u))));out.paste(base,(0,0),mask)"
+            },
+            {
+              "line": 9,
+              "text": " out.convert('RGB').save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 10,
+              "text": "subprocess.run(['ffmpeg','-y','-v','error','-framerate','12','-i','/workspace/frames/%02d.png','-c:v','libx264','-crf','16','-pix_fmt','yuv420p','-an','-movflags','+faststart','/workspace/final.mp4'],check=True)"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/trace.json",
+            "sha256": "b439f43bc11ed0b7b2d130e10c0d8f529de441b86d3c3888b829f43c93726362"
+          },
+          "zero_based_tool_index": 11,
+          "code_sha256": "aacceb87ed0826bfcf44769c98dcf3ad81f55991fc5ed51320fc0a2bf43385da",
+          "line_start": 5,
+          "line_end": 13,
+          "meaning": "Passed baseline fills an explicit solid stem and leaf interiors.",
+          "source_lines": [
+            {
+              "line": 5,
+              "text": "for dx in [0,232]:"
+            },
+            {
+              "line": 6,
+              "text": " m=Image.new('L',base.size);d=ImageDraw.Draw(m)"
+            },
+            {
+              "line": 7,
+              "text": " d.polygon([(293+dx,106),(305+dx,106),(285+dx,467),(273+dx,467)],fill=255)"
+            },
+            {
+              "line": 8,
+              "text": " for k in range(6):"
+            },
+            {
+              "line": 9,
+              "text": "  dy=39*k"
+            },
+            {
+              "line": 10,
+              "text": "  d.polygon([(232+dx,106+dy),(257+dx,149+dy),(301+dx,134+dy)],fill=255)"
+            },
+            {
+              "line": 11,
+              "text": "  d.polygon([(300+dx,134+dy),(351+dx,103+dy),(327+dx,154+dy)],fill=255)"
+            },
+            {
+              "line": 12,
+              "text": " masks.append(m)"
+            },
+            {
+              "line": 13,
+              "text": " m.save('/workspace/veil%d.png'%len(masks))"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/f6e4ea7820d4b7297224c393e7918bf3f99f768e8541d0f3e8e82104fbf1be3e/trace.json",
+            "sha256": "b439f43bc11ed0b7b2d130e10c0d8f529de441b86d3c3888b829f43c93726362"
+          },
+          "zero_based_tool_index": 11,
+          "code_sha256": "aacceb87ed0826bfcf44769c98dcf3ad81f55991fc5ed51320fc0a2bf43385da",
+          "line_start": 15,
+          "line_end": 23,
+          "meaning": "Passed baseline original actor files, same trajectory and final mask use.",
+          "source_lines": [
+            {
+              "line": 15,
+              "text": "a=[Image.open('/workspace/inputs/actor-'+v+'.png').convert('RGBA') for v in ['far','near']]"
+            },
+            {
+              "line": 16,
+              "text": "print([v.size for v in a])"
+            },
+            {
+              "line": 17,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 18,
+              "text": " u=n/35;im=base.copy()"
+            },
+            {
+              "line": 19,
+              "text": " for j,(start,end,y,bob) in enumerate([(40,648,214,13),(648,40,230,-11)]):"
+            },
+            {
+              "line": 20,
+              "text": "  pos=(round(start+(end-start)*u),round(y+bob*math.sin(2*math.pi*u)))"
+            },
+            {
+              "line": 21,
+              "text": "  im.paste(a[j],pos,a[j]);im.paste(base,(0,0),masks[j])"
+            },
+            {
+              "line": 22,
+              "text": " im.save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 23,
+              "text": "subprocess.run(['ffmpeg','-y','-v','error','-framerate','12','-i','/workspace/frames/%02d.png','-frames:v','36','-c:v','libx264','-crf','16','-pix_fmt','yuv420p','-an','-movflags','+faststart','/workspace/final.mp4'],check=True)"
+            }
+          ]
+        }
+      ],
+      "diagnostic_compliance": {
+        "recorded": "Combined opaque masks preview was inspected at tool13, before manual polygon edits at tool14. After edits the final export was inspected and one sampled visual review passed.",
+        "missing_from_recorded_tools": "No final mask-boundary overlay and aligned source/unoccluded-sprite/composite crop comparison is recorded after the last mask edit. A positive sampled review was used when saving this procedure as experience."
+      }
+    },
+    {
+      "task_id": "holdout-repair-reeds310-depth",
+      "split": "regression",
+      "paired_sources_identical": true,
+      "arms": {
+        "baseline": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/holdout-repair-reeds310-depth-baseline.json",
+            "sha256": "d1d7750fe001eb143940b4473a80712be9f8e0b3f44475960e795cc17947c157"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/receipt.json",
+            "sha256": "617f8465e8b0c0d23fe929f439785b97d1d1b5c05d79ad72f5ed8b1d03f0fb56"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/trace.json",
+            "sha256": "fe89c00ebfbfe80a678846c61dc20ab80e4d3716f864568d47c285c6b099212a"
+          },
+          "artifact_sha256": "b460aad8d3dc654e6ec1252f6cc4900575fb285f3121a4e7021bde5f596832e0",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "44622bab87c29cf67f2ae42474d862ac636df0011f9278e9d20012a517665fa9",
+          "procedure_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": false,
+          "visual_passed": true,
+          "mechanical_passed": false,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 88.621,
+          "tool_calls": 19,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Assessment is based on supplied timestamped samples and detail crops, not continuous playback of every frame."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "fail",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 28.776, worst 33.585; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.110, worst 0.110; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.513, worst 0.658; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "fail",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 35.049, worst 62.967; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 1.061, worst 1.115; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.098, worst 0.104; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.520, worst 0.679; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.048, worst 0.055; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.139, worst 0.179; allowed 7 and 10.5."
+            }
+          ]
+        },
+        "candidate": {
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/holdout-repair-reeds310-depth-candidate.json",
+            "sha256": "f290eb5046cded083d7c91cae62985a5846b1dfd8b7f7f50fed1c46da86b3819"
+          },
+          "execution_receipt": {
+            "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/receipt.json",
+            "sha256": "ebf8420a8a41070907447b0d377c2f526fefcf02d6a092d496defff9cea1d085"
+          },
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/trace.json",
+            "sha256": "20dce7ff3c94c79b1837249e1867c0c2f7100b4c16bba67dfab820528fe0ef21"
+          },
+          "artifact_sha256": "93f35f4c7f0aff3eb349cf467a4280cbbb39390cef3458189fcb1c2a52dbf838",
+          "artifact_file_sha_verified_without_decoding": true,
+          "source_commitment_sha256": "44622bab87c29cf67f2ae42474d862ac636df0011f9278e9d20012a517665fa9",
+          "procedure_sha256": "01b61391dace305843fa57547b4322ed77bac5dae99c26c772dcd00b52e40c2e",
+          "render_code_hashes_match_recorded_render_calls": true,
+          "all_source_file_hashes_still_match": true,
+          "status": "completed",
+          "delivered": true,
+          "source_immutable": true,
+          "model": "gpt-6.1-sol",
+          "effort": "low",
+          "model_valid": true,
+          "budget_valid": true,
+          "joint_passed": true,
+          "visual_passed": true,
+          "mechanical_passed": true,
+          "all_structural_checks_pass": true,
+          "elapsed_seconds": 78.75,
+          "tool_calls": 17,
+          "review_same_delivered_sha_pass": true,
+          "review_limitations": [
+            [
+              "Review is limited to supplied sampled frames and detail crops; it does not establish the quality of every intervening frame."
+            ]
+          ],
+          "content_checks": [
+            {
+              "criterion": "content:visible_source_pattern:actor_far",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.470, worst 1.517; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:rear_veil_I",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.165, worst 0.227; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:rear_veil_I",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 1.062, worst 1.072; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:visible_source_pattern:actor_near",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 1.068, worst 1.233; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:actor_near",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 0.974, worst 1.021; allowed 10 and 15."
+            },
+            {
+              "criterion": "content:visible_source_pattern:front_veil_II",
+              "status": "pass",
+              "evidence": "Retain this supplied layer at its public trajectory and depth. Every applicable frame checked: p95 MAE 0.221, worst 0.247; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:actual_depth_crossing:front_veil_II",
+              "status": "pass",
+              "evidence": "The upper source layer must cover the lower moving actor on actual overlap pixels. Every applicable frame checked: p95 MAE 1.605, worst 1.827; allowed 6 and 9."
+            },
+            {
+              "criterion": "content:stationary_source_scene",
+              "status": "pass",
+              "evidence": "Original artwork outside both moving actors stays fixed. Every applicable frame checked: p95 MAE 0.034, worst 0.040; allowed 7 and 10.5."
+            },
+            {
+              "criterion": "content:transparent_actor_padding",
+              "status": "pass",
+              "evidence": "Original artwork remains visible through transparent actor padding. Every applicable frame checked: p95 MAE 0.121, worst 0.164; allowed 7 and 10.5."
+            }
+          ]
+        }
+      },
+      "saved_final_mask_samples": [
+        {
+          "veil": "I",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/attempt-1/workspace/mask0.png",
+              "sha256": "5881ad205fe196cd6d75bc0e624f8d5403e9c808f6d43962f505ad869b583aa8",
+              "dimensions": [
+                816,
+                552
+              ],
+              "nonzero_pixels": 22606,
+              "nonzero_bbox_exclusive": [
+                238,
+                103,
+                358,
+                476
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/attempt-1/workspace/mask0.png",
+              "sha256": "cbefa035ac146c1dc4e05cef6d95b8e55586908a7c0f05531e98675448f76534",
+              "dimensions": [
+                816,
+                552
+              ],
+              "nonzero_pixels": 17141,
+              "nonzero_bbox_exclusive": [
+                238,
+                103,
+                358,
+                476
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 59,
+            "baseline_only_nonzero_pixels_vs_candidate": 5524
+          }
+        },
+        {
+          "veil": "II",
+          "evidence": {
+            "baseline": {
+              "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/attempt-1/workspace/mask1.png",
+              "sha256": "8b7756efccab180c56a8bbfa4ccc2eccd80392389e4478a6acf1e615ca7ad987",
+              "dimensions": [
+                816,
+                552
+              ],
+              "nonzero_pixels": 22606,
+              "nonzero_bbox_exclusive": [
+                474,
+                103,
+                594,
+                476
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate": {
+              "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/attempt-1/workspace/mask1.png",
+              "sha256": "400d1c99b0b08d5ad5962bf17fe9abd007d8b1e54128e5a2d78bad60e362aa8c",
+              "dimensions": [
+                816,
+                552
+              ],
+              "nonzero_pixels": 17141,
+              "nonzero_bbox_exclusive": [
+                474,
+                103,
+                594,
+                476
+              ],
+              "pixel_values": [
+                0,
+                255
+              ]
+            },
+            "candidate_only_nonzero_pixels_vs_baseline": 59,
+            "baseline_only_nonzero_pixels_vs_candidate": 5524
+          }
+        }
+      ],
+      "targeted_mask_source_sample": {
+        "xy": [
+          330,
+          230
+        ],
+        "baseline_mask_value": 255,
+        "candidate_mask_value": 0,
+        "source_scene": {
+          "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/attempt-1/workspace/inputs/scene.png",
+          "sha256": "bddee7ae308efd3e8b99d4b14555c43982f154e4582ec24907af12a2157de626"
+        },
+        "source_rgb": [
+          120,
+          148,
+          153
+        ]
+      },
+      "historical_task_name_note": "The historical task ID begins holdout, but both selected evaluation receipts explicitly identify its current role as regression. No current fresh holdout has been read.",
+      "likely_mechanism": {
+        "classification": "baseline restoration bridges a genuine gap; candidate succeeds on this execution",
+        "inference": "The baseline uses MaxFilter(5), outside flood fill and MinFilter(5); its saved mask restores mural background at (330,230). The successful candidate uses outline-local flood fill followed by explicit stem/leaf interiors and leaves that mural point unmasked. Both source-actor failures in the baseline are absent in the candidate.",
+        "boundary": "This demonstrates that the same broad mask failure also occurs in the baseline. Together with the other pairs, it supports an unstable execution mechanism rather than a deterministic causal claim about procedure wording."
+      },
+      "final_mask_use": {
+        "baseline_virtual_paths": [
+          "/workspace/mask0.png",
+          "/workspace/mask1.png"
+        ],
+        "candidate_virtual_paths": [
+          "/workspace/mask0.png",
+          "/workspace/mask1.png"
+        ],
+        "baseline_last_recorded_mask_write_tool_index": 12,
+        "baseline_final_render_read_tool_index": 14,
+        "candidate_last_recorded_mask_write_and_final_render_tool_index": 12,
+        "no_later_mask_mutating_render_recorded": true,
+        "binding_limit": "Saved mask hashes are post-completion observations; matching trace/render-call code hashes and final file readers bind the execution paths without claiming an independently committed read-time PNG hash."
+      },
+      "code_references": [
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/trace.json",
+            "sha256": "fe89c00ebfbfe80a678846c61dc20ab80e4d3716f864568d47c285c6b099212a"
+          },
+          "zero_based_tool_index": 12,
+          "code_sha256": "09f0827cd336aedd34a4c1f4381f86ec807bfa7759f30925c2fae993164c838f",
+          "line_start": 2,
+          "line_end": 8,
+          "meaning": "Baseline last mask mutation uses a wider morphological close.",
+          "source_lines": [
+            {
+              "line": 2,
+              "text": "for k in range(2):"
+            },
+            {
+              "line": 3,
+              "text": " m=Image.open('/workspace/mask%d.png'%k)"
+            },
+            {
+              "line": 4,
+              "text": " m=m.filter(ImageFilter.MaxFilter(5))"
+            },
+            {
+              "line": 5,
+              "text": " inv=ImageChops.invert(m);ImageDraw.floodfill(inv,(0,0),128)"
+            },
+            {
+              "line": 6,
+              "text": " m=inv.point(lambda a:255 if a!=128 else 0).filter(ImageFilter.MinFilter(5))"
+            },
+            {
+              "line": 7,
+              "text": " m.save('/workspace/mask%d.png'%k)"
+            },
+            {
+              "line": 8,
+              "text": " im=Image.open('/workspace/inputs/scene.png');im.paste((255,0,100),(0,0),m);im.save('/workspace/maskview%d.png'%k)"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/e4d6fb1be9f6fa6503abe994af2b2854f9a8c542dbe70f6e1cc092eedf4df68f/trace.json",
+            "sha256": "fe89c00ebfbfe80a678846c61dc20ab80e4d3716f864568d47c285c6b099212a"
+          },
+          "zero_based_tool_index": 14,
+          "code_sha256": "e006bb66f6d51f645b21553ee7a36f61504803d6fe96a0c4199493b5d386b50e",
+          "line_start": 2,
+          "line_end": 21,
+          "meaning": "Baseline writes and executes the final renderer reading those masks.",
+          "source_lines": [
+            {
+              "line": 2,
+              "text": "code='''from PIL import Image"
+            },
+            {
+              "line": 3,
+              "text": "import math,json,subprocess,os"
+            },
+            {
+              "line": 4,
+              "text": "base=Image.open('/workspace/inputs/scene.png').convert('RGB')"
+            },
+            {
+              "line": 5,
+              "text": "masks=[Image.open('/workspace/mask%d.png'%k) for k in range(2)]"
+            },
+            {
+              "line": 6,
+              "text": "actors=[Image.open('/workspace/inputs/actor-'+n+'.png').convert('RGBA') for n in ['far','near']]"
+            },
+            {
+              "line": 7,
+              "text": "cfg=json.load(open('/workspace/inputs/scene.json'))"
+            },
+            {
+              "line": 8,
+              "text": "os.makedirs('/workspace/frames',exist_ok=True)"
+            },
+            {
+              "line": 9,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 10,
+              "text": " u=n/35"
+            },
+            {
+              "line": 11,
+              "text": " out=base.copy()"
+            },
+            {
+              "line": 12,
+              "text": " for i,name in enumerate(['actor_far','actor_near']):"
+            },
+            {
+              "line": 13,
+              "text": "  m=cfg['motion'][name];a,b=m['start'],m['end']"
+            },
+            {
+              "line": 14,
+              "text": "  x=round(a[0]+(b[0]-a[0])*u); y=round(a[1]+(b[1]-a[1])*u+m['bob']*math.sin(2*math.pi*u))"
+            },
+            {
+              "line": 15,
+              "text": "  out.paste(actors[i],(x,y),actors[i])"
+            },
+            {
+              "line": 16,
+              "text": "  out.paste(base,(0,0),masks[i])"
+            },
+            {
+              "line": 17,
+              "text": " out.save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 18,
+              "text": "subprocess.run(['ffmpeg','-y','-framerate','12','-i','/workspace/frames/%02d.png','-frames:v','36','-c:v','libx264','-crf','16','-pix_fmt','yuv420p','-an','-movflags','+faststart','/workspace/final.mp4'],check=True,capture_output=True)"
+            },
+            {
+              "line": 19,
+              "text": "'''"
+            },
+            {
+              "line": 20,
+              "text": "open('/workspace/render.py','w').write(code)"
+            },
+            {
+              "line": 21,
+              "text": "exec(code)"
+            }
+          ]
+        },
+        {
+          "trace": {
+            "path_relative_to_cycle": "independent/executions/18507e6f4cce62c591f158f410fbcd87f910204b13d2ccd14ea6027e9203f553/trace.json",
+            "sha256": "20dce7ff3c94c79b1837249e1867c0c2f7100b4c16bba67dfab820528fe0ef21"
+          },
+          "zero_based_tool_index": 12,
+          "code_sha256": "3c8be38f5d36921ea9bc72699d4b957b8b5bd48bfcc53d875a3a7f69f17ac5fa",
+          "line_start": 4,
+          "line_end": 21,
+          "meaning": "Candidate adds explicit solid interiors and then reads the same mask files for final export.",
+          "source_lines": [
+            {
+              "line": 4,
+              "text": "for i,dx in enumerate([0,236]):"
+            },
+            {
+              "line": 5,
+              "text": " m=Image.open('/workspace/mask%d.png'%i); d=ImageDraw.Draw(m)"
+            },
+            {
+              "line": 6,
+              "text": " d.polygon([(300+dx,106),(310+dx,106),(290+dx,475),(280+dx,475)],fill=255)"
+            },
+            {
+              "line": 7,
+              "text": " for k in range(6):"
+            },
+            {
+              "line": 8,
+              "text": "  y=39*k"
+            },
+            {
+              "line": 9,
+              "text": "  d.polygon([(240+dx,108+y),(264+dx,148+y),(307+dx,132+y)],fill=255)"
+            },
+            {
+              "line": 10,
+              "text": "  d.polygon([(356+dx,105+y),(333+dx,151+y),(307+dx,132+y)],fill=255)"
+            },
+            {
+              "line": 11,
+              "text": " m.save('/workspace/mask%d.png'%i)"
+            },
+            {
+              "line": 12,
+              "text": "os.makedirs('/workspace/frames',exist_ok=True)"
+            },
+            {
+              "line": 13,
+              "text": "a=[Image.open('/workspace/inputs/actor-'+s+'.png').convert('RGBA') for s in ['far','near']]"
+            },
+            {
+              "line": 14,
+              "text": "m=[Image.open('/workspace/mask%d.png'%i) for i in range(2)]"
+            },
+            {
+              "line": 15,
+              "text": "for n in range(36):"
+            },
+            {
+              "line": 16,
+              "text": " u=n/35; out=im.copy()"
+            },
+            {
+              "line": 17,
+              "text": " for i in range(2):"
+            },
+            {
+              "line": 18,
+              "text": "  x=round((40+624*u) if i==0 else (664-624*u)); y=round((218 if i==0 else 234)+(13 if i==0 else -11)*math.sin(2*math.pi*u))"
+            },
+            {
+              "line": 19,
+              "text": "  out.paste(a[i],(x,y),a[i]); out.paste(im,(0,0),m[i])"
+            },
+            {
+              "line": 20,
+              "text": " out.save('/workspace/frames/%02d.png'%n)"
+            },
+            {
+              "line": 21,
+              "text": "subprocess.run(['ffmpeg','-y','-v','error','-framerate','12','-i','/workspace/frames/%02d.png','-c:v','libx264','-crf','15','-pix_fmt','yuv420p','-an','-movflags','+faststart','/workspace/final.mp4'],check=True)"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "completed_regression_snapshot": {
+    "pairs": [
+      {
+        "task_id": "media-3074f8eddcea292782f1",
+        "split": "regression",
+        "baseline": {
+          "joint_passed": true,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-3074f8eddcea292782f1-baseline.json",
+            "sha256": "778320eda9a70734d0079fcb36222692b0707c093e6c87b911ccc33112139ccf"
+          }
+        },
+        "candidate": {
+          "joint_passed": false,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-3074f8eddcea292782f1-candidate.json",
+            "sha256": "4882db6d4d2b9f6025fc3afb06c005ec7f91557e557c94d41e1571e65ee8b900"
+          }
+        }
+      },
+      {
+        "task_id": "media-1c68aab35b339230b989",
+        "split": "regression",
+        "baseline": {
+          "joint_passed": true,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-1c68aab35b339230b989-baseline.json",
+            "sha256": "b5362169bedd99de6e3bc9d7b91fe4afcfa7a6607c7472424b6e552c37e939db"
+          }
+        },
+        "candidate": {
+          "joint_passed": true,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-1c68aab35b339230b989-candidate.json",
+            "sha256": "0b7e5de91580b8902f9e2359926e39bad653cbff623ac9b8a851f10d570e4b7b"
+          }
+        }
+      },
+      {
+        "task_id": "media-201befa8a5e4ea2ce23e",
+        "split": "regression",
+        "baseline": {
+          "joint_passed": true,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-201befa8a5e4ea2ce23e-baseline.json",
+            "sha256": "1af8cf4fbaa831bd1cac80fd3e83be1b4f516d7ec2561728b5cfca1920edb828"
+          }
+        },
+        "candidate": {
+          "joint_passed": false,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/media-201befa8a5e4ea2ce23e-candidate.json",
+            "sha256": "b5ff1e4e6c9d13b93f435b5c10b9b96826b4eaf364b2eb7a556a61c98c1f6588"
+          }
+        }
+      },
+      {
+        "task_id": "holdout-repair-reeds310-depth",
+        "split": "regression",
+        "baseline": {
+          "joint_passed": false,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/holdout-repair-reeds310-depth-baseline.json",
+            "sha256": "d1d7750fe001eb143940b4473a80712be9f8e0b3f44475960e795cc17947c157"
+          }
+        },
+        "candidate": {
+          "joint_passed": true,
+          "evaluation": {
+            "path_relative_to_cycle": "evaluations/holdout-repair-reeds310-depth-candidate.json",
+            "sha256": "f290eb5046cded083d7c91cae62985a5846b1dfd8b7f7f50fed1c46da86b3819"
+          }
+        }
+      }
+    ],
+    "baseline_joint_passes": 3,
+    "candidate_joint_passes": 2,
+    "distinct_pairs": 4,
+    "candidate_wins": 1,
+    "candidate_losses": 2,
+    "joint_pass_ties": 1,
+    "scope_note": "These are regression results only; they are not fresh holdout rates or final acceptance."
+  },
+  "cross_case_findings": [
+    "All six trace-inspected native executions completed delivery with fixed gpt-6.1-sol/low, immutable sources, valid budgets and correct container/timing structure. The two candidate losses concern content compositing.",
+    "Every selected artifact received a same-SHA sampled visual pass; independent source/depth checks still detected failures. A favorable sampled review did not establish exact mask fidelity.",
+    "The learned candidate text explicitly warns against bridged gaps and hollow interiors and asks for aligned source/sprite/composite crops with a thin boundary overlay. Recorded tool usage does not demonstrate that full diagnostic in either losing candidate.",
+    "The two failures have opposite mask defects: excess coverage can erase actor detail; missing solid occluder coverage can preserve actor detail but break depth. Treating either generic flood filling or generic shrinkage as universally correct would be unsupported."
+  ],
+  "limitations": [
+    "All four regression pairs were complete; the full cycle was still running. This report makes no final admission, quality gain or heldout-rate claim.",
+    "Passed baseline masks are comparison references, not exact semantic ground truth. Pixel-count differences are not a fresh quality score.",
+    "Existing saved PNG mask samples, source pixels, native trace code and immutable output hashes were inspected. No delivered video was decoded or rerendered, no grading was rerun, and no encoded-pixel causal effect size is asserted.",
+    "This observational single-run comparison cannot establish that procedure wording alone caused the difference. It identifies concrete execution mechanisms and diagnostic steps absent from the recorded calls."
+  ]
+}

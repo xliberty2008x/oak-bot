@@ -51,16 +51,14 @@ class ReportTests(unittest.TestCase):
         self.directory = self.scope_root / 'cycles' / self.cycle['id']
         self.directory.mkdir(parents=True)
 
-    def finish(self):
+    def finish(self, *, accepted=False):
         self.search = {'upstream': {'status': 'ok', 'modes': {'seq': {'ledger': {'R': 4, 'P': 3}}}},
                        'provenance': {'chosen_harness': str(self.directory / 'upstream/final'),
                                       'library_entries_before': [], 'library_entries_after': []}}
         versions = HarnessVersions(self.root / 'versions.sqlite3')
         original = versions.bootstrap_current(*self.scope, '')
         candidate = versions.register(*self.scope, 'Inspect source layers.', parent_id=original['id'],
-                                      evidence={'kind': 'public synthetic'})
-        versions.record_decision(candidate['id'], accepted=False, evidence={'kind': 'tie'}, reason='No gain.')
-        versions.close()
+                                      evidence={'kind': 'public synthetic', **({'fixture_only': True} if accepted else {})})
         self.frozen = {'candidate_id': candidate['id'], 'candidate_sha256': candidate['procedure_sha256'],
                        'parent_id': original['id'], 'parent_sha256': original['procedure_sha256'],
                        'manifest_sha256': digest(self.manifest), 'config_sha256': digest(self.config),
@@ -76,6 +74,17 @@ class ReportTests(unittest.TestCase):
             for split in ('regression', 'holdout')]}
         self.decision = {'accepted': False, 'reasons': ['no_strict_fresh_holdout_gain'],
                          'candidate_id': candidate['id'], 'active_id': original['id']}
+        if accepted:
+            evidence = {'cycle_id': self.cycle['id'], 'freeze_sha256': digest(self.frozen),
+                        'evaluation_sha256': digest(self.evaluation), 'fixture_only': True}
+            decision = versions.record_decision(candidate['id'], accepted=True, evidence=evidence,
+                reason='Local report protocol fixture; no real quality improvement claim.')
+            versions.activate(candidate['id'])
+            self.decision.update(accepted=True, reasons=[], active_id=candidate['id'],
+                                 version_decision_id=decision['id'], evidence=evidence)
+        else:
+            versions.record_decision(candidate['id'], accepted=False, evidence={'kind': 'tie'}, reason='No gain.')
+        versions.close()
         for name, value in (('parent.json', {'id': original['id']}), ('upstream-result.json', self.search),
                             ('freeze.json', self.frozen), ('evaluation.json', self.evaluation),
                             ('decision.json', self.decision)):
@@ -134,6 +143,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn('/pipeline/scopes/', text)
         self.assertIsNone(report['cost_usd'])
         self.assertFalse(report['broad_quality_improvement_claim'])
+        self.assertEqual(report['learned_followups'], [])
         cycle = report['cycles'][0]
         self.assertEqual(cycle['attempt_counts']['producer_records'], 2)
         self.assertEqual(cycle['attempt_counts']['producer_interrupted'], 1)
@@ -259,6 +269,302 @@ class ReportTests(unittest.TestCase):
                             for item in activation['followup_receipts']))
         self.assertEqual(report['versions']['active'][0]['version_id'], controlled['restored_version_id'])
         self.assertEqual(len(report['versions']['applications']), 2)
+
+    def learned(self, *, unknown=False, negative=False, preparation=False):
+        """Build helper receipts using tiny bytes and explicit local fixture seams."""
+        from oak.harness2_followup import FollowupInterrupted, run_followup
+        self.finish(accepted=True)
+        calls = []
+
+        def materializer(descriptor, workspace):
+            source = workspace / 'source.png'
+            source.write_bytes(('fixture-source-' + descriptor['id']).encode())
+            return {'task_id': descriptor['id'], 'brief': 'Local report protocol fixture.',
+                    'source_hashes': {str(source): sha(source.read_bytes())}}
+
+        def runner(task, workspace, activation, **kwargs):
+            calls.append(workspace)
+            if unknown and len(calls) == 1:
+                raise ConnectionError('Local interrupted-attempt fixture.')
+            versions = HarnessVersions(activation['store_path'])
+            try:
+                app = versions.prepare_application(*self.scope, 'fixture-' + workspace.parent.name,
+                                                   input_sha256=digest(task))
+                app = versions.bind_turn(app['id'], 'fixture-followup-turn')
+            finally:
+                versions.close()
+            artifact = workspace.parent / 'frozen.png'
+            artifact.write_bytes(b'local-followup-artifact')
+            return {'status': 'completed', 'delivered': True, 'source_immutable': True,
+                'model': 'gpt-6.1-sol', 'effort': 'low', 'tool_calls': 4, 'elapsed_seconds': .1,
+                'artifact_path': str(artifact), 'artifact_sha256': sha(artifact.read_bytes()),
+                'candidate_path': str(artifact), 'candidate_sha256': sha(artifact.read_bytes()),
+                'reviews': [{'verdict': 'pass', 'sha256': sha(artifact.read_bytes())}],
+                'harness_application': {key: app[key] for key in ('id', 'project_id', 'chat_id', 'domain',
+                    'request_id', 'version_id', 'procedure_sha256', 'context_sha256', 'input_sha256', 'turn_id')}}
+
+        def evaluator(descriptor, attempt, *, freeze_sha256):
+            wrapper = json.loads((attempt / 'receipt.json').read_text())
+            return {'freeze_sha256': freeze_sha256, 'procedure_sha256': wrapper['procedure_sha256'],
+                'task_id': descriptor['id'], 'status': 'completed', 'delivered': True,
+                'terminal_integrity': 'verified', 'model_valid': True, 'budget_valid': True,
+                'source_immutable': True, 'unverified': False, 'visual_passed': True,
+                'mechanical_passed': not negative, 'joint_passed': not negative,
+                'mechanical': {'status': 'fail' if negative else 'pass'},
+                'artifact_sha256': wrapper['receipt']['artifact_sha256'], 'elapsed_seconds': .1, 'tool_calls': 4}
+
+        def follow():
+            return run_followup(self.root, project=self.scope[0], chat=self.scope[1], domain=self.scope[2],
+                cycle_id=self.cycle['id'], timeout=30, runner=runner, evaluator=evaluator, materializer=materializer)
+
+        if preparation:
+            from unittest.mock import patch
+            from oak import harness2_followup as helper
+            original_write = helper.write_once
+
+            def before_intent(path, value):
+                if Path(path).name == 'intent.json':
+                    raise RuntimeError('Local preparation interruption before producer intent.')
+                return original_write(path, value)
+
+            with patch.object(helper, 'write_once', side_effect=before_intent):
+                with self.assertRaises(RuntimeError):
+                    follow()
+            self.assertEqual(calls, [])
+        if unknown:
+            with self.assertRaises(FollowupInterrupted):
+                follow()
+        result = follow()
+        directory = self.scope_root / 'learned-followups' / self.cycle['id']
+        return directory, result
+
+    def test_learned_followup_exports_unknown_and_terminal_attempts_with_fixture_provenance(self):
+        directory, original = self.learned(unknown=True)
+        write(self.root / 'scopes' / digest(('foreign-project', 2, 'media-depth')) /
+              'learned-followups/private-cycle/policy.json', {'private': 'FOREIGN_FOLLOWUP_CANARY'})
+        report = export_report(self.root, *self.scope[:2])
+        learned = report['learned_followups'][0]
+        self.assertEqual(learned['files']['report']['mode'], 'local-fixture')
+        self.assertIn('local-fixture', learned['evidence_class'])
+        self.assertFalse(learned['files']['report']['quality_gain_claim'])
+        self.assertIsNone(learned['cost_usd'])
+        self.assertEqual([row['attempt'] for row in learned['attempts']], [1, 2])
+        self.assertEqual(learned['producer_cost_proxies']['initiated_attempts'], 2)
+        self.assertEqual(learned['producer_cost_proxies']['elapsed_seconds']['missing_count'], 1)
+        self.assertEqual(learned['attempts'][0]['files']['interrupted-unknown']['classification'], 'interrupted_unknown')
+        terminal = learned['attempts'][1]['producer']
+        self.assertTrue(terminal['artifact_bindings']['artifact']['verified'])
+        self.assertEqual(terminal['record']['receipt']['artifact_sha256'], original['evaluation']['artifact_sha256'])
+        for path in (directory / 'policy.json', directory / 'report.json',
+                     directory / 'attempts/1/intent.json', directory / 'attempts/1/interrupted-unknown.json',
+                     directory / 'attempts/2/native.json', directory / 'attempts/2/evaluation.json'):
+            self.assertEqual(report['original_file_sha256'][path.relative_to(self.root).as_posix()], sha(path.read_bytes()))
+        self.assertNotIn(str(self.root), json.dumps(report))
+        self.assertNotIn('FOREIGN_FOLLOWUP_CANARY', json.dumps(report))
+        self.assertIsNone(report['controlled_activation'])
+        self.assertEqual(learned['interrupted_preparation_count'], 0)
+        self.assertEqual(learned['preparation_archives'], [])
+
+    def test_learned_followup_exports_preintent_archive_hashes_without_producer_credit(self):
+        directory, original = self.learned(preparation=True)
+        report = export_report(self.root, *self.scope[:2])
+        learned = report['learned_followups'][0]
+        self.assertEqual(learned['interrupted_preparation_count'], 1)
+        self.assertEqual(learned['producer_cost_proxies']['initiated_attempts'], 1)
+        archive = learned['preparation_archives'][0]
+        self.assertEqual(archive['name'], 'preparation-0001')
+        self.assertEqual(archive['record']['classification'], 'interrupted_preparation_before_intent')
+        self.assertFalse(archive['record']['producer_started'])
+        self.assertFalse(archive['record']['quality_failure_claim'])
+        self.assertEqual(len(archive['files']), 3)
+        for row in archive['files']:
+            path = self.root / row['path']
+            self.assertEqual(row['sha256'], sha(path.read_bytes()))
+            self.assertEqual(row['bytes'], path.stat().st_size)
+            self.assertTrue(row['verified'])
+            self.assertEqual(report['original_file_sha256'][row['path']], row['sha256'])
+
+    def test_learned_followup_preparation_bytes_labels_and_counts_are_bound(self):
+        directory, original = self.learned(preparation=True)
+        archive = directory / 'interrupted-preparations/preparation-0001'
+        source = archive / 'workspace/source.png'
+        raw = source.read_bytes()
+        source.write_bytes(b'changed interrupted preparation')
+        with self.assertRaisesRegex(ValueError, 'recorded SHA'):
+            export_report(self.root, *self.scope[:2])
+        source.write_bytes(raw)
+        marker = archive / 'preparation.json'
+        metadata = json.loads(marker.read_text())
+        write(marker, {**metadata, 'producer_started': True})
+        with self.assertRaisesRegex(ValueError, 'preparation archive classification'):
+            export_report(self.root, *self.scope[:2])
+        write(marker, metadata)
+        write(directory / 'report.json', {**original, 'interrupted_preparation_count': 0})
+        with self.assertRaisesRegex(ValueError, 'bounded preparation archive count'):
+            export_report(self.root, *self.scope[:2])
+        write(directory / 'report.json', original)
+        self.assertEqual(export_report(self.root, *self.scope[:2])['learned_followups'][0]
+                         ['interrupted_preparation_count'], 1)
+        import shutil
+        for ordinal in range(2, 10):
+            extra = archive.parent / ('preparation-' + str(ordinal).zfill(4))
+            shutil.copytree(archive, extra)
+            write(extra / 'preparation.json', {**metadata, 'archive_name': extra.name})
+        write(directory / 'report.json', {**original, 'interrupted_preparation_count': 9})
+        with self.assertRaisesRegex(ValueError, 'bounded preparation archive count'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_completion_pointer_uses_historical_activation(self):
+        directory, original = self.learned()
+        versions = HarnessVersions(self.root / 'versions.sqlite3')
+        try:
+            versions.rollback(*self.scope, expected_active=original['learned_version_id'],
+                              reason='Later local owner decision, after the follow-up report.')
+        finally:
+            versions.close()
+        report = export_report(self.root, *self.scope[:2])
+        learned = report['learned_followups'][0]['files']['report']
+        self.assertEqual(learned['active_version_id'], original['learned_version_id'])
+        self.assertEqual(report['versions']['active'][0]['version_id'], self.frozen['parent_id'])
+        for changed in ({'active_version_id': self.frozen['parent_id']},
+                        {'recorded_at': '1970-01-01T00:00:00+00:00'}):
+            write(directory / 'report.json', {**original, **changed})
+            with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, 'historical completion active version'):
+                export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_report_hashes_reject_changed_native_policy_or_evaluation(self):
+        directory, original = self.learned()
+        for path in (directory/'policy.json', directory/'attempts/1/native.json', directory/'attempts/1/evaluation.json'):
+            raw = path.read_bytes()
+            value = json.loads(raw)
+            value['changed_field'] = 'changed evidence'
+            write(path, value)
+            with self.subTest(path=path.name), self.assertRaisesRegex(ValueError, 'Learned follow-up evidence'):
+                export_report(self.root, *self.scope[:2])
+            path.write_bytes(raw)
+
+    def test_learned_followup_joint_pass_requires_same_delivered_sha_even_with_updated_report_hash(self):
+        directory, original = self.learned()
+        evaluation_path = directory / 'attempts/1/evaluation.json'
+        evaluation = json.loads(evaluation_path.read_text())
+        evaluation['artifact_sha256'] = 'f' * 64
+        write(evaluation_path, evaluation)
+        original.update(evaluation=evaluation, evaluation_sha256=digest(evaluation))
+        write(directory / 'report.json', original)
+        with self.assertRaisesRegex(ValueError, 'evaluation and.*artifact SHA'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_verified_negative_requires_actual_delivered_sha(self):
+        directory, original = self.learned(negative=True)
+        path = directory / 'attempts/1/evaluation.json'
+        evaluation = json.loads(path.read_text())
+        evaluation['artifact_sha256'] = 'f' * 64
+        write(path, evaluation)
+        rollback = json.loads((directory / 'rollback.json').read_text())
+        rollback['evaluation_sha256'] = digest(evaluation)
+        write(directory / 'rollback.json', rollback)
+        original.update(evaluation=evaluation, evaluation_sha256=digest(evaluation), rollback=rollback)
+        write(directory / 'report.json', original)
+        with self.assertRaisesRegex(ValueError, 'delivered evaluation and native artifact SHA'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_outcome_and_native_conditions_are_derived_from_receipts(self):
+        directory, original = self.learned()
+        for changed in ({'outcome': 'verified_quality_negative'}, {'native_conditions_verified': False},
+                        {'application_provenance_verified': False}):
+            write(directory / 'report.json', {**original, **changed})
+            with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, 'outcome|activation provenance'):
+                export_report(self.root, *self.scope[:2])
+        write(directory / 'report.json', original)
+
+    def test_learned_followup_unknown_quality_cannot_justify_existing_rollback(self):
+        directory, original = self.learned(negative=True)
+        path = directory / 'attempts/1/evaluation.json'
+        evaluation = json.loads(path.read_text())
+        evaluation['unverified'] = True
+        write(path, evaluation)
+        rollback = json.loads((directory / 'rollback.json').read_text())
+        rollback['evaluation_sha256'] = digest(evaluation)
+        write(directory / 'rollback.json', rollback)
+        original.update(evaluation=evaluation, evaluation_sha256=digest(evaluation), rollback=rollback,
+                        outcome='terminal_unverified_or_incomplete')
+        write(directory / 'report.json', original)
+        with self.assertRaisesRegex(ValueError, 'trusted rollback'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_exposure_must_exist_in_exact_scope_cycle_and_disclosed_role(self):
+        directory, original = self.learned()
+        identity = original['exposure_identity']
+        row = dict(self.store.db.execute('SELECT * FROM exposure WHERE scope=? AND identity=?',
+                                        (json.dumps(self.scope, separators=(',', ':')), identity)).fetchone())
+        for changed in ({'cycle_id': 'wrong-cycle'}, {'scope': '["foreign-project",1,"media-depth"]'},
+                        {'split': 'holdout'}, {'opened': None}, {'identity': 'f' * 64}):
+            with self.store.db:
+                self.store.db.execute('DELETE FROM exposure WHERE identity IN (?,?)', (identity, 'f' * 64))
+                value = {**row, **changed}
+                self.store.db.execute('INSERT INTO exposure VALUES(?,?,?,?,?)',
+                    tuple(value[key] for key in ('identity', 'scope', 'cycle_id', 'split', 'opened')))
+            with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, 'scoped follow-up exposure reservation'):
+                export_report(self.root, *self.scope[:2])
+        with self.store.db:
+            self.store.db.execute('DELETE FROM exposure WHERE identity IN (?,?)', (identity, 'f' * 64))
+            self.store.db.execute('INSERT INTO exposure VALUES(?,?,?,?,?)',
+                tuple(row[key] for key in ('identity', 'scope', 'cycle_id', 'split', 'opened')))
+        exported = export_report(self.root, *self.scope[:2])['learned_followups'][0]
+        self.assertEqual(exported['exposure_reservation'], row)
+
+    def test_learned_followup_claimed_application_must_match_original_turn_ledger(self):
+        directory, original = self.learned()
+        native_path, wrapper_path = directory / 'attempts/1/native.json', directory / 'attempts/1/receipt.json'
+        native, wrapper = json.loads(native_path.read_text()), json.loads(wrapper_path.read_text())
+        native['harness_application']['turn_id'] = 'forged-followup-turn'
+        wrapper['receipt'] = native
+        write(native_path, native)
+        write(wrapper_path, wrapper)
+        original.update(harness_application=native['harness_application'], native_receipt_sha256=digest(native))
+        write(directory / 'report.json', original)
+        with self.assertRaisesRegex(ValueError, 'activation provenance'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_unknown_source_mutation_remains_unverified_evidence(self):
+        directory, original = self.learned(unknown=True)
+        (directory / 'attempts/1/workspace/source.png').write_bytes(b'changed unknown source')
+        learned = export_report(self.root, *self.scope[:2])['learned_followups'][0]
+        unknown = learned['attempts'][0]
+        self.assertFalse(unknown['source_files'][0]['verified'])
+        self.assertFalse(unknown['files']['interrupted-unknown']['quality_failure_claim'])
+        self.assertEqual(learned['files']['report']['outcome'], original['outcome'])
+
+    def test_learned_followup_incomplete_or_nonadmitted_directory_is_refused(self):
+        self.finish()
+        directory = self.scope_root / 'learned-followups' / self.cycle['id']
+        write(directory / 'policy.json', {'fixture_only': True})
+        with self.assertRaisesRegex(ValueError, 'completed follow-up directory'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_accepted_cycle_and_scope_are_required(self):
+        directory, original = self.learned()
+        original['scope'] = ['foreign-project', 1, 'media-depth']
+        write(directory / 'report.json', original)
+        with self.assertRaisesRegex(ValueError, 'scope, policy and execution labels'):
+            export_report(self.root, *self.scope[:2])
+        original['scope'] = list(self.scope)
+        write(directory / 'report.json', original)
+        self.decision['accepted'] = False
+        write(self.directory / 'decision.json', self.decision)
+        with self.store.db:
+            self.store.db.execute('UPDATE cycles SET decision=? WHERE id=?',
+                                 (json.dumps(self.decision), self.cycle['id']))
+        with self.assertRaisesRegex(ValueError, 'independent cycle admission'):
+            export_report(self.root, *self.scope[:2])
+
+    def test_learned_followup_preserves_verified_quality_rollback_to_parent(self):
+        directory, original = self.learned(negative=True)
+        report = export_report(self.root, *self.scope[:2])
+        learned = report['learned_followups'][0]
+        self.assertEqual(learned['files']['report']['outcome'], 'verified_quality_negative')
+        self.assertEqual(learned['files']['rollback'], original['rollback'])
+        self.assertEqual(report['versions']['active'][0]['version_id'], self.frozen['parent_id'])
 
     def test_existing_private_bootstrap_procedure_is_not_exported(self):
         self.finish()

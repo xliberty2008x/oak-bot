@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from datetime import datetime
 import hashlib
 import json
 import math
@@ -301,6 +302,288 @@ def _version_state(root, scope):
         db.close()
 
 
+def _learned_followups(evidence, scope, cycles, versions, cases, exposures):
+    """Export completed learned applications, keeping their fixture/native labels."""
+    parent = evidence.scope_root / 'learned-followups'
+    if not parent.exists():
+        return []
+    evidence._path(parent)
+    known = {item['journal']['id']: item for item in cycles}
+    version_ids = {row['id']: row for row in versions['versions']}
+    decisions = {row['id']: row for row in versions['decisions']}
+    applications = {row['id']: row for row in versions['applications']}
+    case_ids = {row['id']: row['payload'] for row in cases}
+    reservations = {row['identity']: row for row in exposures}
+    exported = []
+
+    def require(condition, detail):
+        if not condition:
+            raise ValueError('Learned follow-up evidence is incomplete or inconsistent: ' + detail)
+
+    for directory in sorted(parent.iterdir()):
+        evidence._path(directory)
+        require(directory.is_dir() and directory.name in known, 'selected cycle')
+        for name in ('policy', 'identity', 'freeze', 'report'):
+            require((directory / (name+'.json')).is_file(), 'completed follow-up directory')
+        files = {name: evidence.json(directory / (name+'.json'))
+                 for name in ('policy', 'identity', 'freeze', 'report')}
+        policy, identity, freeze, report = (files[name] for name in ('policy', 'identity', 'freeze', 'report'))
+        cycle = known[directory.name]['journal']
+        version = version_ids.get(report.get('learned_version_id'))
+        decision = decisions.get(report.get('learned_admission_decision_id'))
+        require(version is not None and decision is not None, 'admitted version and decision')
+        require(cycle['decision'].get('accepted') is True and decision['accepted'] is True
+                and decision['kind'] == 'independent-evaluation' and version['source'] == 'harness2'
+                and cycle['frozen']['candidate_id'] == version['id'] == cycle['decision'].get('candidate_id')
+                and decision['version_id'] == version['id']
+                and cycle['decision'].get('version_decision_id') == decision['id']
+                and decision['evidence'].get('cycle_id') == directory.name
+                and decision['evidence'].get('freeze_sha256') == _digest(cycle['frozen'])
+                and decision['evidence'].get('evaluation_sha256') == _digest(known[directory.name]['files']['evaluation.json'])
+                and cycle['frozen']['candidate_sha256'] == version['procedure_sha256'], 'independent cycle admission')
+        require(policy.get('schema') == report.get('schema') == 'oak-learned-followup-v1'
+                and policy.get('scope') == report.get('scope') == list(scope)
+                and policy.get('cycle_id') == report.get('cycle_id') == directory.name
+                and policy.get('model') == report.get('model') == 'gpt-6.1-sol'
+                and policy.get('effort') == report.get('effort') == 'low'
+                and policy.get('mode') == report.get('mode') in {'local-fixture', 'native-subscription'}
+                and policy.get('version_id') == version['id']
+                and policy.get('procedure_sha256') == version['procedure_sha256']
+                and policy.get('admission_decision_id') == decision['id']
+                and policy.get('admission_evidence') == report.get('learned_admission_evidence') == decision['evidence']
+                and report.get('policy_sha256') == _digest(policy)
+                and report.get('followup_source_sha256') == policy.get('source_sha256')
+                and report.get('media_implementation_sha256') == policy.get('media_implementation', {}).get('sha256')
+                and report.get('active_version_id') in version_ids
+                and policy.get('quality_gain_claim') is False and report.get('quality_gain_claim') is False
+                and report.get('live_provider_verification') is False, 'scope, policy and execution labels')
+        try:
+            recorded = datetime.fromisoformat(report['recorded_at'])
+            require(recorded.tzinfo is not None, 'completion timestamp timezone')
+            recorded = recorded.timestamp()
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError('Learned follow-up completion timestamp is invalid.') from exc
+        history = [row for row in versions['activation_events'] if row['created'] <= recorded]
+        require(bool(history) and report['active_version_id'] ==
+                max(history, key=lambda row: row['generation'])['version_id'], 'historical completion active version')
+        preparations = []
+        archive_root = directory / 'interrupted-preparations'
+        if archive_root.exists() or archive_root.is_symlink():
+            evidence._path(archive_root)
+            require(archive_root.is_dir(), 'preparation archive directory')
+            for archive in sorted(archive_root.iterdir()):
+                evidence._path(archive)
+                require(archive.is_dir() and re.fullmatch(r'preparation-[0-9]{4}', archive.name),
+                        'preparation archive name')
+                marker = archive / 'preparation.json'
+                metadata = evidence.json(marker)
+                ordinal = metadata.get('original_attempt')
+                require(metadata.get('classification') == 'interrupted_preparation_before_intent'
+                        and metadata.get('producer_started') is False and metadata.get('quality_failure_claim') is False
+                        and metadata.get('policy_sha256') == _digest(policy)
+                        and metadata.get('archive_name') == archive.name and type(ordinal) is int and ordinal >= 1
+                        and metadata.get('original_attempt_path') == str(directory / 'attempts' / str(ordinal))
+                        and isinstance(metadata.get('files'), dict), 'preparation archive classification')
+                actual = {}
+                for path in sorted(archive.rglob('*')):
+                    evidence._path(path)
+                    require(path.is_dir() or path.is_file(), 'preparation archive ordinary files')
+                    if path.is_file() and path != marker:
+                        actual[path.relative_to(archive).as_posix()] = path
+                require(set(actual) == set(metadata['files'])
+                        and not {'intent.json', 'native.json', 'receipt.json', 'evaluation.json'}.intersection(actual),
+                        'preparation archive file identities')
+                bindings = [evidence.hash_file(marker)]
+                for relative, path in actual.items():
+                    expected = metadata['files'][relative]
+                    require(isinstance(expected, str) and re.fullmatch('[a-f0-9]{64}', expected),
+                            'preparation archive file SHA')
+                    bindings.append(evidence.hash_file(path, expected=expected))
+                preparations.append({'name': archive.name, 'record': metadata, 'files': bindings})
+        preparation_cap = policy.get('max_interrupted_preparations', 0)
+        require(type(preparation_cap) is int and 0 <= preparation_cap <= 8
+                and type(report.get('interrupted_preparation_count', 0)) is int
+                and len(preparations) == report.get('interrupted_preparation_count', 0) <= preparation_cap,
+                'bounded preparation archive count')
+        descriptor = identity['descriptor']
+        require(report.get('descriptor') == descriptor and descriptor.get('split') == 'followup'
+                and freeze.get('descriptor_sha256') == _digest(descriptor)
+                and freeze.get('policy_sha256') == _digest(policy)
+                and freeze.get('admission_freeze_sha256') == _digest(cycle['frozen']), 'frozen follow-up identity')
+        attempts = []
+        attempts_root = directory / 'attempts'
+        require(attempts_root.is_dir(), 'producer attempts')
+        for attempt in sorted(attempts_root.iterdir()):
+            evidence._path(attempt)
+            require(attempt.is_dir() and re.fullmatch('[1-9][0-9]*', attempt.name), 'attempt number')
+            require(all((attempt / (name+'.json')).is_file() for name in ('intent', 'task')), 'attempt intent and task')
+            saved = {name: evidence.json(attempt / (name+'.json')) for name in ('intent', 'task')}
+            intent, task = saved['intent'], saved['task']
+            source_hashes = task.get('source_hashes', {})
+            inputs = {Path(path).name: sha for path, sha in source_hashes.items()}
+            commitment = {'descriptor_sha256': _digest(descriptor), 'inputs': inputs}
+            commitment['sha256'] = _digest(commitment)
+            pixels = [sha for name, sha in inputs.items() if name.endswith('.png') and not name.startswith('broken-')]
+            require(intent.get('attempt') == int(attempt.name) and intent.get('task_sha256') == _digest(task)
+                    and intent.get('descriptor_sha256') == _digest(descriptor)
+                    and intent.get('policy_sha256') == _digest(policy)
+                    and intent.get('version_id') == version['id']
+                    and intent.get('procedure_sha256') == version['procedure_sha256']
+                    and intent.get('source_commitment') == commitment
+                    and intent.get('exposure_identity') == _digest(sorted(pixels or inputs.values()))
+                    and intent.get('model') == policy['model'] and intent.get('effort') == policy['effort']
+                    and intent.get('timeout') == policy.get('timeout')
+                    and task.get('task_id') == descriptor['id'] and bool(inputs)
+                    and len(inputs) == len(source_hashes), 'sealed attempt source and execution identity')
+            for path in source_hashes:
+                require(evidence._path(path).is_relative_to(attempt / 'workspace'), 'attempt source confinement')
+            item = {'attempt': int(attempt.name), 'files': saved}
+            unknown = attempt / 'interrupted-unknown.json'
+            if unknown.exists():
+                saved['interrupted-unknown'] = evidence.json(unknown)
+                require(saved['interrupted-unknown'].get('intent_sha256') == evidence.index[(attempt/'intent.json').relative_to(evidence.root).as_posix()]
+                        and saved['interrupted-unknown'].get('classification') == 'interrupted_unknown'
+                        and saved['interrupted-unknown'].get('quality_failure_claim') is False, 'interrupted attempt binding')
+            if (attempt / 'native.json').exists():
+                require(all((attempt / (name+'.json')).is_file() for name in ('receipt', 'evaluation')), 'terminal attempt')
+                native, evaluation = (evidence.json(attempt / (name+'.json')) for name in ('native', 'evaluation'))
+                saved.update(native=native, evaluation=evaluation)
+                item['producer'] = evidence.producer(attempt / 'receipt.json')
+                record = item['producer']['record']
+                require(record.get('state') == 'finished' and record.get('receipt') == native
+                        and record.get('task') == task and record.get('source_commitment') == commitment
+                        and record.get('descriptor_sha256') == _digest(descriptor)
+                        and record.get('procedure_sha256') == version['procedure_sha256']
+                        and record.get('model') == policy['model'] and record.get('effort') == policy['effort']
+                        and record.get('timeout') == policy['timeout']
+                        and evidence._path(record['run_dir']) == attempt
+                        and evidence._path(record['workspace']) == attempt / 'workspace', 'terminal wrapper')
+                for prefix in ('artifact', 'candidate'):
+                    if native.get(prefix+'_path') is not None:
+                        require(evidence._path(native[prefix+'_path']).is_relative_to(attempt), 'terminal artifact confinement')
+                require(report.get('terminal_attempt') == int(attempt.name)
+                        and report.get('native_receipt_sha256') == _digest(native)
+                        and report.get('evaluation_sha256') == _digest(evaluation)
+                        and report.get('evaluation') == evaluation
+                        and report.get('artifact_sha256') == native.get('artifact_sha256')
+                        and report.get('harness_application') == native.get('harness_application')
+                        and report.get('source_commitment') == freeze.get('source_commitment') == commitment
+                        and report.get('exposure_identity') == intent['exposure_identity']
+                        and evaluation.get('freeze_sha256') == _digest(freeze)
+                        and evaluation.get('procedure_sha256') == version['procedure_sha256'], 'terminal report hashes and freeze')
+                if evaluation.get('delivered') is True:
+                    require(evaluation.get('artifact_sha256') == native.get('artifact_sha256')
+                            and re.fullmatch('[a-f0-9]{64}', str(native.get('artifact_sha256')))
+                            and native.get('delivered') is True and record.get('terminal_integrity') == 'verified'
+                            and native.get('status') == evaluation.get('status') == 'completed',
+                            'delivered evaluation and native artifact SHA')
+                if evaluation.get('joint_passed') is True:
+                    require(evaluation.get('artifact_sha256') == native.get('artifact_sha256')
+                            and re.fullmatch('[a-f0-9]{64}', str(native.get('artifact_sha256')))
+                            and native.get('status') == evaluation.get('status') == 'completed'
+                            and native.get('delivered') is True and record.get('terminal_integrity') == 'verified'
+                            and native.get('model') == policy['model'] and native.get('effort') == policy['effort']
+                            and evaluation.get('model_valid') is True and evaluation.get('budget_valid') is True
+                            and evaluation.get('delivered') is True and evaluation.get('source_immutable') is True
+                            and not evaluation.get('unverified')
+                            and evaluation.get('visual_passed') is True and evaluation.get('mechanical_passed') is True,
+                            'joint evaluation and delivered artifact SHA')
+                from .harness_versions import HarnessVersions
+                app = native.get('harness_application') or {}
+                actual = applications.get(app.get('id'))
+                fields = ('project_id', 'chat_id', 'domain', 'request_id', 'version_id',
+                          'procedure_sha256', 'context_sha256', 'input_sha256', 'turn_id')
+                applied = bool(actual is not None and all(actual[key] == app.get(key) for key in fields)
+                            and tuple(app.get(key) for key in ('project_id','chat_id','domain')) == scope
+                            and app.get('version_id') == version['id'] and bool(app.get('turn_id'))
+                            and app.get('procedure_sha256') == version['procedure_sha256']
+                            and app.get('context_sha256') == hashlib.sha256(HarnessVersions.application_context(
+                                {**version, 'decision': decision}).encode()).hexdigest())
+                require(type(report.get('application_provenance_verified')) is bool
+                        and report['application_provenance_verified'] == applied, 'activation provenance')
+                elapsed = native.get('elapsed_seconds')
+                calls, reviews, renders = native.get('tool_calls', 0), native.get('reviews', []), native.get('render_calls', [])
+                model_valid = native.get('model') == policy['model'] and native.get('effort') == policy['effort']
+                budget_valid = (type(calls) is int and 0 <= calls <= 64
+                    and isinstance(reviews, list) and len(reviews) <= 4
+                    and isinstance(renders, list) and len(renders) <= 16
+                    and type(elapsed) in (int, float) and elapsed >= 0)
+                require(evaluation.get('model_valid') is model_valid and evaluation.get('budget_valid') is budget_valid,
+                        'native model and tool-budget condition receipts')
+                if evaluation.get('visual_passed') is True:
+                    require(record.get('terminal_integrity') == 'verified'
+                            and re.fullmatch('[a-f0-9]{64}', str(native.get('artifact_sha256')))
+                            and any(isinstance(row, dict) and row.get('verdict') == 'pass'
+                                    and row.get('sha256') == native.get('artifact_sha256') for row in reviews),
+                            'same delivered SHA visual receipt')
+                conditions = (record.get('terminal_integrity') == 'verified'
+                    and evaluation.get('model_valid') is True and evaluation.get('budget_valid') is True
+                    and type(elapsed) in (int, float) and math.isfinite(elapsed)
+                    and 0 <= elapsed <= policy['timeout'])
+                negative = (conditions and applied and evaluation.get('status') == 'completed'
+                    and evaluation.get('delivered') is True and evaluation.get('source_immutable') is True
+                    and native.get('source_immutable') is True
+                    and not evaluation.get('unverified')
+                    and evaluation.get('mechanical', {}).get('status') in {'pass', 'fail'}
+                    and evaluation.get('joint_passed') is False)
+                outcome = ('activation_unverified' if not applied else 'verified_quality_negative' if negative else
+                    'joint_pass' if conditions and evaluation.get('joint_passed') else 'terminal_unverified_or_incomplete')
+                require(type(report.get('native_conditions_verified')) is bool
+                        and report['native_conditions_verified'] == conditions
+                        and report.get('outcome') == outcome, 'derived native conditions and outcome')
+                item['verified_quality_negative'] = negative
+            else:
+                require(unknown.is_file() and not (attempt/'receipt.json').exists()
+                        and not (attempt/'evaluation.json').exists(), 'unknown attempt classification')
+                item['source_files'] = [evidence.hash_file(path, expected=sha, allow_invalid=True)
+                                        for path, sha in source_hashes.items()]
+            attempts.append(item)
+        require(len(attempts) == report.get('producer_attempts')
+                and 1 <= len(attempts) <= policy.get('max_producer_attempts', 0)
+                and sum('producer' in item for item in attempts) == 1
+                and sum('interrupted-unknown' in item['files'] for item in attempts) == report.get('interrupted_unknown_attempts'),
+                'complete attempt counts')
+        terminal = next(item for item in attempts if 'producer' in item)
+        exposure = reservations.get(report.get('exposure_identity'), {})
+        require(exposure.get('identity') == report.get('exposure_identity')
+                and exposure.get('scope') == _canonical(scope) and exposure.get('cycle_id') == directory.name
+                and exposure.get('split') == 'followup'
+                and isinstance(exposure.get('opened'), str) and bool(exposure['opened']),
+                'scoped follow-up exposure reservation')
+        monitoring = case_ids.get(report.get('monitoring_case_id'), {})
+        require(monitoring.get('source') == 'learned-candidate-native-followup'
+                and monitoring.get('cycle_id') == directory.name
+                and monitoring.get('procedure_version') == version['id']
+                and monitoring.get('execution_mode') == report['mode']
+                and monitoring.get('native_receipt_sha256') == report['native_receipt_sha256']
+                and monitoring.get('receipt_reference_sha256') == terminal['producer']['raw_receipt_sha256'], 'scoped monitoring case')
+        rollback = directory / 'rollback.json'
+        if rollback.exists():
+            files['rollback'] = evidence.json(rollback)
+            require(terminal['verified_quality_negative'] and report.get('rollback') == files['rollback']
+                    and files['rollback'].get('from_version_id') == version['id']
+                    and files['rollback'].get('to_version_id') == version['parent_id']
+                    and files['rollback'].get('monitoring_case_id') == report['monitoring_case_id']
+                    and files['rollback'].get('evaluation_sha256') == report['evaluation_sha256']
+                    and any(row['action'] == 'rollback' and row['previous_id'] == version['id']
+                            and row['version_id'] == version['parent_id']
+                            and row['reason'] == 'Verified learned follow-up quality regression; monitoring case '
+                                + report['monitoring_case_id'] for row in versions['activation_events']), 'trusted rollback')
+        else:
+            require(report.get('rollback') is None and not terminal['verified_quality_negative'], 'rollback receipt')
+        receipts = [item.get('producer', {}).get('record', {}).get('receipt', {}) for item in attempts]
+        exported.append({'cycle_id': directory.name, 'files': files, 'attempts': attempts,
+            'preparation_archives': preparations, 'interrupted_preparation_count': len(preparations),
+            'exposure_reservation': exposure,
+            'evidence_class': 'recorded_learned_followup_' + report['mode'], 'cost_usd': None,
+            'producer_cost_proxies': {'planned_tasks': 1, 'initiated_attempts': len(attempts),
+                'elapsed_seconds': _stats([receipt.get('elapsed_seconds') for receipt in receipts]),
+                'tool_calls': _stats([receipt.get('tool_calls') for receipt in receipts]),
+                'recorded_review_attempts': sum(len(receipt.get('reviews', [])) for receipt in receipts)},
+            'cost_note': 'Subscription USD is unmetered; this follow-up does not establish comparative quality gain.'})
+    return exported
+
+
 def export_report(root, project, chat, *, domain='media-depth'):
     """Return a portable report; no model, evaluation or account file is opened."""
     root = Path(root).resolve(strict=True)
@@ -424,6 +707,7 @@ def export_report(root, project, chat, *, domain='media-depth'):
         for row in events:
             row['value'] = json.loads(row['value'])
         queue = [dict(row) for row in db.execute('SELECT * FROM queue WHERE scope=? ORDER BY priority DESC,id', (key,))]
+        exposures = [dict(row) for row in db.execute('SELECT * FROM exposure WHERE scope=?', (key,))]
     finally:
         db.close()
     activation = None
@@ -459,11 +743,13 @@ def export_report(root, project, chat, *, domain='media-depth'):
                     activation['files'].append({'path': path.relative_to(demo).as_posix(),
                                                 'record': evidence.json(path)})
     versions = _version_state(root, scope)
+    learned_followups = _learned_followups(evidence, scope, cycles, versions, cases, exposures)
     report = {'schema': 'oak-harness2-public-evidence-v1', 'scope': scope,
               'upstream_commit': '1cfe254e8d25b15f37048c3730134686abe60335',
               'model': 'gpt-6.1-sol', 'effort': 'low', 'authentication': 'configured_existing_chatgpt_subscription',
               'cases': cases, 'feedback': feedback, 'queue': queue, 'events': events,
               'cycles': cycles, 'versions': versions, 'controlled_activation': activation,
+              'learned_followups': learned_followups,
               'original_file_sha256': evidence.index, 'cost_usd': None,
               'cost_note': 'Upstream cost_usd=0 is an adapter compatibility value, not measured zero cost. Calls, tools and elapsed time are cost proxies.',
               'limitations': ['Native media checks do not verify external provider access.',

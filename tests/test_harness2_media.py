@@ -9,6 +9,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import fcntl
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -166,6 +167,108 @@ class NativeAdapter(unittest.TestCase):
                      {'AGENTS.md': '', 'guardrails.md': 'override'}, {}):
             with self.assertRaises(ValueError):
                 adapter.validate_tree(tree)
+
+    def _copy_selector_candidate(self, adapter, directory):
+        from oak.harness2_upstream import upstream
+        api = upstream()  # Verify the real pinned implementation before import.
+        from harness2.core.selection import Selection, _write_candidates
+        context = self.root / 'selector-context'
+        candidates = context / 'candidates'
+        candidates.mkdir(parents=True)
+        rollout = api.spec.RunView('c1', 'selector-fixture', directory, True, True)
+        selection = Selection(self.descriptor['id'], 'seq', 2, id_map={'A': 'c1'})
+        names = _write_candidates(selection, {'c1': adapter.deliverable_text(directory)},
+                                  {'c1': rollout}, candidates, adapter)
+        return context, names
+
+    def _view_selector_image(self, context, relative):
+        from oak.harness2_upstream import _ContextTools
+        files = {str(p.relative_to(context)): p.read_bytes()
+                 for p in context.rglob('*') if p.is_file()}
+        tools = _ContextTools(files, context, ('AGENTS.md',), 12000, 4, None, {})
+        result = asyncio.run(tools.handle({'tool': 'oak_h2_view', 'threadId': None,
+                                          'arguments': {'path': relative}}))
+        self.assertTrue(result['success'])
+        self.assertTrue(any(item.get('type') == 'inputImage' for item in result['contentItems']))
+
+    def _selector_video_fixture(self):
+        class VideoRuntime(FakeRuntime):
+            async def run(self, *args):
+                value = await super().run(*args)
+                destination = Path(value['artifact_path']).with_suffix('.mp4')
+                destination.write_bytes(b'\x00\x00\x00\x18ftypmp42synthetic-video-inspector-fixture')
+                destination.chmod(0o400)
+                sha = hashlib.sha256(destination.read_bytes()).hexdigest()
+                value.update(artifact_path=str(destination), candidate_path=str(destination),
+                             artifact_sha256=sha, candidate_sha256=sha,
+                             reviews=[{'verdict': 'pass', 'sha256': sha}])
+                return value
+        adapter = self.adapter()
+        adapter.runtime_factory = VideoRuntime
+        directory = adapter.execute(self.descriptor['id'], None, 'selector-video-fixture')
+        sha = json.loads((directory / 'receipt.json').read_text())['receipt']['artifact_sha256']
+        image = io.BytesIO()
+        Image.new('RGB', (24, 16), (20, 90, 170)).save(image, format='PNG')
+        observed = {'sha256': sha, 'type': 'video', 'decode_status': 'complete',
+                    'coverage': 'Synthetic tiny contact sheet; mocked inspector, no codec call.',
+                    'evidence': [{'image_url': 'data:image/png;base64,' +
+                                 base64.b64encode(image.getvalue()).decode(),
+                                 'label': 'Timestamped video samples'}]}
+        return adapter, directory, observed
+
+    def test_real_upstream_selector_copies_and_role_can_view_delivered_png(self):
+        adapter = self.adapter()
+        directory = adapter.execute(self.descriptor['id'], None, 'selector-png-fixture')
+        with patch('oak.quality_media.inspect_media', side_effect=AssertionError('PNG decoded as video.')):
+            context, names = self._copy_selector_candidate(adapter, directory)
+        self.assertEqual(names, {'final.png'})
+        record = json.loads((directory / 'receipt.json').read_text())
+        self.assertEqual((context / 'candidates/A/final.png').read_bytes(),
+                         Path(record['receipt']['artifact_path']).read_bytes())
+        self.assertIn('exact delivered artifact', (context / 'candidates/A.md').read_text())
+        self._view_selector_image(context, 'candidates/A/final.png')
+
+    def test_real_upstream_selector_video_without_trace_images_gets_viewable_fallback(self):
+        adapter, directory, observed = self._selector_video_fixture()
+        self.assertEqual(adapter.deliverable_images(directory), [])
+        with patch('oak.quality_media.inspect_media', return_value=observed) as inspect:
+            context, names = self._copy_selector_candidate(adapter, directory)
+        self.assertEqual(inspect.call_count, 1)
+        self.assertEqual(len(names), 1)
+        self.assertTrue(next(iter(names)).endswith('.png'))
+        self.assertFalse(any(path.suffix == '.mp4' for path in context.rglob('*')))
+        self._view_selector_image(context, 'candidates/A/' + next(iter(names)))
+        with patch('oak.quality_media.inspect_media', side_effect=AssertionError('Cached evidence decoded again.')):
+            self.assertEqual([p.name for p in adapter.deliverable_assets(directory)], list(names))
+
+    def test_selector_assets_refuse_different_valid_delivery_and_candidate_shas(self):
+        adapter, directory, observed = self._selector_video_fixture()
+        record_path = directory / 'receipt.json'
+        record = json.loads(record_path.read_text())
+        original = Path(record['receipt']['artifact_path'])
+        other = original.with_name('other-delivery.mp4')
+        other.write_bytes(b'\x00\x00\x00\x18ftypmp42different-frozen-delivery')
+        other.chmod(0o400)
+        record['receipt'].update(artifact_path=str(other),
+                                  artifact_sha256=hashlib.sha256(other.read_bytes()).hexdigest())
+        record_path.write_text(json.dumps(record))
+        with patch('oak.quality_media.inspect_media', return_value=observed) as inspect:
+            with self.assertRaises(ValueError):
+                adapter.deliverable_assets(directory)
+        inspect.assert_not_called()
+        self.assertFalse((directory / 'selector-assets').exists())
+
+    def test_selector_video_evidence_refuses_wrong_inspection_sha_and_cache_tamper(self):
+        adapter, directory, observed = self._selector_video_fixture()
+        with patch('oak.quality_media.inspect_media', return_value={**observed, 'sha256': '0' * 64}):
+            with self.assertRaises(ValueError):
+                adapter.deliverable_assets(directory)
+        with patch('oak.quality_media.inspect_media', return_value=observed):
+            assets = adapter.deliverable_assets(directory)
+        assets[0].write_bytes(b'changed image evidence')
+        with patch('oak.quality_media.inspect_media', side_effect=AssertionError('Tamper triggered new decode.')):
+            with self.assertRaises(ValueError):
+                adapter.deliverable_assets(directory)
 
     def test_optimizer_sources_omit_measurement_recipe_and_host_identity(self):
         adapter = self.adapter()

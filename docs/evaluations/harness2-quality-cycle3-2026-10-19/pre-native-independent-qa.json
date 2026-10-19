@@ -1,0 +1,460 @@
+{
+  "schema": "oak-harness2-cycle3-independent-pre-native-qa-v1",
+  "scope": [
+    "harness2-demo",
+    1,
+    "media-depth"
+  ],
+  "cycle_id": "17268cd68f3c3ab4c0700286095bc22f8aea549696428bf35b25eed15e302c31",
+  "ordinal": 3,
+  "status": "sealed_conditions_verified_native_execution_pending",
+  "recorded_at": "2026-10-19T20:47:26.578694+00:00",
+  "inspection_boundary": "JSON, SQLite read-only, source hashes and previously revealed source-proof PNG file hashes only. No new holdout images, grader masks, media decode or native calls.",
+  "attestation_limits": [
+    "This verifies protocol, journal, immutable source bindings and feedback boundaries. It is not a visual inspection or delivery-transport attestation.",
+    "The initial 55 checks were captured before cycle creation; final seal/event checks were captured after native execution had started, before independent results.",
+    "No new held media, native results or evaluator masks were opened. Construction-control JSON statuses and hashes were read without decoding files.",
+    "Native role receipt of feedback will be audited separately when role traces exist. No quality-improvement claim is made."
+  ],
+  "check_count": 95,
+  "passed": 95,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "fixed_model_effort",
+      "passed": true
+    },
+    {
+      "check": "upstream_pin",
+      "passed": true
+    },
+    {
+      "check": "k2",
+      "passed": true
+    },
+    {
+      "check": "reservation_caps",
+      "passed": true
+    },
+    {
+      "check": "per_attempt_budget",
+      "passed": true
+    },
+    {
+      "check": "serialized_native",
+      "passed": true
+    },
+    {
+      "check": "sealed_policy_counts",
+      "passed": true
+    },
+    {
+      "check": "strict_acceptance",
+      "passed": true
+    },
+    {
+      "check": "pre_controls_registration_config_hash",
+      "passed": true
+    },
+    {
+      "check": "registered_policy_hash",
+      "passed": true
+    },
+    {
+      "check": "implementation_manifest_hash",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/controller.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/harness2_media.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/harness2_pipeline.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/harness2_upstream.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/harness_versions.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/runtime.py",
+      "passed": true
+    },
+    {
+      "check": "current_file:oak/tools.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "unchanged_old_mechanics:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "planned_split_counts",
+      "passed": true
+    },
+    {
+      "check": "fresh_kind_order",
+      "passed": true
+    },
+    {
+      "check": "holdout_descriptors_stay_holdout",
+      "passed": true
+    },
+    {
+      "check": "dev_is_explicitly_exposed_905",
+      "passed": true
+    },
+    {
+      "check": "four_expected_regression_ids",
+      "passed": true
+    },
+    {
+      "check": "regressions_marked_exposed",
+      "passed": true
+    },
+    {
+      "check": "unique_fresh_source_identities",
+      "passed": true
+    },
+    {
+      "check": "fresh_source_disjoint_current_dev_regression",
+      "passed": true
+    },
+    {
+      "check": "fresh_source_disjoint_all_prior_reservations",
+      "passed": true,
+      "evidence": {
+        "prior_unique_identities": 8,
+        "fresh_unique_identities": 6
+      }
+    },
+    {
+      "check": "fresh_source_disjoint_old_export",
+      "passed": true
+    },
+    {
+      "check": "dev_promotion_preserves_original_source",
+      "passed": true
+    },
+    {
+      "check": "dev_case_approved_scoped",
+      "passed": true
+    },
+    {
+      "check": "feedback_registered_on_only_dev_case",
+      "passed": true
+    },
+    {
+      "check": "public_feedback_matches_private",
+      "passed": true
+    },
+    {
+      "check": "historical_artifact_sha_bound_to_failed_dev_delivery",
+      "passed": true
+    },
+    {
+      "check": "render_code_exact_sha_in_native_receipt",
+      "passed": true
+    },
+    {
+      "check": "no_independent_grades_or_masks_in_feedback_fields",
+      "passed": true
+    },
+    {
+      "check": "no_current_regression_or_fresh_id_in_dev_feedback",
+      "passed": true
+    },
+    {
+      "check": "no_grader_module_or_report_in_dev_feedback",
+      "passed": true
+    },
+    {
+      "check": "combined_source_proof_unchanged",
+      "passed": true
+    },
+    {
+      "check": "four_individual_source_proofs_unchanged",
+      "passed": true
+    },
+    {
+      "check": "sealed_ordinal3_expected_id",
+      "passed": true
+    },
+    {
+      "check": "sealed_config_preserves_pre_controls_snapshot",
+      "passed": true
+    },
+    {
+      "check": "sealed_manifest_matches_preseal_snapshot",
+      "passed": true
+    },
+    {
+      "check": "sealed_manifest_matches_preparation",
+      "passed": true
+    },
+    {
+      "check": "sealed_event_config_hash",
+      "passed": true
+    },
+    {
+      "check": "sealed_event_manifest_hash",
+      "passed": true
+    },
+    {
+      "check": "sealed_control_report_hash",
+      "passed": true
+    },
+    {
+      "check": "control_report_11_cases_pass",
+      "passed": true
+    },
+    {
+      "check": "control_report_exact_declared_descriptors",
+      "passed": true
+    },
+    {
+      "check": "each_control_source_equals_committed_source",
+      "passed": true
+    },
+    {
+      "check": "eleven_authored_positives_pass",
+      "passed": true
+    },
+    {
+      "check": "eleven_semantic_negatives_fail_quality",
+      "passed": true
+    },
+    {
+      "check": "eleven_semantic_negatives_structurally_valid",
+      "passed": true
+    },
+    {
+      "check": "control_evaluator_map_hash",
+      "passed": true
+    },
+    {
+      "check": "control_evaluator_matches_sealed_implementation",
+      "passed": true
+    },
+    {
+      "check": "control_report_completed_before_seal",
+      "passed": true
+    },
+    {
+      "check": "first_native_reservation_after_seal",
+      "passed": true
+    },
+    {
+      "check": "six_fresh_global_reservations_exact",
+      "passed": true
+    },
+    {
+      "check": "fresh_global_source_identities_disjoint_all_other_cycles",
+      "passed": true,
+      "evidence": {
+        "other_scoped_reserved_identities": 8,
+        "fresh_reserved_identities": 6
+      }
+    },
+    {
+      "check": "fresh_holdouts_unopened_during_search",
+      "passed": true
+    },
+    {
+      "check": "source_version_implementation_binding",
+      "passed": true
+    },
+    {
+      "check": "source_version_local_tree_binding",
+      "passed": true
+    },
+    {
+      "check": "protocol_unchanged_since_preseal_audit",
+      "passed": true
+    },
+    {
+      "check": "feedback_unchanged_since_preseal_audit",
+      "passed": true
+    },
+    {
+      "check": "all_proofs_unchanged_since_preseal_audit",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/controller.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/harness2_media.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/harness2_pipeline.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/harness2_upstream.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/harness_versions.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_complex_quality.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_complex_tasks.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_hard_quality.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_perceptual_quality.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_render.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/media_pilot_runtime.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/quality.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/quality_media.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/runtime.py",
+      "passed": true
+    },
+    {
+      "check": "sealed_current_file:oak/tools.py",
+      "passed": true
+    }
+  ],
+  "sealed_bindings": {
+    "config_sha256": "f24530fb2035466c190521dbe1976b2ce5776e70674672a2222582579dd340f0",
+    "config_before_controls_sha256": "65f9dd78b39b59373733362aeca30527600b5bc4b1c8523b878d6ec5a6279a78",
+    "manifest_sha256": "48d716f02229bddb4bd2cb74e8d17e32761e306fa7c551bad86a12834d36f28d",
+    "policy_sha256": "4e07acaf4523066e6ff9f07197e2163bb7d289eeb445fb159c127979cf2e3270",
+    "implementation_sha256": "fd8a3ddbb6fb5f21303e371ddde8ef9b45b9cb774e95ee2bf6a86f02efbb2c33",
+    "construction_controls_sha256": "7778be85ad536adf6832f2c6c63dafca595a1dc0631cabcd03d7eb4ff182f294",
+    "construction_controls_raw_file_sha256": "f3ef3d8fd9bef7f50176c6a13fc854a005840e8a8757c03135662a79fca84ac8",
+    "construction_controls_path": "scopes/c4fe46d607b07accc7a5ffa55d5589cda95f84c380c115d80861e34a73875d48/construction-controls/48d716f02229bddb4bd2cb74e8d17e32761e306fa7c551bad86a12834d36f28d/preflight.json",
+    "seal_event_id": 9,
+    "sealed_at": "2026-10-19T20:45:42.620857+00:00",
+    "first_native_reservation_at": "2026-10-19T20:46:18.951805+00:00",
+    "protocol_sha256": "ea734467ee22503debb79d1e5b506999aede0f84c086c8e9409e8b7a56aeddbb",
+    "development_case_sha256": "c9ef8ede62d4603482e2f107e793176054c1241861119ebc33969f6613328207",
+    "development_feedback_sha256": "cb12cbeb8ebd35a6ad64e47df52629240e07a4b47fdd118ed78882f5e0e34af3",
+    "source_version_sha256": "e8f1ed9a5398dbb950f5200fc1e9a905bc477d6e9a9675b231801a874bbc47c8",
+    "source_proofs_sha256": {
+      "c2-media-1c68aab35b339230b989-source-loss-proof.png": "4c57e21bf87c2f69ade34c04fecb7a2ea51dcfde755f26f0978d5b579a98b97f",
+      "c1-media-1c68aab35b339230b989-source-loss-proof.png": "8c164b777deda271fc132ef82b9d8b63291a92c13e32183754fe916fea984b0b",
+      "all-four-source-loss-proof.png": "e57bd0c97737e4c9407885f61c91d0ea44efc844efce1a319f5c62c61de2e32e",
+      "c2-media-90526c6f009fe0d09630-source-loss-proof.png": "604dceccdace3aa59ebcc8ae3dd2671f06b9e00266a7176645a01edaba1a5c31",
+      "c1-holdout-repair-reeds310-depth-source-loss-proof.png": "22253367e1f7efa01386b376f19f7570a5128c0069dbda66e417148da7d26c6b"
+    }
+  },
+  "source": {
+    "preseal_checks": 55,
+    "source_version": {
+      "implementation_sha256": "fd8a3ddbb6fb5f21303e371ddde8ef9b45b9cb774e95ee2bf6a86f02efbb2c33",
+      "kind": "cycle3-native-source-version",
+      "local_commit": "221685038b4dcdcaeac84b9f9b8bf13212edfc5c",
+      "note": "Same committed tree, different Git commit objects from connector publication; native journal seals actual implementation file hashes.",
+      "pipeline_source_sha256": "0749c3ea21f620fe92893798627651b980d33f372daa64801d51e481fd03cc60",
+      "public_commit": "86f293c50c1d38587d38ad4d1c7a68de24c3ced4",
+      "tree": "438eaf775410f7beb2be25c6904809d5b639c17b"
+    },
+    "local_files_are_current_at_audit": true
+  },
+  "declared_counts": {
+    "development": 1,
+    "regression": 4,
+    "fresh_holdout": 6,
+    "fresh_creation": 3,
+    "fresh_repair": 3,
+    "k": 2,
+    "producer_cap": 32,
+    "role_cap": 12,
+    "role_tool_cap": 768
+  }
+}

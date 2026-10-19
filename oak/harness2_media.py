@@ -788,6 +788,107 @@ class MediaBenchmarkAdapter:
             images.append(path)
         return list(dict.fromkeys(images))[:8]
 
+    def deliverable_assets(self, run_dir):
+        """Pinned selector hook: actual image evidence, never a raw video path."""
+        record = _receipt(run_dir)
+        if not self._verify_record(record):
+            return []
+        receipt = record['receipt']
+        if receipt.get('status') != 'completed' or receipt.get('delivered') is not True:
+            return []
+        wanted = receipt.get('artifact_sha256')
+        if wanted != receipt.get('candidate_sha256'):
+            raise ValueError('Selector evidence requires the exact delivered candidate SHA.')
+        images = self.deliverable_images(run_dir)
+        if images:
+            for image in images:
+                if (not image.resolve().is_relative_to(Path(run_dir).resolve())
+                        or image.suffix.lower() not in {'.png', '.jpg', '.jpeg'}):
+                    raise ValueError('Selector evidence must be a confined rendered image.')
+                actual = file_sha(image)
+                if _HEX.fullmatch(image.stem) and actual != image.stem:
+                    raise ValueError('Archived rendered evidence changed.')
+            return images
+        artifact = _verify_bound_artifact(record, 'artifact')
+        if artifact is None or artifact.suffix.lower() != '.mp4':
+            return []
+        return self._selector_video_assets(run_dir, artifact, wanted)
+
+    def _selector_video_assets(self, run_dir, artifact, wanted):
+        """Trusted decoder fallback when a producer never inspected its video.
+
+        Only immutable delivered bytes enter the existing media inspector. No
+        task properties, source masks, quality evaluator or verdict is used.
+        """
+        import io
+        from .executor_worker import FileTransfers
+        from . import quality_media
+
+        identity = {'artifact_sha256': wanted, 'version': 1,
+                    'inspector_sha256': file_sha(Path(quality_media.__file__))}
+        directory = Path(run_dir) / 'selector-assets' / canonical_sha(identity)
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        manifest = directory / 'evidence.json'
+        with (directory / '.lock').open('w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            if file_sha(artifact) != wanted:
+                raise ValueError('The delivered artifact changed before image extraction.')
+            if manifest.exists():
+                saved = json.loads(manifest.read_text())
+                if saved.get('identity') != identity or not 1 <= len(saved.get('images', [])) <= 8:
+                    raise ValueError('Selector evidence cache identity changed.')
+                paths = []
+                for item in saved['images']:
+                    name = item['name']
+                    if (Path(name).name != name or Path(name).suffix not in {'.png', '.jpg'}
+                            or file_sha(directory / name) != item['sha256']):
+                        raise ValueError('Cached selector image changed.')
+                    paths.append(directory / name)
+                return paths
+            files = FileTransfers({'workspace': str(Path(run_dir).resolve()),
+                                   'runtime_home': str(directory)})
+            try:
+                observed = quality_media.inspect_media(files, str(artifact), wanted)
+            finally:
+                files.close_all()
+            if (observed.get('sha256') != wanted or observed.get('type') != 'video'
+                    or observed.get('decode_status') != 'complete' or file_sha(artifact) != wanted):
+                raise ValueError('No complete image evidence from the exact delivered video.')
+            images, paths, total = [], [], 0
+            for item in observed.get('evidence', [])[:8]:
+                url = item.get('image_url', '')
+                prefix, separator, encoded = url.partition(',')
+                suffix = {'data:image/png;base64': '.png',
+                          'data:image/jpeg;base64': '.jpg'}.get(prefix)
+                if not separator or suffix is None or len(encoded) > quality_media.EVIDENCE_BYTES:
+                    raise ValueError('Unsupported selector image evidence.')
+                data = base64.b64decode(encoded, validate=True)
+                total += len(data)
+                if not data or total > quality_media.EVIDENCE_BYTES:
+                    raise ValueError('Selector image evidence exceeds its existing bound.')
+                with Image.open(io.BytesIO(data)) as picture:
+                    if picture.format not in {'PNG', 'JPEG'} or picture.width * picture.height > quality_media.MAX_PIXELS:
+                        raise ValueError('Selector image evidence cannot be viewed.')
+                    picture.verify()
+                sha = hashlib.sha256(data).hexdigest()
+                target = directory / (sha + suffix)
+                if target.exists() and file_sha(target) != sha:
+                    raise ValueError('Existing selector image changed.')
+                target.write_bytes(data)
+                images.append({'name': target.name, 'sha256': sha,
+                               'label': str(item.get('label', 'Rendered video sample'))[:500]})
+                paths.append(target)
+            if not paths:
+                raise ValueError('The delivered video has no inspectable selector evidence.')
+            _write(manifest, {'identity': identity, 'images': images,
+                              'coverage': observed.get('coverage', '')})
+            return paths
+
+    def deliverable_assets_note(self, names):
+        return ('Rendered images from the exact delivered artifact are in `{anon}/`: '
+                + ', '.join(names) + '. Inspect these images. Samples do not establish '
+                'every frame or continuous playback.\n')
+
     def authorize_evaluation(self, frozen_sha256):
         if not isinstance(frozen_sha256, str) or not _HEX.fullmatch(frozen_sha256):
             raise ValueError('A committed freeze SHA is required.')

@@ -162,6 +162,7 @@ For an operator-reviewed custom search budget and task counts, `schedule` accept
 file, prepared from `default_config()` using the current implementation:
 
 ```python
+from pathlib import Path
 from oak.harness2_pipeline import canonical, default_config
 
 config = default_config()
@@ -325,6 +326,27 @@ raises its queue priority. These monitoring cases remain optimizer-unapproved;
 they contain no raw prompts, hidden measurements or reusable DEV descriptor.
 A new development case still needs explicit source permission.
 
+After a real independently accepted cycle, a learned-procedure follow-up can
+verify the actual Controller input path without an administrative fixture:
+
+```sh
+.venv-media/bin/python -m oak.harness2_followup --root /absolute/private/oak-h2-run --project media-demo --chat 1 --domain media-depth --cycle-id ACCEPTED_CYCLE_ID --runtime-home /absolute/private/existing-codex-home
+```
+
+It requires the cycle's admitted candidate to be active and binds the independent
+decision, procedure, application context, input and actual native turn. It runs
+one new synthetic task with a separate cap of two producer attempts, retaining
+unknown intents and never replaying terminal results. The follow-up source is
+reserved as exposed, so it cannot become a later fresh holdout. Independent
+visual and mechanical checks use the same delivered SHA. A conclusive, verified
+terminal quality failure restores the accepted parent; unknown infrastructure
+evidence cannot trigger that quality rollback. Monitoring remains scoped and
+optimizer-unapproved. Follow-up success is an application/monitoring check, not
+another comparative quality win. This isolated media runner currently supports
+conversation 1 only; the command rejects another conversation rather than
+substituting its scope. Production Controller activation remains configurable
+for its actual conversation.
+
 The separate controlled activation demonstration temporarily activates explicitly
 labeled benign advice, blocks a deliberately rejected candidate, executes a
 native follow-up, reopens the store, rolls back and executes another follow-up:
@@ -341,7 +363,7 @@ original scoped pointer; it does not deploy to a production Oak instance.
 Focused standard-library checks are reproducible with:
 
 ```sh
-PYTHONPATH=tests .venv-media/bin/python -m unittest test_harness2_upstream test_harness2_media test_harness2_pipeline test_harness2_pipeline_history test_harness2_report test_harness_versions test_harness_activation test_harness2_activation_demo test_harness_rollback_quarantine test_harness_controller_scope test_media_pilot_runtime test_state
+PYTHONPATH=tests .venv-media/bin/python -m unittest test_harness2_upstream test_harness2_media test_harness2_pipeline test_harness2_pipeline_history test_harness2_report test_harness_versions test_harness_activation test_harness2_activation_demo test_harness2_followup test_harness_rollback_quarantine test_harness_controller_scope test_media_pilot_runtime test_state
 ```
 
 Keep three evidence classes separate in reports: local tests and authored codec

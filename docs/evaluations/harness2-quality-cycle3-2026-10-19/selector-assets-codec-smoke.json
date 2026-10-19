@@ -1,0 +1,121 @@
+{
+  "artifact_sha256": "4686d963668769b06c6dd583a61294e54826e86a18d0cbf150bb871c59d44db7",
+  "cache_reused_without_codec": true,
+  "cache_tamper_rejected_without_codec": true,
+  "cycle_id": "17268cd68f3c3ab4c0700286095bc22f8aea549696428bf35b25eed15e302c31",
+  "delivered_artifact_tamper_rejected_without_codec": true,
+  "elapsed_seconds": 1.426,
+  "evidence_manifest": {
+    "coverage": "Every frame decoded at reduced resolution for movement selection; visual evidence contains uniform frames and local movement peaks with neighbors. Audio is not evaluated; sampled visual review cannot establish quality of every frame.",
+    "identity": {
+      "artifact_sha256": "4686d963668769b06c6dd583a61294e54826e86a18d0cbf150bb871c59d44db7",
+      "inspector_sha256": "77a8bff069fe7e573b2fa02276b17834e115bc873b3465230e812e12164602d4",
+      "version": 1
+    },
+    "images": [
+      {
+        "label": "Uniform sequence across the complete video",
+        "name": "f87b87ee777121f558d16206199975cd1a14e283c8a539e697906e18d05ba5f3.jpg",
+        "sha256": "f87b87ee777121f558d16206199975cd1a14e283c8a539e697906e18d05ba5f3"
+      },
+      {
+        "label": "Brief movement transitions, ordered by frame index",
+        "name": "0f8e65637f4c79141eb3839cc430f16cf16d320d49a648c229412e257e392221.jpg",
+        "sha256": "0f8e65637f4c79141eb3839cc430f16cf16d320d49a648c229412e257e392221"
+      },
+      {
+        "label": "Brief movement transitions, ordered by frame index",
+        "name": "30576bcf466a39ef9f54b3d125df4189ff612089a79d9174fe5d5b8bcd724221.jpg",
+        "sha256": "30576bcf466a39ef9f54b3d125df4189ff612089a79d9174fe5d5b8bcd724221"
+      },
+      {
+        "label": "Brief movement transitions, ordered by frame index",
+        "name": "6e6de0e1741f94331d1315d1d59be0d5c363488346f3d3e5c5aec33198589322.jpg",
+        "sha256": "6e6de0e1741f94331d1315d1d59be0d5c363488346f3d3e5c5aec33198589322"
+      },
+      {
+        "label": "Magnified localized transition, normalized bounds [0.84028, 0.44141, 1.0, 0.60156]; compare texture, edges and shading with baseline and surrounding transition",
+        "name": "bba9230b0f7495bf366a5368ee00e03ce73143637da44894eee859f466270383.jpg",
+        "sha256": "bba9230b0f7495bf366a5368ee00e03ce73143637da44894eee859f466270383"
+      },
+      {
+        "label": "Magnified localized transition, normalized bounds [0.41782, 0.44141, 0.57755, 0.60156]; compare texture, edges and shading with baseline and surrounding transition",
+        "name": "1948727c283623de586947f74e3aae1a2c9fcfddd82316bc0c3ad60513435f9a.jpg",
+        "sha256": "1948727c283623de586947f74e3aae1a2c9fcfddd82316bc0c3ad60513435f9a"
+      },
+      {
+        "label": "Magnified localized transition, normalized bounds [0.70139, 0.42188, 0.86111, 0.58203]; compare texture, edges and shading with baseline and surrounding transition",
+        "name": "546b737b058836c41c7037c63e0792a2838fddea3fadb306f790f36a84118830.jpg",
+        "sha256": "546b737b058836c41c7037c63e0792a2838fddea3fadb306f790f36a84118830"
+      },
+      {
+        "label": "Detail of the automatically detected changing region, normalized bounds (0.02734375, 0.34210526315789475, 0.98046875, 0.6644736842105263)",
+        "name": "b02255de3c159b128380eaea371101297f142dc462fed3166c7ff7d09c4c0cdd.jpg",
+        "sha256": "b02255de3c159b128380eaea371101297f142dc462fed3166c7ff7d09c4c0cdd"
+      }
+    ]
+  },
+  "executed_smoke_script_sha256": "b250e4dff8128aa6c5778b526970f39daac5249e8f07a7bc9986e2a6ffc57f56",
+  "grader_calls": 0,
+  "image_count": 8,
+  "images": [
+    {
+      "name": "0f8e65637f4c79141eb3839cc430f16cf16d320d49a648c229412e257e392221.jpg",
+      "sha256": "0f8e65637f4c79141eb3839cc430f16cf16d320d49a648c229412e257e392221"
+    },
+    {
+      "name": "1948727c283623de586947f74e3aae1a2c9fcfddd82316bc0c3ad60513435f9a.jpg",
+      "sha256": "1948727c283623de586947f74e3aae1a2c9fcfddd82316bc0c3ad60513435f9a"
+    },
+    {
+      "name": "30576bcf466a39ef9f54b3d125df4189ff612089a79d9174fe5d5b8bcd724221.jpg",
+      "sha256": "30576bcf466a39ef9f54b3d125df4189ff612089a79d9174fe5d5b8bcd724221"
+    },
+    {
+      "name": "546b737b058836c41c7037c63e0792a2838fddea3fadb306f790f36a84118830.jpg",
+      "sha256": "546b737b058836c41c7037c63e0792a2838fddea3fadb306f790f36a84118830"
+    },
+    {
+      "name": "6e6de0e1741f94331d1315d1d59be0d5c363488346f3d3e5c5aec33198589322.jpg",
+      "sha256": "6e6de0e1741f94331d1315d1d59be0d5c363488346f3d3e5c5aec33198589322"
+    },
+    {
+      "name": "b02255de3c159b128380eaea371101297f142dc462fed3166c7ff7d09c4c0cdd.jpg",
+      "sha256": "b02255de3c159b128380eaea371101297f142dc462fed3166c7ff7d09c4c0cdd"
+    },
+    {
+      "name": "bba9230b0f7495bf366a5368ee00e03ce73143637da44894eee859f466270383.jpg",
+      "sha256": "bba9230b0f7495bf366a5368ee00e03ce73143637da44894eee859f466270383"
+    },
+    {
+      "name": "f87b87ee777121f558d16206199975cd1a14e283c8a539e697906e18d05ba5f3.jpg",
+      "sha256": "f87b87ee777121f558d16206199975cd1a14e283c8a539e697906e18d05ba5f3"
+    }
+  ],
+  "inspector_sha256": "77a8bff069fe7e573b2fa02276b17834e115bc873b3465230e812e12164602d4",
+  "limitations": [
+    "Post-cycle unmeasured interface repair; original cycle source seal is unchanged.",
+    "Rendered samples do not establish every video frame or continuous playback.",
+    "Inspector labels/crop coordinates/coverage stay in the cache manifest; pinned selector receives image files and a generic sample note.",
+    "View-tool protocol exercised directly without a model session; no selector choice or quality gain is measured."
+  ],
+  "media_adapter_sha256": "3a9123f5b05fc08f87f2bad4b484d79a0cf3e7cb2d678726f0d522452edc4d50",
+  "model_calls": 0,
+  "no_independent_grader_files_in_context": true,
+  "only_isolated_copy_mutated": true,
+  "original_cycle_measurement_reinterpreted": false,
+  "original_native_evidence_unchanged": true,
+  "original_receipt_sha256": "a81889d65e2c0fd821e2d9847f478790b7c3a8b3873640b7207756f2a7305495",
+  "original_run_id": "oak-media-oak_native_media-seq2/media-90526c6f009fe0d09630/c2",
+  "original_smoke_report_sha256": "83ac0c4b9b98d8648e02b896a08307cdb4ab77486f63ca465e048c76ad4aae86",
+  "patch_sha256": "816b7adccb0ab80d638242819301f56f500e0c20fbe7d1e39ac5a7564314e69c",
+  "quality_gain_claim": false,
+  "real_inspector_calls": 1,
+  "recorded_at": "2026-10-19T21:40:54.183913+00:00",
+  "recorded_at_source": "Private smoke report completion filesystem timestamp, converted to UTC.",
+  "reproduction_script": "scripts/harness2-selector-codec-smoke.py",
+  "reproduction_script_sha256": "fb76b5a2cd0cc0f932fe48ae5baf226c64c160e9eb144ce576e3a37bdec2b1fe",
+  "role_view_exact_bytes": true,
+  "schema": "oak-selector-assets-codec-smoke-v1",
+  "upstream_commit": "1cfe254e8d25b15f37048c3730134686abe60335"
+}

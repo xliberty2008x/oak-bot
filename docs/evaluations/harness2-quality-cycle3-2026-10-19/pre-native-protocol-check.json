@@ -1,0 +1,25 @@
+{
+  "fresh_input_artwork_read_by_optimizer": false,
+  "kind": "pre-native-protocol-difference-check",
+  "new_counts": {
+    "holdout": 6,
+    "regression": 4
+  },
+  "new_holdout_model_measurement_started": false,
+  "new_k": 2,
+  "new_producer_cap": 32,
+  "new_role_cap": 12,
+  "new_role_tool_cap": 768,
+  "old_counts": {
+    "holdout": 2,
+    "regression": 2
+  },
+  "old_k": 1,
+  "old_producer_cap": 16,
+  "old_role_cap": 8,
+  "optimizer_feedback": "factual correction on explicitly exposed current DEV reproducer; no independent numerical grades or hidden masks",
+  "recorded_at": "2026-10-19T23:38:51.271192+03:00",
+  "unchanged_acceptance_criteria_except_declared_task_counts": true,
+  "unchanged_model_effort_auth": true,
+  "unchanged_per_attempt_limits": true
+}
