@@ -9,6 +9,7 @@ import asyncio
 import base64
 import contextlib
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ import uuid
 from .controller import Controller
 from .executor_worker import FileTransfers
 from .quality import QualityReviewer, REVIEW_INSTRUCTIONS, _DISABLED_FEATURES
-from .quality_media import codec_environment, inspect_media
+from .quality_media import MAX_PIXELS, codec_environment, inspect_media
 from .runtime import MODEL, RuntimeClient
 from .tools import SPECS, _spec
 
@@ -46,10 +47,42 @@ _DYNAMIC = {'oak_review_artifact', 'oak_send_file', 'oak_experience',
 _NON_TOOL = {'userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'}
 _SAFE_NAME = re.compile(r'[A-Za-z0-9_-]+\Z')
 _MAX_ARTIFACT = 256 * 1024 * 1024
+_MAX_SPECIFICATION = 64 * 1024
 
 
 def _sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_sha(value):
+    return _sha(json.dumps(value, sort_keys=True, ensure_ascii=False,
+                           allow_nan=False).encode('utf-8'))
+
+
+def _image_codec_facts(data, sha256):
+    """Original encoded-image facts from the inspected bounded byte snapshot.
+
+    Read format, mode and dimensions before display/RGB conversion. Converting
+    to RGBA only measures actual opacity, including palette transparency; it
+    never changes the reported encoded mode or the bytes sent for review.
+    """
+    from PIL import Image
+    if _sha(data) != sha256 or not 0 < len(data) <= _MAX_ARTIFACT:
+        raise ValueError('Image facts require matching bounded snapshot bytes.')
+    with Image.open(io.BytesIO(data)) as source:
+        if not 0 < source.width * source.height <= MAX_PIXELS:
+            raise ValueError('Image dimensions exceed the inspection limit.')
+        facts = {'sha256': sha256, 'format': source.format, 'mode': source.mode,
+                 'dimensions': {'width': source.width, 'height': source.height},
+                 'frame_count': getattr(source, 'n_frames', 1)}
+        if facts['frame_count'] != 1:
+            raise ValueError('Static image facts require exactly one frame.')
+        source.load()
+        alpha_present = 'A' in source.getbands() or 'transparency' in source.info
+        alpha = source.convert('RGBA').getchannel('A').getextrema()
+        facts.update(alpha_present=alpha_present, alpha_extrema=list(alpha),
+                     fully_opaque=alpha == (255, 255), decode_status='complete')
+        return facts
 
 
 async def _video_codec_facts(data, sha256):
@@ -58,7 +91,7 @@ async def _video_codec_facts(data, sha256):
         raise ValueError('Codec input does not match the inspected snapshot.')
     process = await asyncio.create_subprocess_exec(
         '/usr/bin/ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
-        '-show_entries', 'format=format_name:format_tags=major_brand,compatible_brands:stream=codec_name,codec_type',
+        '-show_entries', 'format=format_name:format_tags=major_brand,compatible_brands:stream=codec_name,codec_type,pix_fmt',
         '-of', 'json', 'pipe:0', stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE, stderr=subprocess.DEVNULL,
         env=codec_environment(), limit=65536)
@@ -102,6 +135,11 @@ async def _video_codec_facts(data, sha256):
             if any(not isinstance(value, str) or not re.fullmatch('[A-Za-z0-9_.-]{1,80}', value)
                    for value in row.values()):
                 raise ValueError('Invalid stream codec facts.')
+            if row['codec_type'] == 'video':
+                pixels = stream.get('pix_fmt')
+                if not isinstance(pixels, str) or not re.fullmatch('[A-Za-z0-9_.-]{1,80}', pixels):
+                    raise ValueError('Invalid pixel format fact.')
+                row['pix_fmt'] = pixels
             facts.append(row)
         tags = format_data.get('tags') or {}
         format_tags = {key: tags[key] for key in ('major_brand', 'compatible_brands') if key in tags}
@@ -148,7 +186,7 @@ class _PolicyClient:
 
 
 class _PilotTools:
-    version = 'oak-offline-media-pilot-v1'
+    version = 'oak-offline-media-pilot-v3'
 
     def __init__(self, runtime, task, workspace, state, reviewer):
         self.runtime, self.task, self.workspace, self.state = runtime, task, workspace, state
@@ -159,6 +197,10 @@ class _PilotTools:
         self.thread_id = None
         self.turn_id = None
         self.reviews, self.cache, self.tool_counts, self.render_calls = [], {}, {}, []
+        # A cancelled asyncio.to_thread await does not stop its render process.
+        # Keep shielded workers until client shutdown, then join them before
+        # freezing any candidate bytes or closing file-transfer descriptors.
+        self.render_jobs = []
         self.artifact_path = self.artifact_sha256 = None
         self.violation = False
         self.lock = asyncio.Lock()
@@ -179,9 +221,71 @@ class _PilotTools:
             if not isinstance(expected, str) or not re.fullmatch('[a-f0-9]{64}', expected):
                 raise ValueError('Invalid source hash.')
             self.source_hashes[str(resolved)] = expected
+        self.specification = None
+        self.review_brief = task['brief']
+        self.review_manifest = None
+        self.requirements_hashes = {'specification_sha256': None,
+                                   'visual_requirements_sha256': None,
+                                   'mechanical_requirements_sha256': None}
+        if task.get('specification_path') is not None:
+            path = self.path(task['specification_path'])
+            if str(path) not in self.source_hashes:
+                raise ValueError('Specification must be an explicitly hashed task source.')
+            raw = self.read(path, maximum=_MAX_SPECIFICATION)
+            if _sha(raw) != self.source_hashes[str(path)]:
+                raise ValueError('Task specification changed.')
+            content = json.loads(raw.decode('utf-8'))
+            if not isinstance(content, dict):
+                raise ValueError('Task specification must be a JSON object.')
+            json.dumps(content, ensure_ascii=False, allow_nan=False)
+            self.requirements_hashes['specification_sha256'] = _sha(raw)
+            self.specification = {'path': '/workspace/' + str(path.relative_to(self.workspace)),
+                                  'sha256': _sha(raw), 'content': content}
+            if 'review_manifest' in content:
+                manifest = content['review_manifest']
+                if (not isinstance(manifest, dict) or set(manifest) != {'visual', 'mechanical'}
+                        or not isinstance(manifest['visual'], dict)
+                        or set(manifest['visual']) != {'brief', 'specification'}
+                        or not isinstance(manifest['visual']['brief'], str)
+                        or not manifest['visual']['brief'].strip()
+                        or not 1 <= len(manifest['visual']['brief']) <= 16000
+                        or not isinstance(manifest['visual']['specification'], dict)
+                        or not isinstance(manifest['mechanical'], dict)):
+                    raise ValueError('Invalid public complementary review manifest.')
+                visual, mechanical = manifest['visual'], manifest['mechanical']
+                self.requirements_hashes.update(
+                    visual_requirements_sha256=_canonical_sha(visual),
+                    mechanical_requirements_sha256=_canonical_sha(mechanical))
+                self.review_manifest = manifest
+                self.review_brief = visual['brief']
+                # The source SHA identifies the immutable complete public task
+                # specification. A separate canonical SHA identifies this
+                # predeclared projection, including its scoped owner brief.
+                # Neither numeric requirements nor grader outputs enter the
+                # VLM subreview when the original source declares a manifest.
+                self.specification = {
+                    'path': '/workspace/' + str(path.relative_to(self.workspace)),
+                    'source_sha256': _sha(raw),
+                    'projection': 'review_manifest.visual.specification',
+                    'visual_requirements_sha256': self.requirements_hashes['visual_requirements_sha256'],
+                    'content': visual['specification']}
         self.references = [self.path(path) for path in task.get('reference_paths', [])]
         if len(self.references) > 3:
             raise ValueError('Use at most three source references.')
+        self.reference_roles = {}
+        roles = task.get('reference_roles', {})
+        if not isinstance(roles, dict) or len(roles) > 3:
+            raise ValueError('Invalid original reference roles.')
+        for name, role in roles.items():
+            path = self.path(name)
+            if (path not in self.references or str(path) not in self.source_hashes
+                    or str(path) in self.reference_roles or not isinstance(role, str)
+                    or not 1 <= len(role) <= 80 or role.strip() != role
+                    or any(ord(character) < 32 or ord(character) == 127 for character in role)):
+                raise ValueError('Reference roles require unique explicitly hashed original references.')
+            self.reference_roles[str(path)] = role
+        if self.review_manifest is not None and set(self.reference_roles) != set(map(str, self.references)):
+            raise ValueError('Visual review manifests require a role for every original reference.')
         # Freeze source bytes even when a caller supplies paths without hashes.
         for reference in self.references:
             self.source_hashes.setdefault(str(reference), _sha(self.read(reference)))
@@ -201,17 +305,18 @@ class _PilotTools:
             raise ValueError('Invalid workspace path.')
         return path
 
-    def read(self, path):
+    def read(self, path, *, maximum=None):
+        maximum = _MAX_ARTIFACT if maximum is None else maximum
         opened = self.files.open_read(str(self.path(path)))
         handle = opened['handle']
         try:
-            if opened['size'] > _MAX_ARTIFACT:
+            if opened['size'] > maximum:
                 raise ValueError('Artifact exceeds the pilot limit.')
             data = bytearray()
             while True:
                 chunk = self.files.read_chunk(handle)
                 data.extend(base64.b64decode(chunk['data'], validate=True))
-                if len(data) > _MAX_ARTIFACT:
+                if len(data) > maximum:
                     raise ValueError('Artifact exceeds the pilot limit.')
                 if chunk['eof']:
                     return bytes(data)
@@ -230,14 +335,21 @@ class _PilotTools:
         data = await asyncio.to_thread(inspect_media, self.files, str(path), sha)
         if data.get('sha256') != sha:
             raise ValueError('Visual evidence does not match the inspected snapshot.')
+        if data.get('type') == 'image':
+            try:
+                data['image_facts'] = await asyncio.to_thread(_image_codec_facts, snapshot, sha)
+            except (OSError, ValueError):
+                data['image_facts'] = {'sha256': sha, 'available': False,
+                                       'error_code': 'image_fact_extraction_failed'}
         if data.get('type') == 'video':
             try:
                 data['codec_facts'] = await _video_codec_facts(snapshot, sha)
             except (OSError, ValueError, TimeoutError, subprocess.SubprocessError):
                 data['codec_facts'] = {'sha256': sha, 'available': False,
                                        'error_code': 'codec_probe_failed'}
+        if data.get('type') in {'image', 'video'}:
             if _sha(snapshot) != sha or await asyncio.to_thread(lambda: _sha(self.read(path))) != sha:
-                raise ValueError('Artifact bytes changed during codec inspection.')
+                raise ValueError('Artifact bytes changed during encoded-media inspection.')
         return data
 
     async def handle(self, metadata):
@@ -264,8 +376,11 @@ class _PilotTools:
                     if len(self.render_calls) >= 16:
                         return _native_result({'ok': False, 'error_code': 'pilot_render_budget_exhausted'})
                     from .media_pilot_render import render_python
-                    result = await asyncio.to_thread(render_python, self.workspace, args['code'],
-                                                     timeout=min(60, self.runtime.timeout))
+                    job = asyncio.create_task(asyncio.to_thread(
+                        render_python, self.workspace, args['code'],
+                        timeout=min(60, self.runtime.timeout)))
+                    self.render_jobs.append(job)
+                    result = await asyncio.shield(job)
                     self.render_calls.append({'ok': result.get('ok') is True,
                                               'error_code': result.get('error_code', result.get('error')),
                                               'code_sha256': _sha(str(args['code']).encode())})
@@ -306,14 +421,27 @@ class _PilotTools:
         references, valid = [], data.get('decode_status') == 'complete' and bool(images)
         for path in self.references:
             reference = await self.inspect(path)
+            if reference.get('sha256') != self.source_hashes[str(path)]:
+                raise ValueError('Original reference evidence does not match its source hash.')
             evidence = reference.pop('evidence', [])
             valid = valid and reference.get('decode_status') == 'complete' and bool(evidence)
+            role = self.reference_roles.get(str(path))
+            if role is not None:
+                public_path = '/workspace/' + str(path.relative_to(self.workspace))
+                reference.update(source_path=public_path, source_role=role)
             references.append(reference)
-            images.extend({'label': 'SOURCE REFERENCE: ' + row['label'], 'image_url': row['image_url']}
+            label = ('SOURCE REFERENCE: ' if role is None else
+                     f'SOURCE REFERENCE [{role}] {public_path} SHA-256 {reference["sha256"]}: ')
+            images.extend({'label': label + row['label'], 'image_url': row['image_url']}
                           for row in evidence[:2])
         if valid:
+            metadata = {'output': data, 'references': references}
+            if self.specification is not None:
+                # Original immutable production requirements, never a
+                # producer-supplied review argument or evaluator output.
+                metadata['supplied_requirements_specification'] = self.specification
             report = await self.reviewer.review(
-                self.task['brief'], images, {'output': data, 'references': references},
+                self.review_brief, images, metadata,
                 model=MODEL, effort=self.runtime.effort)
         else:
             report = {'verdict': 'unverified', 'error_code': 'media_decode_incomplete',
@@ -341,6 +469,14 @@ class _PilotTools:
             return {'ok': False, 'queued_for_delivery': False, 'error_code': 'source_is_not_an_output'}
         if path.name != self.task.get('output_name', path.name):
             return {'ok': False, 'queued_for_delivery': False, 'error_code': 'requested_output_name_required'}
+        destination = self.snapshot(data, path)
+        self.artifact_path, self.artifact_sha256 = destination, sha
+        return {'ok': True, 'queued_for_delivery': True, 'local_only': True,
+                'sha256': sha, 'review_id': review['review_id']}
+
+    def snapshot(self, data, path):
+        """Freeze descriptor-read bytes outside the producer's filesystem."""
+        sha = _sha(data)
         destination = self.state / (sha + path.suffix.lower())
         if not destination.exists():
             with destination.open('xb') as output:
@@ -348,9 +484,25 @@ class _PilotTools:
             destination.chmod(0o400)
         if _sha(destination.read_bytes()) != sha:
             raise ValueError('Artifact sink integrity failed.')
-        self.artifact_path, self.artifact_sha256 = destination, sha
-        return {'ok': True, 'queued_for_delivery': True, 'local_only': True,
-                'sha256': sha, 'review_id': review['review_id']}
+        return destination
+
+    def capture_candidate(self):
+        """Retain the final requested output without implying review or delivery.
+
+        Called only after the native client and all render workers have stopped.
+        Sources are checked on both sides of the bounded descriptor read; a
+        missing, mutable, symlinked or oversized output supplies no candidate.
+        """
+        output_name = self.task.get('output_name')
+        if not isinstance(output_name, str):
+            return None
+        path = self.path(output_name)
+        if str(path) in self.source_hashes:
+            return None
+        self.check_sources()
+        data = self.read(path)
+        self.check_sources()
+        return self.snapshot(data, path), _sha(data)
 
     def experience(self, args):
         memory = self.controller.memory
@@ -384,11 +536,14 @@ class PilotRuntime:
     async def run(self, task, workspace, procedure=''):
         started = time.monotonic()
         result = {'status': 'failed', 'artifact_path': None, 'artifact_sha256': None,
+                  'candidate_path': None, 'candidate_sha256': None, 'candidate_complete': False,
                   'delivered': False, 'reviews': [], 'tool_calls': 0, 'tool_counts': {},
                   'elapsed_seconds': 0, 'model': MODEL, 'effort': self.effort,
                   'context_sha256': None, 'reviewer_policy_sha256': _sha(REVIEW_INSTRUCTIONS.encode()),
+                  'specification_sha256': None, 'visual_requirements_sha256': None,
+                  'mechanical_requirements_sha256': None,
                   'source_immutable': False,
-                  'adapter': 'oak-controller-with-offline-bwrap-media-tools-v1'}
+                  'adapter': 'oak-controller-with-offline-bwrap-media-tools-v3'}
         tools = controller = wrapped = None
         try:
             if (not isinstance(task, dict) or not isinstance(task.get('brief'), str)
@@ -464,6 +619,26 @@ class PilotRuntime:
             result.update(status='failed', error_code='pilot_runtime_unavailable')
         finally:
             if tools is not None:
+                result.update(tools.requirements_hashes)
+                # RuntimeClient closes and cancels its callbacks before this
+                # block. Shielded render threads still own a bounded sandbox;
+                # join them so a timeout never snapshots a file being rendered.
+                await asyncio.gather(*tools.render_jobs, return_exceptions=True)
+                try:
+                    tools.check_sources()
+                    result['source_immutable'] = True
+                except (OSError, ValueError):
+                    result.update(source_immutable=False, delivered=False,
+                                  artifact_path=None, artifact_sha256=None)
+                if result['source_immutable'] and not tools.violation:
+                    try:
+                        candidate = tools.capture_candidate()
+                        if candidate is not None:
+                            path, sha = candidate
+                            result.update(candidate_path=str(path), candidate_sha256=sha,
+                                          candidate_complete=result['status'] in {'completed', 'unverified'})
+                    except (OSError, ValueError):
+                        pass
                 result.update(reviews=tools.reviews, tool_calls=sum(tools.tool_counts.values()),
                               tool_counts=tools.tool_counts, render_calls=tools.render_calls)
                 tools.files.close_all()

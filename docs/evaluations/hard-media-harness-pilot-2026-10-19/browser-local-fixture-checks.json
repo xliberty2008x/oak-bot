@@ -1,0 +1,20 @@
+{
+  "source_commit": "fd3dcb9f2083ce9236685052b318dd305e369100",
+  "verification": "actual installed Playwright Chromium with chromium_sandbox=True and a new ephemeral context for each case",
+  "tests": [
+    "test_hidden_input_and_cross_origin_iframe_are_actionable",
+    "test_dynamic_file_chooser_uses_same_context_and_exact_file_bytes",
+    "test_unknown_external_action_is_never_replayed"
+  ],
+  "passed": 3,
+  "failed": 0,
+  "skipped": 0,
+  "elapsed_seconds": 11.393,
+  "exit_code": 0,
+  "dependencies_installed_or_updated": false,
+  "sandbox_bypassed": false,
+  "account_or_profile_copied": false,
+  "source_changed": false,
+  "scope": "Real local DOM/file-selection/uncertain-dispatch checks against localhost fixtures only. No live external website, provider or account flow tested.",
+  "log_sha256": "061299aa6973bc3f71e6c77ecf74215255ebc69a931277c0805c59c9894d2340"
+}

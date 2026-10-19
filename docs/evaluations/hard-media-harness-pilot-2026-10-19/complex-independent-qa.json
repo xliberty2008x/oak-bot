@@ -1,0 +1,109 @@
+{
+  "generated_at": "2026-10-19T16:34:23.891464+00:00",
+  "status": "pass_with_measurement_caveats",
+  "published_source_commit": "4fa96e99e5e3a8934f11357574976faa604638c4",
+  "implementation_sha256": "bd113cafc7b8de8da4a876a8373c2a20c9645056f44f2cd5959166c020da43dd",
+  "settings_sha256": "0e9e861e8321fe4b08009d6d7010ecdbdeeeea61b437fcd1183aded5ba8a935b",
+  "config": {
+    "suite": "complex",
+    "model": "gpt-6.1-sol",
+    "effort": "low",
+    "timeout": 600,
+    "repeats": 2,
+    "workers": 1
+  },
+  "procedure_sha256": {
+    "baseline": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+    "candidate-1": "ab96dca079badc14cdb5e5f989dd44b2e99f582e52d97c38a90946fd12b454f7",
+    "candidate-2": "669290a6da4c2112757dc2cb31cf5db15433787973bb5b1a0bfdfbe9589a2baa"
+  },
+  "nominal_finished": 60,
+  "unknown_interrupted": 3,
+  "initiated_total": 63,
+  "hash_verified_unique_files": 385,
+  "paired_joint_counts": {
+    "tie": 6,
+    "loss": 5,
+    "win": 1
+  },
+  "paired_family_counts": {
+    "projective": {
+      "tie": 4
+    },
+    "choreography": {
+      "loss": 3,
+      "win": 1
+    },
+    "mechanism": {
+      "loss": 2,
+      "tie": 2
+    }
+  },
+  "verification_counts": {
+    "finished_source_entries": 310,
+    "interrupted_source_entries": 15,
+    "candidate_and_delivery_snapshot_entries": 120,
+    "unique_verified_paths": 385
+  },
+  "schema_version": 1,
+  "scope": "Independent arithmetic, split, procedure and source/snapshot provenance checks. No model calls or artifact rescoring.",
+  "checks": {
+    "fixed_config": true,
+    "settings_hash": true,
+    "suite_hash": true,
+    "implementation_hash_matches_seal": true,
+    "implementation_matches_published_commit": true,
+    "frozen_procedure_hash": true,
+    "all_60_planned_slots_finished": true,
+    "all_native_model_effort_procedure_hashes": true,
+    "all_source_and_artifact_sha": true,
+    "all_source_immutable_flags": true,
+    "all_delivery_sha_review_bindings": true,
+    "native_caps_not_exceeded": true,
+    "receipt_based_joint_and_candidate_metric_rules": true,
+    "report_summary_dev_baseline": true,
+    "handoff_family_dev_projective_baseline": true,
+    "handoff_family_dev_choreography_baseline": true,
+    "handoff_family_dev_mechanism_baseline": true,
+    "report_summary_dev_candidate-1": true,
+    "handoff_family_dev_projective_candidate-1": true,
+    "handoff_family_dev_choreography_candidate-1": true,
+    "handoff_family_dev_mechanism_candidate-1": true,
+    "report_summary_dev_candidate-2": true,
+    "handoff_family_dev_projective_candidate-2": true,
+    "handoff_family_dev_choreography_candidate-2": true,
+    "handoff_family_dev_mechanism_candidate-2": true,
+    "report_summary_holdout_baseline": true,
+    "handoff_family_holdout_projective_baseline": true,
+    "handoff_family_holdout_choreography_baseline": true,
+    "handoff_family_holdout_mechanism_baseline": true,
+    "report_summary_holdout_candidate-1": true,
+    "handoff_family_holdout_projective_candidate-1": true,
+    "handoff_family_holdout_choreography_candidate-1": true,
+    "handoff_family_holdout_mechanism_candidate-1": true,
+    "handoff_summaries": true,
+    "all_12_paired_rows": true,
+    "paired_counts": true,
+    "handoff_family_pairs": true,
+    "all_3_unknown_interruptions_retained": true,
+    "fresh_only_interrupted_slot_resumption": true,
+    "initiated_dev_baseline": true,
+    "initiated_dev_candidate-1": true,
+    "initiated_dev_candidate-2": true,
+    "initiated_holdout_baseline": true,
+    "initiated_holdout_candidate-1": true,
+    "63_initiated_handoff": true,
+    "freeze_precedes_all_holdout_and_follows_all_dev": true,
+    "no_handoff_failure_omissions": true,
+    "frozen_dev_selection_matches_rule": true,
+    "both_held_marker_cases_only_same_sensitive_criterion": true,
+    "all_interrupted_source_hashes_and_procedure_hashes": true,
+    "all_delivered_candidates_are_same_sha": true
+  },
+  "checks_passed": 51,
+  "checks_expected": 51,
+  "ledger_sha256": "0f25642852d89266f7d41d840bfad16cce2b7b647d266a8aeb2a17aed57b13f0",
+  "raw_independent_qa_sha256": "55849c091f709169d7cd4a825b15b34c4d6d089d63518b5a31a53b48b5b1ddff",
+  "handoff_sha256": "bbbb45df103f05534655cc5df6e6a60eb4abd81a45a5f267ff10f123c5541048",
+  "measurement_caveat": "Two held-out marker-only failures remain formal numeric losses; an existing DEV sampling counterexample prevents treating those losses as established visible defects."
+}
