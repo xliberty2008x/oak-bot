@@ -114,10 +114,15 @@ defects such as frozen motion, misplaced pupils, wrong foreground order,
 damaged labels or registration errors. Construction checks may cover generated
 assets from both splits; they contain no model-produced held-out feedback.
 
-A separate development-only reviewer preflight may verify that authored valid
-outputs have complete visual evidence. Its receipts are kept outside the main
-comparison. It is not a baseline result or evidence that a learned procedure
-works. Candidate authors receive only the main development evidence. Native
+A separate development-only
+[reviewer preflight](evaluations/hard-media-harness-pilot-2026-10-19/authored-visual-preflight.json)
+accepted one authored valid output from each family using the unchanged native
+review policy. Its receipts are kept outside the main comparison. It is not a
+baseline result or evidence that a learned procedure works. A subsequent
+construction audit also corrected pupil tracking so a valid dark closed-lid seam
+does not count as a displaced pupil; new controls retain detection of pupils
+that move only during partial closure, without changing numeric tolerances.
+Candidate authors receive only the main development evidence. Native
 held-out task runs begin only after selection is frozen, and their feedback
 must never be used to change a procedure in the same experiment.
 

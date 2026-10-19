@@ -1,6 +1,7 @@
 """Actual decoded media, positive controls and purposeful semantic mutations."""
 
 import json
+import importlib.util
 import math
 import os
 from pathlib import Path
@@ -11,6 +12,9 @@ import unittest
 from unittest.mock import patch
 
 from PIL import Image, ImageChops
+
+if importlib.util.find_spec('numpy') is None:
+    raise unittest.SkipTest('Install optional media-pilot requirements for decoded property checks')
 
 from oak.media_pilot_hard_tasks import (
     TASKS, materialize_task, quality_spec, reference_frame,

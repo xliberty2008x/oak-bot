@@ -173,16 +173,22 @@ def _grade_blink(decoded, spec, check):
             # A ghosted/crossfaded iris is changed, but is not a closed eyelid.
             # Require actual source-iris removal AND a source-visible lid/fur
             # palette match. Closed seams may occupy the remaining <=15% area.
-            iris_pixels = observed[iris]
+            outer_pixels = observed[outer]
             palette_distance = np.min(np.max(np.abs(
-                iris_pixels[:, None, :] - lid_colors[None, :, :]), axis=2), axis=1)
+                outer_pixels[:, None, :] - lid_colors[None, :, :]), axis=2), axis=1)
             lid_fill = palette_distance <= acceptance['lid_color_tolerance']
-            removed = changed[iris] > acceptance['iris_change_threshold']
-            closure.append(float(np.mean(removed & lid_fill)))
-            # Source pupils have a visually distinct color from the lid outline.
-            # We grade surviving pupil-colored pixels, allowing full occlusion.
+            removed = changed[outer] > acceptance['iris_change_threshold']
+            covered = np.zeros_like(outer)
+            covered[outer] = removed & lid_fill
+            closure.append(float(np.mean(covered[iris])))
+            # A coherent closed-lid seam may use the source pupil's dark color.
+            # Pixels on the inferred lid edge are ambiguous, not pupil identity.
+            # Track the surviving pupil body away from that edge, using only the
+            # existing geometry allowance and visibility minimum. This also
+            # retains position checks during identifiable partial closure.
+            lid_edge = _dilate(covered, acceptance['geometry_tolerance_px'])
             visible = outer & (np.max(np.abs(observed - pupil_color), axis=2)
-                               <= acceptance['pupil_color_tolerance'])
+                               <= acceptance['pupil_color_tolerance']) & ~lid_edge
             count = int(visible.sum())
             if count >= pupil_minimum:
                 pupil_inside.append(float(np.count_nonzero(visible & allowed_pupil) / count))
@@ -218,7 +224,8 @@ def _grade_blink(decoded, spec, check):
         minimum = min(pupil_inside) if pupil_inside else 0.
         check('visible_pupil_position:' + name, bool(pupil_inside)
               and minimum >= acceptance['pupil_preserved_fraction'],
-              f'When pupil-colored pixels are visible, minimum fraction within original pupil '
+              f'When the pupil body is identifiable beyond the allowed lid-edge neighborhood, '
+              f'minimum fraction within original pupil '
               f'plus {acceptance["geometry_tolerance_px"]}px: {minimum:.3%}; '
               f'required ≥{acceptance["pupil_preserved_fraction"]:.0%}.', minimum)
 

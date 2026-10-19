@@ -167,5 +167,7 @@
     "alternate_blink_curves_and_peaks_passed": 8,
     "visual_qa": "All 36 frames of both triangle/cosine examples for four blink tasks, all 36 frames for four occlusion tasks, and four restored print masters inspected by task and independent quality agents.",
     "negative_controls": "Frozen eyes, instant closure, iris crossfade, moved pupils, whole-face motion, wrong foreground order, opaque sprite padding, misregistered donor, blurred fine text, unauthorized source edits, non-RGB format and unavailable decode are rejected or unverified."
-  }
+  },
+  "git_commit": "9410751b8bca91d9df70caaf8fd0a6050ba2e128",
+  "provenance_note": "Native preflight used this review-route implementation. The later pre-seal pupil-seam correction changes only the independent property grader, not these authored artifact bytes, the review inputs, model or frozen visual-review policy."
 }

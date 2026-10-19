@@ -1,11 +1,15 @@
 """Decoded authored controls for inference tasks; no model/provider calls."""
 
+import importlib.util
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+
+if importlib.util.find_spec('numpy') is None:
+    raise unittest.SkipTest('Optional media pilot checks require NumPy.')
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
@@ -27,6 +31,33 @@ def _encode(frames, destination, crf=20):
         capture_output=True, timeout=45)
     if process.returncode:
         raise RuntimeError(process.stderr.decode('utf-8', 'replace'))
+
+
+def _pupil_colored_closed_seams(task_id, workspace, curve):
+    """A valid alternative source-colored seam, unrelated to pupil identity."""
+    facts = quality_spec(task_id, workspace)
+    frames = list(authored_example_frames(task_id, workspace, curve=curve))
+    for index in {(first + last) // 2 for first, last in facts['properties']['blink_windows']}:
+        frame = frames[index].convert('RGBA')
+        for eye in facts['properties']['eyes']:
+            author = eye['authoring']
+            width, height = author['tile_size']
+            scale = 4
+            points = [(12, 38), (25, 41), (40, 43), (53, 44), (66, 43), (80, 41), (92, 38)]
+            points = [(x * scale, y * scale) for x, y in points]
+            erase = Image.new('L', (width * scale, height * scale))
+            ImageDraw.Draw(erase).line(points, fill=255, width=5 * scale, joint='curve')
+            erase = erase.resize((width, height), Image.Resampling.LANCZOS).rotate(
+                author['angle'], resample=Image.Resampling.BICUBIC)
+            fill = Image.new('RGBA', (width, height), tuple(eye['lid_colors'][0]) + (255,))
+            frame.paste(fill, tuple(author['position']), erase)
+            line = Image.new('RGBA', (width * scale, height * scale))
+            ImageDraw.Draw(line).line(points, fill='#243f3d', width=3 * scale, joint='curve')
+            line = line.resize((width, height), Image.Resampling.LANCZOS).rotate(
+                author['angle'], resample=Image.Resampling.BICUBIC)
+            frame.alpha_composite(line, tuple(author['position']))
+        frames[index] = frame.convert('RGB')
+    return frames
 
 
 @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'requires real FFmpeg')
@@ -87,6 +118,16 @@ class PerceptualQualityTests(unittest.TestCase):
                     result = self.score(task_id, output)
                     self.assertEqual(result['status'], 'pass', result)
 
+    def test_source_pupil_colored_closed_lid_seam_is_not_a_moved_pupil(self):
+        for task_id in self.workspaces:
+            if self.spec(task_id)['family'] != 'blink':
+                continue
+            for curve in ('triangle', 'cosine'):
+                with self.subTest(task=task_id, curve=curve):
+                    output = self.root / f'dark-seam-{task_id}-{curve}.mp4'
+                    _encode(_pupil_colored_closed_seams(task_id, self.workspaces[task_id], curve), output)
+                    self.assertEqual(self.score(task_id, output)['status'], 'pass')
+
     def test_frozen_eyes_are_a_real_content_failure(self):
         task_id = 'dev-create-marten-blink'
         with Image.open(self.spec(task_id)['assets']['scene']) as image:
@@ -134,6 +175,27 @@ class PerceptualQualityTests(unittest.TestCase):
                 frame.paste('#a17c45', mask=eye['pupil'])
                 frame.paste('#243f3d', mask=ImageChops.offset(eye['pupil'], 8, 0))
         output = self.root / 'moved-pupils.mp4'
+        _encode(frames, output)
+        self.assert_content_failure(self.score(task_id, output), 'content:visible_pupil_position:')
+
+    def test_pupil_position_is_still_checked_during_partial_closure(self):
+        task_id = 'dev-create-marten-blink'
+        facts = self.spec(task_id)
+        frames = list(authored_example_frames(task_id, self.workspaces[task_id]))
+        partial = {first + offset for first, _ in facts['properties']['blink_windows']
+                   for offset in (1, 2)}
+        for index in partial:
+            frame = frames[index]
+            difference = ImageChops.difference(frame, Image.new('RGB', frame.size, '#243f3d'))
+            channels = [channel.point(lambda value: 255 if value <= 20 else 0)
+                        for channel in difference.split()]
+            dark = ImageChops.darker(ImageChops.darker(channels[0], channels[1]), channels[2])
+            for eye in facts['properties']['eyes']:
+                visible_pupil = ImageChops.multiply(dark, eye['pupil'])
+                frame.paste('#a17c45', mask=visible_pupil)
+                shifted = ImageChops.multiply(ImageChops.offset(visible_pupil, 8, 0), eye['iris'])
+                frame.paste('#243f3d', mask=shifted)
+        output = self.root / 'pupil-moves-only-during-partial-closure.mp4'
         _encode(frames, output)
         self.assert_content_failure(self.score(task_id, output), 'content:visible_pupil_position:')
 

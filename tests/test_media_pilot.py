@@ -4,6 +4,7 @@ import json
 import asyncio
 from contextlib import redirect_stdout
 import io
+import importlib.util
 import copy
 from pathlib import Path
 import tempfile
@@ -234,6 +235,7 @@ class HardPilotFixture(PilotFixture):
         self.save()
 
 
+@unittest.skipUnless(importlib.util.find_spec('numpy'), 'Install optional media-pilot requirements')
 class HardPilotContracts(HardPilotFixture, unittest.TestCase):
     def test_hard_suite_uses_new_tasks_and_repeats_are_fixed_before_development(self):
         from oak.media_pilot_tasks import TASKS as basic_tasks
@@ -308,6 +310,7 @@ class HardPilotContracts(HardPilotFixture, unittest.TestCase):
             pilot.report(self.root)
 
 
+@unittest.skipUnless(importlib.util.find_spec('numpy'), 'Install optional media-pilot requirements')
 class HardPilotAsyncContracts(HardPilotFixture, unittest.IsolatedAsyncioTestCase):
     async def test_content_gate_rejects_unverified_execution_format_and_source_failures(self):
         key = pilot._keys(self.state, 'dev', 'baseline')[0]
@@ -392,6 +395,7 @@ class HardPilotAsyncContracts(HardPilotFixture, unittest.IsolatedAsyncioTestCase
         self.assertFalse(record['metrics']['reviewer_false_pass'])
 
 
+@unittest.skipUnless(importlib.util.find_spec('numpy'), 'Install optional media-pilot requirements')
 class PerceptualPilotContracts(PilotFixture, unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         super().setUp()
