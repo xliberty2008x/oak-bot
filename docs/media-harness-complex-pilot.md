@@ -2,9 +2,136 @@
 
 The `complex` suite tests source-preserving media work that requires projective
 registration, multiple depth masks and coupled rigid motion. It follows the
-[harder-media protocol](media-harness-hard-pilot.md). Its settings and procedures
-must be sealed in a fresh experiment after authored validation; results are
-pending, and this guide makes no improvement claim.
+[harder-media protocol](media-harness-hard-pilot.md). All 60 planned native
+producer attempts finished. The selected learned procedure does not demonstrate
+a quality improvement on the fresh held-out tasks. Retain the current media
+procedure; do not promote either learned candidate from this study.
+
+## Completed held-out comparison — 19 October 2026
+
+The [full results](evaluations/hard-media-harness-pilot-2026-10-19/complex-results.json)
+retain all 60 nominal attempts, both learned procedures, exact evidence hashes,
+all 12 paired held-out task/repetition outcomes and three interrupted unknown
+attempts. Joint delivered and final-candidate source-property passes are separate
+endpoints; their counts happen to agree in this experiment.
+
+| Held-out arm | Joint delivered | Candidate source properties | Mean source score | Tool calls | Median native seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Current procedure | 11/12 | 11/12 | 0.952198 | 205 | 86.760 |
+| Frozen candidate 1 | 7/12 | 7/12 | 0.885154 | 205 | 89.250 |
+
+Formal paired outcomes are **1 candidate win, 5 losses and 6 ties**. All 24
+held-out outputs passed format checks and their first visual review, with no
+unverified review. These aggregate source scores and disagreements require the
+sampling caveat below; they are not counts of established visible defects.
+
+| Held-out family | Current procedure | Candidate 1 | Paired candidate wins / losses / ties |
+| --- | ---: | ---: | ---: |
+| Projective print creation and repair | 4/4 | 4/4 | 0 / 0 / 4 |
+| Depth creation and repair | 3/4 | 1/4 | 1 / 3 / 0 |
+| Rigid mechanism creation and repair | 4/4 | 2/4 | 0 / 2 / 2 |
+
+Both creation repeats in the new depth scene pass for baseline and fail for the
+candidate. Repair has one win in each direction. Thus the depth result does not
+support improvement independently of the disputed mechanism criterion.
+
+
+A separate postcompletion [held-out source audit](evaluations/hard-media-harness-pilot-2026-10-19/holdout309-depth-corroboration-audit.json)
+corroborates the first creation pair. At frame 12, candidate 1 replaces 767 exposed
+source pixels with stationary mural, including 118 cream-ring pixels, 3–10 px
+from true foreground; the declared edge allowance is 2 px. Baseline preserves
+those original pixels before encoding. The
+[original / baseline / candidate crop](evaluations/hard-media-harness-pilot-2026-10-19/holdout309-baseline-candidate1-source-proof.png)
+shows the corresponding loss in the immutable videos. All 36 frames were inspected.
+This is an actual local source-fidelity defect, separate from the marker sampling
+ambiguity. It adds no metric, reclassification or learner feedback, and the
+candidate's separate repair win remains in the paired results.
+
+Both formal mechanism losses concern only the tiny joint-marker pixel comparison.
+The DEV audit below demonstrates that this check can reject a valid pixel-center
+construction inside the declared geometric allowances. The held-out failures
+remain recorded and unresolved as media defects; they are not automatically
+reclassified as valid. Even treating the whole mechanism family as inconclusive
+leaves a depth regression and a print ceiling, not evidence for promotion. The
+next scorer version needs coherent index/pixel-center positive controls and
+fresh evaluation; this trial's thresholds, selection and outcomes stay intact.
+
+There were three external CLI exits with code 143 and unconfirmed causes. Each
+unfinished attempt resumed in a fresh workspace; finished successes and failures
+were retained. The ledger therefore contains 60 completed nominal attempts and
+three preserved unknown originals, or 63 initiated attempts. The separate
+conservative held-out diagnostic is 11/13 for baseline and 7/12 for candidate 1;
+it gives unknown attempts no success credit without calling them content failures.
+It does not replace the frozen primary denominator or selection rule. This
+sensitivity still supplies no improvement evidence. Later individual PTY jobs
+finished normally; their success does not establish the earlier signal's cause.
+
+Elapsed time and tool counts are cost proxies on a shared host, not a production
+latency or token/USD benchmark. No live media delivery or production lesson
+promotion occurred.
+
+
+The [independent evidence QA](evaluations/hard-media-harness-pilot-2026-10-19/complex-independent-qa.json)
+passed 51/51 arithmetic/provenance checks, including all 385 distinct source and
+snapshot paths. The exporter separately rechecks 325 source entries and 120
+snapshot entries, preserving duplicate receipt bindings. Counts are checks, not
+445 distinct files. The [resource cleanup receipt](evaluations/hard-media-harness-pilot-2026-10-19/execution-resources.json)
+records stopped native processes, one removed temporary swap file and one task-owned
+1 GiB swap file left active to preserve memory headroom. No persistent boot
+configuration was changed.
+
+## Completed development and frozen choice
+
+All 36 planned development producer attempts finished at the same fixed
+`gpt-6.1-sol` low effort. Each arm has six tasks with two repetitions.
+
+| Arm | Joint delivered passes | Candidate source-property passes | Mean source-property score |
+| --- | ---: | ---: | ---: |
+| Current procedure | 9/12 | 9/12 | 0.925464 |
+| Learned candidate 1 | 9/12 | 9/12 | 0.931805 |
+| Learned candidate 2 | 9/12 | 9/12 | 0.923359 |
+
+All three arms passed format checks and their first visual reviews in all 12
+attempts, with no unverified review. The fixed selection rule chose candidate 1
+on its secondary mean source score after equal primary success and unchanged
+nonregression guards. There is no development task-completion gain. Its procedure
+hash is `ab96dca079badc14cdb5e5f989dd44b2e99f582e52d97c38a90946fd12b454f7`;
+freeze bound all development evidence at 15:37:04 UTC on 19 October 2026.
+
+
+The tool-free proposer received baseline DEV briefs, named checks, bounded
+metrics, render-call receipts and visual-review text. Render receipts identify
+code by hash; original images, produced frames, render code and the manual audits
+were not proposal inputs. This tests reusable procedure changes guided by that
+limited evidence. It does not evaluate every tool or feedback component of a
+full recursive harness.
+
+Independent DEV-only audits explain why numeric checks and visual review both
+remain necessary:
+
+- The [first baseline depth audit](evaluations/hard-media-harness-pilot-2026-10-19/native-first-defect-audit.json)
+  confirms that a mask replaced 602 original subject pixels with background at a
+  frame-13 gap, outside the disclosed boundary allowance and before encoding.
+  The visual reviewer had passed that artifact.
+- [Candidate 2's first successful depth example](evaluations/hard-media-harness-pilot-2026-10-19/candidate2-dev303-corroboration-audit.json)
+  restored that gap, as shown in the
+  [baseline / candidate / source crop](evaluations/hard-media-harness-pilot-2026-10-19/dev303-baseline-candidate2-source-proof.png).
+  Its second repeat of the same task failed (score 0.800566). This illustrates
+  one DEV success, not consistent or held-out improvement.
+- The [candidate-1 mechanism sampling audit](evaluations/hard-media-harness-pilot-2026-10-19/candidate1-dev305-sampling-audit.json)
+  found a scorer-sensitive rejection. All 36 kinematic positions match exactly;
+  independently reconstructed original-part frames match the producer's
+  pixel-center convention exactly, and decoded marker centers stay within
+  0.75 px of their targets, below the declared 3 px allowance. The canonical
+  and pixel-center raster conventions differ by less than 1 px. No actual
+  disconnection, stretching or repainting was established. The original failure
+  and score remain unchanged; this is a limitation of interpreting the frozen
+  source-property endpoint, rather than evidence of a visible regression.
+
+These audits did not enter the proposer input or change procedures, thresholds,
+selection or metrics. The execution source is commit
+`4fa96e99e5e3a8934f11357574976faa604638c4`; later documentation commits are not
+substituted for that source identity.
 
 The preceding
 [perceptual development calibration](evaluations/hard-media-harness-pilot-2026-10-19/perceptual-development-calibration.json)

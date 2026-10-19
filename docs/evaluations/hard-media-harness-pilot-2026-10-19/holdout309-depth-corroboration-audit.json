@@ -1,0 +1,1224 @@
+{
+  "schema_version": 1,
+  "task_id": "holdout-create-reeds309-depth",
+  "split": "holdout",
+  "repeat": 1,
+  "scope": "The first create-depth heldout pair was chosen before inspection. Read-only corroboration after every nominal experiment run finished. All36 frozen frames and native-resolution actor crops from both arms were inspected. No model calls, producer-script execution, rescoring or experiment/source edits.",
+  "classification": "actual_local_occlusion_mask_overfill_in_candidate1",
+  "severity_note": "A local source-pattern and partial-visibility defect, already present before H.264 encoding. Broad depth order and overall choreography remain coherent; this audit does not establish general aesthetic quality.",
+  "evidence_frame": 12,
+  "time_seconds": 1.0,
+  "declared_geometry_tolerance_px": 2,
+  "declared_silhouette_edge_tolerance_px": 2,
+  "frozen_suite_sha256": "e3775dddf6519a005291e1ecfee970f9f8dac316cf5620b396923de1db2357a3",
+  "frozen_implementation_sha256": "bd113cafc7b8de8da4a876a8373c2a20c9645056f44f2cd5959166c020da43dd",
+  "frozen_settings_sha256": "0e9e861e8321fe4b08009d6d7010ecdbdeeeea61b437fcd1183aded5ba8a935b",
+  "source_commit": "4fa96e99e5e3a8934f11357574976faa604638c4",
+  "runs": [
+    {
+      "procedure_id": "baseline",
+      "repeat": 1,
+      "candidate_sha256": "da7160f5f343dc20921ff476857f42a37d11bcdf59d4170b178e00ba31fd13de",
+      "artifact_sha256": "da7160f5f343dc20921ff476857f42a37d11bcdf59d4170b178e00ba31fd13de",
+      "procedure_sha256": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+      "recorded_joint_delivered_passed": true,
+      "recorded_source_properties_passed": true,
+      "recorded_quality_score": 0.964355,
+      "first_visual_review_passed": true,
+      "preencode_frame12_sha256": "a380014a94ac0a41a32857ccf1f3b262183a1f6259be935afcd39e3704ff1f55",
+      "all36_preencode_frame_sha256": {
+        "00": "33b0c6aaa1bbeb13d45e48f39425663ff34ea6620929bcc29250fe4ca4e9888d",
+        "01": "a96de1de048023c6da1a8f24937b28e40a5add2321c71bd5ab5f99c507dfdfb9",
+        "02": "4680dda97eb69a0796c076fa9d462e1676a49afcff1a233a7a4cad4932f3d8b9",
+        "03": "0112fae2c86879100f85ff9150c49a59b163a79c2689162c11ee5d3fdc0b19a9",
+        "04": "41d8fc088b82e45d3e9f7e9d424987c8025c6245a2bb827dba1242fb0f10b426",
+        "05": "bffc0b56974cc7f5fd8ee6ca8147cac265e06d5c75c5906d656876703c47fb60",
+        "06": "33b3e9cb88653c3edb6028bf62a72ec249f07f78efc90509e7216d14220fd7a7",
+        "07": "a91227b6765ff5bf3215e408b86454946bc121a4fa31d04202ea9568f8d80441",
+        "08": "5c40ccef9aef13a31edbe48109ff89fa8fea672850728d99e12a97bca963d5c8",
+        "09": "52252a70f27e8dde29267c75ddc5cfdbc527c05ab35d0d3d02ddc5dad2df515b",
+        "10": "3b8897d2636b7ce80f4bf82c6d38be25f3d3d241b690db9224c4fb92b35e9527",
+        "11": "fc1b4d441c3b1c844ad352292b5eca00eb2a793112bb6a14129f82b3507a9756",
+        "12": "a380014a94ac0a41a32857ccf1f3b262183a1f6259be935afcd39e3704ff1f55",
+        "13": "1f23bfae8af74f5de1af90c0c84ef1d3769f7e2599008b723d8cd6a56dda862a",
+        "14": "b2de998b847541d32714cbcb69db88ad38fa9024448704852c5307dbc390a205",
+        "15": "1ee078a638e8e8a6aeeb38f598be9e0c890be20eddacede52656f940aa701322",
+        "16": "473871576760c6bf65dde09858f557efd757ada1416bd10d7b199150f5494e50",
+        "17": "4383554d0eccdab8040aad99527d6ce2657b688306755c44783dabd51ca4f286",
+        "18": "533a837dd148ac3f0d073030f553d35c7ea86108a54f58718d23be755be7344e",
+        "19": "550f8148f60ded80d3156727d69efaa973284b074626be8c8c32c209da1374ba",
+        "20": "f3aea736675edce4cfbff4c5d7f1d32dde53bf5414ea53942164dd273221665e",
+        "21": "9d0b7ef8e41dd334f8e187f940fc9e82029e799b2d5a151852494091c86b86bb",
+        "22": "db4ed9badd1db07d67687bb11af1f4fa997a9d31966bfb564a8de50caafc393e",
+        "23": "58a6f0c21d5dab5ec2c0ecd62d3dd46cd91d009df12dd198589fe44d92327883",
+        "24": "f0e0217bf0f437683cf38735e7bfd8d9ec21d0967c97613b65eab134e6b658ef",
+        "25": "872fe63b6b790b4c3b3d96a917ad004eff93833c795d8ae907b4f50e8ee817a0",
+        "26": "5ca5c3c450b40a40b5deed014ff8bd7bfdb1191bd6654083794ca7e086b35267",
+        "27": "ef7d2fbfe765e22f01126cd78bbd83503ff5c78c61d9d3352a88d6083f91beb6",
+        "28": "cd882079b734ecfb68e16c7bf9a0b81fd3cf9e98db8963201f912afe72420ad4",
+        "29": "863701ac7df964327c0b0f66fed5772b633460537888e9349b404d5a09ffb1b5",
+        "30": "860a1eff3bcb20f394dd071a84731639931064855955025da9717f841ef01437",
+        "31": "af504fa9e436f924e71ac661d4488736ebd1628093d981ec2c6653d65a731426",
+        "32": "2453c398130330a148e293d8561fd00b2182310099080af4774118c40e7c1b96",
+        "33": "2326760a5ae91a193f057f3746e8e898fb2251957ecf95d8085df0cae9163f01",
+        "34": "85ece9b3557a6a155519770acb5c81832773a938fddc0c555ccd7a63fbfdc553",
+        "35": "c839ac9faa548ffba4098d848662019dab42a6ece9f7bdd21864951b15cab5d0"
+      },
+      "decoded_frame_count": 36
+    },
+    {
+      "procedure_id": "candidate-1",
+      "repeat": 1,
+      "candidate_sha256": "3a439efcf68b238fb07e369b27d46e466f1c04892801bb599b3d0970bab2affe",
+      "artifact_sha256": "3a439efcf68b238fb07e369b27d46e466f1c04892801bb599b3d0970bab2affe",
+      "procedure_sha256": "ab96dca079badc14cdb5e5f989dd44b2e99f582e52d97c38a90946fd12b454f7",
+      "recorded_joint_delivered_passed": false,
+      "recorded_source_properties_passed": false,
+      "recorded_quality_score": 0.775494,
+      "first_visual_review_passed": true,
+      "preencode_frame12_sha256": "98ceba38ee60fd8ff6d9e58197cb991ee195d8019720c583cb98f470ddb7cb58",
+      "all36_preencode_frame_sha256": {
+        "00": "33b0c6aaa1bbeb13d45e48f39425663ff34ea6620929bcc29250fe4ca4e9888d",
+        "01": "a96de1de048023c6da1a8f24937b28e40a5add2321c71bd5ab5f99c507dfdfb9",
+        "02": "4680dda97eb69a0796c076fa9d462e1676a49afcff1a233a7a4cad4932f3d8b9",
+        "03": "0112fae2c86879100f85ff9150c49a59b163a79c2689162c11ee5d3fdc0b19a9",
+        "04": "41d8fc088b82e45d3e9f7e9d424987c8025c6245a2bb827dba1242fb0f10b426",
+        "05": "bffc0b56974cc7f5fd8ee6ca8147cac265e06d5c75c5906d656876703c47fb60",
+        "06": "d847dab85a9223745dde445eaa4f2d9effccb3a8264ffe499fedeabcea601339",
+        "07": "b5c3fb35718150ce113effb768e4037be9a01ef7910fa021a277733913169460",
+        "08": "2cac3e3a4c174e6ff990aedfcee8daf348e099b20fb4f2ca69152fad19b136cf",
+        "09": "7d5638f5b48706ed5647030a7c7deae230963e7635e8b350ecaf117766667c19",
+        "10": "21bb211c7013b328c8b18eb1768d7ba09d5df865673a00ca010fd6ed4224a74f",
+        "11": "50e21c2883df767d1062744a51326c38d4d7dad01c8afd7b5023c11a37c2b96e",
+        "12": "98ceba38ee60fd8ff6d9e58197cb991ee195d8019720c583cb98f470ddb7cb58",
+        "13": "29980786a695f7a65e5bca5af7f10da045b88bf6267fb50247895d38e60623bc",
+        "14": "9639c9fcbe9f87230d04735515fd8cc22ada34d68e55561ab775e0f1d1316e9c",
+        "15": "0b0ec79e84113bb93f7b932e35115b916342bf26d6a8e3a126ae06ef3fa0fc73",
+        "16": "4d262e0b120489dbc64fa0b1f44f79679b34624ef107a64dbd5caca43feb4dff",
+        "17": "4383554d0eccdab8040aad99527d6ce2657b688306755c44783dabd51ca4f286",
+        "18": "533a837dd148ac3f0d073030f553d35c7ea86108a54f58718d23be755be7344e",
+        "19": "550f8148f60ded80d3156727d69efaa973284b074626be8c8c32c209da1374ba",
+        "20": "035c2b28e75ec21ed158a094c0c6d71a8156d818b47e5da16aa7a4303c4b1ec3",
+        "21": "e1743f2d188c98515095fa79d35281ef6f2994ded6eccb514811f9bc55d0d7a6",
+        "22": "23a18732b40ca587a63c50cd9667e393f5e00d1df24d452edcee7b386933eb41",
+        "23": "33984ba4005931eda76b104fca2a5dd4dc6d073df647fe78f12d97d0cdabd998",
+        "24": "025c64adc196b86fe4fcf8620eac806c571737f1fa9ee9ae2516a4a22c29aa79",
+        "25": "2f361515a38ecaaa34f084146f57e095acb8a58778c62ac51df7353d65763110",
+        "26": "48f921450db989173b1f9fc0147cafe09255a117bdbca022e2c1ef1347f94c8f",
+        "27": "d8f8aa314557c6176f562ae7095e1f734034e9873c5cde401c754c8d47008671",
+        "28": "5fa6024dfeea7e1f3d27a21522d96c45899e9952ca8bb7355e72823e4e833fee",
+        "29": "d2a9853b50fdef60b686d8d42391293c0341f56244c71e1bc38cb850d4432c4a",
+        "30": "860a1eff3bcb20f394dd071a84731639931064855955025da9717f841ef01437",
+        "31": "af504fa9e436f924e71ac661d4488736ebd1628093d981ec2c6653d65a731426",
+        "32": "2453c398130330a148e293d8561fd00b2182310099080af4774118c40e7c1b96",
+        "33": "2326760a5ae91a193f057f3746e8e898fb2251957ecf95d8085df0cae9163f01",
+        "34": "85ece9b3557a6a155519770acb5c81832773a938fddc0c555ccd7a63fbfdc553",
+        "35": "c839ac9faa548ffba4098d848662019dab42a6ece9f7bdd21864951b15cab5d0"
+      },
+      "decoded_frame_count": 36
+    }
+  ],
+  "original_source_sha256": {
+    "actor-far.png": "a3cd2b2500c972e65fb34c221e476a0406b55666ee9bc5edf0f3abf25449cfbb",
+    "actor-near.png": "8754617e0b9714f563ac62279dcc081949d3d7760b0d40b55e06d2a27410f10e",
+    "actors.png": "f4d804dc4e8722c14715e8eb432886a875aba7908c8296976edff96f14a44b0a",
+    "depth-guide.png": "42885bc2f004dc82c618b9bc43437268c38fed1ffab55c0d18ccc7650aeae8f9",
+    "scene.json": "cd14cdccceb4cb83b18b7d0d19e85e7c5b401cb57ab1b62830a7ebf733954fd4",
+    "scene.png": "fd9d6150e25595f34db5c40838e93358a6251be259a819f66a57d038ef8a75be"
+  },
+  "all_original_hashes_verified_in_both_workspaces": true,
+  "measurements": {
+    "frame12_actor_far": {
+      "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 767,
+      "source_cream_ring_pixels_in_that_set": 118,
+      "foreground_edge_distance_metric": "Chebyshev distance to closest true opaque foreground-alpha pixel",
+      "all_lost_pixel_distance_histogram_px": {
+        "3": 183,
+        "4": 159,
+        "5": 139,
+        "6": 115,
+        "7": 85,
+        "8": 56,
+        "9": 27,
+        "10": 3
+      },
+      "cream_ring_distance_histogram_px": {
+        "3": 15,
+        "4": 15,
+        "5": 17,
+        "6": 21,
+        "7": 25,
+        "8": 21,
+        "9": 4
+      },
+      "minimum_distance_px": 3,
+      "maximum_distance_px": 10
+    },
+    "all36_per_actor_exact_source_loss_counts": [
+      {
+        "frame": 0,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          56,
+          231,
+          138,
+          311
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 0,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          725,
+          261,
+          819,
+          312
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 1,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          75,
+          233,
+          157,
+          313
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 1,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          706,
+          259,
+          800,
+          310
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 2,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          94,
+          236,
+          176,
+          316
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 2,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          687,
+          257,
+          781,
+          308
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 3,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          114,
+          238,
+          196,
+          318
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 3,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          667,
+          255,
+          761,
+          306
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 4,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          133,
+          240,
+          215,
+          320
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 4,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          648,
+          254,
+          742,
+          305
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 5,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          152,
+          241,
+          234,
+          321
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 5,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          629,
+          252,
+          723,
+          303
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 6,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          171,
+          242,
+          253,
+          322
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 6,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          616,
+          251,
+          704,
+          302
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 7,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          190,
+          243,
+          272,
+          323
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 7,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 27,
+        "cream_pattern_pixels": 0,
+        "box": [
+          591,
+          251,
+          685,
+          302
+        ],
+        "witness_xy": [
+          596,
+          272
+        ]
+      },
+      {
+        "frame": 8,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          210,
+          244,
+          292,
+          324
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 8,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 338,
+        "cream_pattern_pixels": 28,
+        "box": [
+          572,
+          251,
+          665,
+          301
+        ],
+        "witness_xy": [
+          590,
+          272
+        ]
+      },
+      {
+        "frame": 9,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          229,
+          247,
+          305,
+          316
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 9,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 384,
+        "cream_pattern_pixels": 103,
+        "box": [
+          552,
+          251,
+          646,
+          300
+        ],
+        "witness_xy": [
+          581,
+          272
+        ]
+      },
+      {
+        "frame": 10,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 174,
+        "cream_pattern_pixels": 2,
+        "box": [
+          248,
+          254,
+          330,
+          318
+        ],
+        "witness_xy": [
+          321,
+          280
+        ]
+      },
+      {
+        "frame": 10,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 400,
+        "cream_pattern_pixels": 111,
+        "box": [
+          534,
+          251,
+          627,
+          301
+        ],
+        "witness_xy": [
+          582,
+          272
+        ]
+      },
+      {
+        "frame": 11,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 651,
+        "cream_pattern_pixels": 112,
+        "box": [
+          267,
+          257,
+          345,
+          320
+        ],
+        "witness_xy": [
+          339,
+          276
+        ]
+      },
+      {
+        "frame": 11,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 325,
+        "cream_pattern_pixels": 154,
+        "box": [
+          520,
+          257,
+          598,
+          302
+        ],
+        "witness_xy": [
+          589,
+          273
+        ]
+      },
+      {
+        "frame": 12,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 767,
+        "cream_pattern_pixels": 118,
+        "box": [
+          286,
+          242,
+          367,
+          321
+        ],
+        "witness_xy": [
+          333,
+          305
+        ]
+      },
+      {
+        "frame": 12,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 244,
+        "cream_pattern_pixels": 244,
+        "box": [
+          495,
+          254,
+          588,
+          302
+        ],
+        "witness_xy": [
+          577,
+          273
+        ]
+      },
+      {
+        "frame": 13,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 559,
+        "cream_pattern_pixels": 111,
+        "box": [
+          320,
+          250,
+          388,
+          314
+        ],
+        "witness_xy": [
+          321,
+          299
+        ]
+      },
+      {
+        "frame": 13,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          475,
+          253,
+          556,
+          303
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 14,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 271,
+        "cream_pattern_pixels": 46,
+        "box": [
+          325,
+          241,
+          407,
+          319
+        ],
+        "witness_xy": [
+          332,
+          273
+        ]
+      },
+      {
+        "frame": 14,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          456,
+          255,
+          549,
+          306
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 15,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 1,
+        "cream_pattern_pixels": 0,
+        "box": [
+          346,
+          237,
+          426,
+          317
+        ],
+        "witness_xy": [
+          346,
+          272
+        ]
+      },
+      {
+        "frame": 15,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          437,
+          256,
+          529,
+          307
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 16,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          363,
+          234,
+          440,
+          314
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 16,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          418,
+          258,
+          512,
+          309
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 17,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          382,
+          232,
+          460,
+          296
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 17,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          399,
+          260,
+          493,
+          311
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 18,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          402,
+          230,
+          484,
+          310
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 18,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          379,
+          262,
+          473,
+          313
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 19,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          421,
+          228,
+          503,
+          308
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 19,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          360,
+          264,
+          454,
+          315
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 20,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          440,
+          225,
+          519,
+          305
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 20,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          341,
+          266,
+          435,
+          317
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 21,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          459,
+          223,
+          539,
+          302
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 21,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          322,
+          267,
+          416,
+          318
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 22,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          478,
+          222,
+          556,
+          302
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 22,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          303,
+          269,
+          397,
+          320
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 23,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 125,
+        "cream_pattern_pixels": 0,
+        "box": [
+          498,
+          225,
+          580,
+          285
+        ],
+        "witness_xy": [
+          577,
+          271
+        ]
+      },
+      {
+        "frame": 23,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          283,
+          270,
+          377,
+          321
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 24,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 518,
+        "cream_pattern_pixels": 84,
+        "box": [
+          518,
+          221,
+          598,
+          282
+        ],
+        "witness_xy": [
+          579,
+          267
+        ]
+      },
+      {
+        "frame": 24,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          264,
+          271,
+          358,
+          322
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 25,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 690,
+        "cream_pattern_pixels": 117,
+        "box": [
+          540,
+          220,
+          616,
+          282
+        ],
+        "witness_xy": [
+          586,
+          235
+        ]
+      },
+      {
+        "frame": 25,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          245,
+          272,
+          339,
+          323
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 26,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 653,
+        "cream_pattern_pixels": 119,
+        "box": [
+          555,
+          224,
+          637,
+          291
+        ],
+        "witness_xy": [
+          579,
+          238
+        ]
+      },
+      {
+        "frame": 26,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          226,
+          272,
+          320,
+          323
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 27,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 382,
+        "cream_pattern_pixels": 66,
+        "box": [
+          575,
+          218,
+          656,
+          298
+        ],
+        "witness_xy": [
+          583,
+          268
+        ]
+      },
+      {
+        "frame": 27,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          207,
+          272,
+          301,
+          323
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 28,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          607,
+          219,
+          676,
+          299
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 28,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          187,
+          271,
+          281,
+          322
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 29,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          614,
+          220,
+          695,
+          300
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 29,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          168,
+          271,
+          262,
+          322
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 30,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          632,
+          221,
+          714,
+          301
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 30,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          149,
+          270,
+          243,
+          321
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 31,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          651,
+          222,
+          733,
+          302
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 31,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          130,
+          268,
+          224,
+          319
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 32,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          670,
+          224,
+          752,
+          304
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 32,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          111,
+          267,
+          205,
+          318
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 33,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          690,
+          226,
+          772,
+          306
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 33,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          91,
+          265,
+          185,
+          316
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 34,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          709,
+          229,
+          791,
+          309
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 34,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          72,
+          263,
+          166,
+          314
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 35,
+        "actor": "actor_far",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          728,
+          231,
+          810,
+          311
+        ],
+        "witness_xy": null
+      },
+      {
+        "frame": 35,
+        "actor": "actor_near",
+        "exact_source_pixels_replaced_by_stationary_scene_only_in_candidate1": 0,
+        "cream_pattern_pixels": 0,
+        "box": [
+          53,
+          261,
+          147,
+          312
+        ],
+        "witness_xy": null
+      }
+    ]
+  },
+  "measurement_definition": "Restrict to original actor alpha eroded2px; exclude all upper layers dilated2px. Count pixels for which candidate1 preencode equals the stationary source scene, baseline preencode equals direct source-over composition, and the source actor differs from scene by more than18 in at least one RGB channel. Cream-ring counts additionally require exact original RGB(240,216,166). These are diagnostic pixel witnesses, not new grading criteria or recomputed experiment scores.",
+  "pixel_witness": {
+    "xy": [
+      333,
+      305
+    ],
+    "original_source_rgb": [
+      240,
+      216,
+      166
+    ],
+    "stationary_scene_rgb": [
+      120,
+      148,
+      153
+    ],
+    "baseline_preencode_rgb": [
+      240,
+      216,
+      166
+    ],
+    "candidate1_preencode_rgb": [
+      120,
+      148,
+      153
+    ],
+    "baseline_decoded_rgb": [
+      224,
+      219,
+      180
+    ],
+    "candidate1_decoded_rgb": [
+      117,
+      146,
+      151
+    ],
+    "true_foreground_alpha": 0,
+    "distance_to_true_foreground_px": 4
+  },
+  "visual_observation": "At frame12 the far actor turquoise fill and cream rings remain visible through outlined gaps between veil-I leaves. Baseline retains that exposed artwork. Candidate1 fills part of those gaps with the stationary mural, cutting away the visible rings and fill. The source-backed witnesses lie3px or farther from true foreground, outside the disclosed2px allowance, and the same omission is exact in the preencode PNG. The near actor also loses exposed cream tail detail at the front veil in frame12.",
+  "grader_alignment": "The visible-source-pattern rejection is supported by an actual local over-occlusion rather than solely a codec or canonical sampling difference. Passing true-foreground/depth checks is compatible with this defect: source foreground pixels keep their order while extra stationary background incorrectly covers the actor. This audit does not attempt to attribute every part of the numerical failure.",
+  "proof_image": "holdout309-baseline-candidate1-source-proof.png",
+  "proof_image_sha256": "2127eb01ae347048400d7b8acdbd8c8850d3f3a46a05830b3bf3cccff103569f",
+  "proof_crop_native_xyxy": [
+    264,
+    219,
+    388,
+    343
+  ],
+  "proof_scale": 4,
+  "proof_resampling": "nearest",
+  "contact_sheets": [
+    {
+      "name": "holdout309-baseline-all36-fullscene.png",
+      "sha256": "d9e31427978a9ec2e601b1f0c08433aaf5b90edd9a769f0258dfa2f3aa54114e",
+      "location": "external read-only audit cache"
+    },
+    {
+      "name": "holdout309-candidate-1-all36-fullscene.png",
+      "sha256": "6616d630832ff1bb5389d93d3359a1a7085f3e650e470c4223a03c44cf0601b6",
+      "location": "external read-only audit cache"
+    },
+    {
+      "name": "holdout309-all36-source-baseline-c1-native-actors.png",
+      "sha256": "ee692c441f7eb44df49f5f2d4f0b0c8bd408003a17601e8bcbac220579df45e6",
+      "location": "external read-only audit cache"
+    }
+  ],
+  "limits": [
+    "The proof is one predeclared heldout pair and one illustrative frame, not a replacement for all paired experiment outcomes.",
+    "Other heldout repetitions, including the candidate1 repair-depth win, remain in the unchanged complete ledger.",
+    "Semantic stencils are independently runner-regenerated from the public authored construction only to restrict witnesses away from contour ambiguity. The proof also compares actual original scene bytes, original actor bytes and preserved producer PNG bytes. No hidden movie target was introduced.",
+    "The fixed visual reviewer passed both outputs. This local omission escaped that sampled review; it does not establish a general reviewer error rate from one illustration.",
+    "No mechanism output was inspected in this audit. The separately disclosed mechanism sampling ambiguity is unaffected."
+  ],
+  "experiment_ledger_sha256_at_audit": "0f25642852d89266f7d41d840bfad16cce2b7b647d266a8aeb2a17aed57b13f0",
+  "experiment_data_unchanged": true
+}

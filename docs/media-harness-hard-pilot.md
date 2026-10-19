@@ -210,6 +210,17 @@ outcomes were retained, and only the interrupted task resumed in a fresh workspa
 The development gate correctly refused candidate authoring at this ceiling.
 No candidate procedures or held-out model runs were produced. These receipts
 are calibration evidence, not a quality-improvement comparison. The next
-[complex-media pilot](media-harness-complex-pilot.md) adds projective
+[complex-media pilot](media-harness-complex-pilot.md) added projective
 registration, multiple depth layers and articulated motion with fresh held-out
-examples, rather than tightening these tasks' acceptance thresholds.
+examples. It completed all 60 planned producer attempts. Formal held-out joint
+success was 11/12 for baseline and 7/12 for the frozen candidate, with two
+mechanism outcomes limited by a sampling-sensitive marker check. The independent
+depth comparison was 3/4 versus 1/4. Retain the current media procedure; this
+second comparison does not demonstrate improved held-out quality.
+
+The [completed upload-recovery companion](media-harness-upload-pilot.md) separately
+finished 28 native attempts and 28 communication reviews. Both arms completed
+6/6 eligible held-out drafts; the added procedure omitted a continuation plan
+in one blocked held-out reply. The local upload diagnostic repair is isolated in
+[PR 105](https://github.com/xliberty2008x/oak-bot/pull/105); neither experiment
+automatically deploys it or a learned procedure.

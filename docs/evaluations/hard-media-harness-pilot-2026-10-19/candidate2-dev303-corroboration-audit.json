@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "task_id": "dev-create-vines303-depth",
+  "split": "dev",
+  "repeat": 1,
+  "procedure_id": "candidate-2",
+  "scope": "Requested first passing DEV candidate-2 trial, compared with baseline repeat1 at a previously audited location. The same task second repetition failed both the joint and source-property endpoints, so this illustrative success is inconsistent across repetitions. All other trials remain in the experiment ledger; no held-out result was read.",
+  "same_task_candidate2_repeat2": {
+    "task_id": "dev-create-vines303-depth",
+    "split": "dev",
+    "procedure_id": "candidate-2",
+    "repeat": 2,
+    "state": "finished",
+    "producer_status": "completed",
+    "candidate_sha256": "a69b887767e8238c9f3165fe424edd95346a6f514159b2d2fdb96e37410ff501",
+    "procedure_sha256": "669290a6da4c2112757dc2cb31cf5db15433787973bb5b1a0bfdfbe9589a2baa",
+    "joint_delivered_primary": false,
+    "candidate_source_properties_passed": false,
+    "candidate_source_properties_score": 0.800566,
+    "source_immutable": true,
+    "candidate_complete": true
+  },
+  "classification": "known_local_mask_gap_repaired_in_this_dev_trial",
+  "manual_review_status": "All36 decoded native fullscene and critical-detail frames inspected.",
+  "baseline_candidate_sha256": "0ac86f2aaa5f739543405ba892fc0fc8555b8f0abe275778a2808ac705b5c54c",
+  "candidate2_candidate_sha256": "8d3aad559a64e19d4a20c10cdf6eee59019b9841ae4c3e05f234170e1717a094",
+  "baseline_preencode_frame_sha256": "fbe9ec23f9e8ebf70faf5075be1a33db2b7f8f3e21c7a1f004dab6041e927492",
+  "candidate2_preencode_frame_sha256": "78c2c3f55e28d150884b2b50d7dceb9c57c1858b30426ee330d755157509b829",
+  "original_source_sha256": {
+    "actor-far.png": "7cd4a6095b362868b772a64b12e0497c4c64b4cceed424a3e14918ae80623116",
+    "actor-near.png": "4306c9582fe4718d90c3c8798cd1deb8a0ae5248664c1000a8ce55f0756c18ff",
+    "actors.png": "3689cb06233f5bc2c65f3bac6c6d11f006ad2e1c484faccb80befcd7960b7093",
+    "depth-guide.png": "6b40bd9533006f305432d6a545de93567fdd68534a90c0adb8bcb7b0028c17f8",
+    "scene.json": "5ad78cb084ac84f508f5c8d7395923a0fde2de2fd86c2203c8138db2e31e5db8",
+    "scene.png": "b1a8aa182b2dd05b40d1c97df9fe57f7b5d3c8afe6479ff3800f5fb3e71df2f8"
+  },
+  "frame": 13,
+  "proof_crop_native_xyxy": [
+    240,
+    190,
+    390,
+    295
+  ],
+  "proof_scale": 4,
+  "proof_resampling": "nearest",
+  "proof_image": "dev303-baseline-candidate2-source-proof.png",
+  "proof_image_sha256": "fd012dede8f71ac49e20308dbbf45b06f7947239b1654f74904b650e1706eac0",
+  "contact_sheets": [
+    "dev303-candidate2-all36-fullscene.png",
+    "dev303-candidate2-all36-critical.png"
+  ],
+  "known_baseline_missing_source_pixels": 602,
+  "candidate2_preencode_exact_source_matches_in_known_set": 602,
+  "descriptive_rgb_mae_in_known_missing_set": {
+    "baseline_decoded": 29.2907,
+    "candidate2_decoded": 6.5437
+  },
+  "recorded_protocol_endpoints": {
+    "baseline": {
+      "joint_delivered_primary": false,
+      "candidate_source_properties_passed": false,
+      "candidate_source_properties_score": 0.804362
+    },
+    "candidate-2": {
+      "joint_delivered_primary": true,
+      "candidate_source_properties_passed": true,
+      "candidate_source_properties_score": 0.982024
+    }
+  },
+  "metrics_or_procedures_changed": false,
+  "used_as_model_metrics_or_proposal_input": false,
+  "limits": "One first-pass DEV corroboration, inconsistent across repetitions: the same task candidate2 repeat2 failed joint/source checks with source-property score 0.800566. This does not establish reliable or held-out improvement, broad aesthetic quality or a population effect. The descriptive crop comparison does not add or replace protocol metrics.",
+  "manual_visual_observation": "Candidate2 retains the far actor blue fill and cream ring segments through the known frame13 left stem/leaf gap. The frozen-video crop agrees with the supplied-source composition within ordinary codec appearance. Across all36 native actor crops, both designs remain recognizable, stationary art stays fixed, and actor/veil/actor ordering remains coherent; no additional material defect was observed in this manual inspection.",
+  "procedure_sha256": {
+    "baseline": "15b7965c6b6d2f6f2737471245a4a89bdcd2978e952b7ce3495c0c5bf89afa61",
+    "candidate-2": "669290a6da4c2112757dc2cb31cf5db15433787973bb5b1a0bfdfbe9589a2baa"
+  },
+  "all_original_and_frozen_candidate_hashes_rechecked": true,
+  "contact_sheet_sha256": {
+    "dev303-candidate2-all36-fullscene.png": "f13be5394e805b43b191d2fddf7c866e2a779db4811421c39e28906c2971dec0",
+    "dev303-candidate2-all36-critical.png": "d15f7852b78da6c4655dd3b7f325a074c98daf76f72328b7228c9233a58a02ff"
+  }
+}

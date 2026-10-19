@@ -1,0 +1,26 @@
+{
+  "created_at_unix": 1792427634.508339,
+  "minimum_memory_headroom_kib": 786432,
+  "files": [
+    {
+      "file": "oak-hard-pilot-extra.swap",
+      "available_kib_before": 2372820,
+      "swap_used_kib": 1035136,
+      "swapoff_returncode": 0,
+      "status": "disabled_and_removed",
+      "available_kib_after": 1418460
+    },
+    {
+      "file": "oak-hard-pilot.swap",
+      "available_kib_before": 1418460,
+      "swap_used_kib": 1043960,
+      "status": "left_active_to_preserve_memory_headroom"
+    }
+  ],
+  "remaining_task_swap_files": [
+    "oak-hard-pilot.swap"
+  ],
+  "schema_version": 1,
+  "scope": "Posttrial cleanup of task-owned temporary swap files only; no unrelated processes stopped or fstab changes.",
+  "native_experiment_processes_remaining": false
+}
