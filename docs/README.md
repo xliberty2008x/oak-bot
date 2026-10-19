@@ -7,6 +7,7 @@
 - [Architecture](design.md): runtime, controller, tools, scheduling and delivery.
 - [Configuration](configuration.md): private deployment settings, voice models and memory import.
 - [Validation](validation.md): completed checks and remaining deployment verification.
+- [Media procedure pilot](media-harness-pilot.md): twelve synthetic creation/repair tasks, current-procedure comparison and frozen held-out evaluation.
 - [Control panel](control-panel.md): controls, privacy and operator retest steps.
 - [UX implementation roadmap](ux-roadmap.md): reconciled audit, small PR sequence and handoff ledger.
 - [UX behavior specification](ux-spec.md): implemented behavior, scope, acceptance criteria and recovery constraints.

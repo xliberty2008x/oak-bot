@@ -1,0 +1,3 @@
+# Optional local pilot dependencies; use alongside the normal Oak environment.
+Pillow==12.3.0
+numpy==2.5.4
