@@ -399,7 +399,8 @@ class GenericQueueSchedulingTests(unittest.TestCase):
                                     return_value={'status': 'pass', 'kind': 'mocked-authored-controls'})
         self.controls = self.controls_patch.start()
         self.addCleanup(self.controls_patch.stop)
-        config_patch = patch('oak.harness2_pipeline.default_config', side_effect=lambda: config())
+        config_patch = patch('oak.harness2_pipeline.default_config', side_effect=lambda: config(
+            k=1, policy=dict(POLICY)))
         config_patch.start()
         self.addCleanup(config_patch.stop)
 
@@ -546,9 +547,9 @@ class GenericQueueSchedulingTests(unittest.TestCase):
 
     def test_optimizer_context_includes_approved_current_dev_feedback(self):
         case_id = self.enqueue(20)
-        cycle = schedule_next(self.store)
         correction = {'kind': 'owner-correction', 'message': 'Keep cream rings intact behind foreground leaves.'}
         self.store.add_feedback(case_id, correction)
+        cycle = schedule_next(self.store)
         evidence = approved_development_evidence(self.store, cycle)
         self.assertEqual(evidence['scope'], self.store.scope)
         self.assertEqual([row['case_id'] for row in evidence['cases']], [case_id])
@@ -590,10 +591,49 @@ class GenericQueueSchedulingTests(unittest.TestCase):
 
     def test_optimizer_context_bound_counts_utf8_bytes_and_rejects_oversized_feedback(self):
         case_id = self.enqueue(23)
-        cycle = schedule_next(self.store)
         self.store.add_feedback(case_id, {'message': 'Ж' * 33000})
+        cycle = schedule_next(self.store)
         with self.assertRaises(ValueError):
             approved_development_evidence(self.store, cycle)
+
+    def test_new_feedback_replays_same_dev_once_with_fresh_holdout_and_frozen_revision(self):
+        case_id = self.enqueue(24)
+        first = schedule_next(self.store)
+        late = {'message': 'Preserve the original holes in the source silhouette.'}
+        self.store.add_feedback(case_id, late)
+        self.assertEqual(approved_development_evidence(self.store, first)['cases'][0]['user_feedback'], [])
+        self.complete(first)
+        second = schedule_next(self.store)
+        self.assertEqual(second['manifest']['dev'][0]['descriptor']['id'], self.dev(24)['id'])
+        self.assertEqual(approved_development_evidence(self.store, second)['cases'][0]['user_feedback'], [late])
+        self.assertNotEqual(first['manifest']['holdout'], second['manifest']['holdout'])
+        self.complete(second)
+        self.assertIsNone(schedule_next(self.store))
+        self.store.add_feedback(case_id, {'message': 'Inspect the actual resulting crossing.'})
+        third = schedule_next(self.store)
+        self.assertEqual(len(third['config']['development_revision']['feedback_ids']), 2)
+
+    def test_custom_previous_holdouts_define_regression_count_and_sufficient_finite_budget(self):
+        self.enqueue(25)
+        tasks = {split: [self.seal(self.store, self.dev(index)) for index in indices]
+                 for split, indices in [('dev', [25]), ('regression', [26,27]),
+                                        ('holdout', [28,29,30,31,32,33])]}
+        for split, rows in tasks.items():
+            for row in rows:
+                row['descriptor']['split'] = split
+        previous = self.store.create_cycle('source-preserving-depth', tasks, config())
+        self.complete(previous)
+        self.enqueue(34)
+        before = len(self.sealed)
+        with self.assertRaisesRegex(ValueError, 'budget envelope'):
+            schedule_next(self.store, budget_limits={'max_producers':16,'max_roles':8,'max_role_tools':512})
+        self.assertEqual(len(self.sealed), before)
+        self.controls.assert_not_called()
+        cycle = schedule_next(self.store)
+        self.assertEqual(cycle['config']['policy']['regression_tasks'], 6)
+        self.assertEqual(len(cycle['manifest']['regression']), 6)
+        self.assertGreaterEqual(cycle['config']['max_producers'], 4+2*(6+2))
+        self.assertLessEqual(cycle['config']['max_producers'], 32)
 
 
 if __name__ == '__main__':

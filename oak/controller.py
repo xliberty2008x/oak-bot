@@ -55,6 +55,12 @@ class Controller:
         self.emit = emit
         self.instructions = instructions
         self.config = config or {}
+        self.improvement = None
+        if self.config.get('harness_improvement') is not None:
+            from .harness2_production import ProductionBridge, configuration
+            if configuration(self.config) is not None:
+                self.improvement = ProductionBridge(self.config)
+                self.config = {**self.config, 'harness_activation':self.improvement.activation}
         self.harness_versions = None
         self.harness_activation = self.config.get('harness_activation')
         self._harness_prepared = {}
@@ -851,6 +857,10 @@ class Controller:
         Persist intent before dispatch; the separate turn binding never retries
         an uncertain native action.
         """
+        if self.improvement is not None:
+            if chat_id not in self.improvement.chats:
+                return items, None
+            self.improvement.ensure_baseline(chat_id)
         if self.harness_versions is None:
             return items, None
         scope = self.harness_activation
@@ -864,6 +874,31 @@ class Controller:
                 'Previously injected harness versions are inactive; follow current task instructions.'}], None
         self._harness_prepared[(chat_id, request_id)] = application['id']
         return [*items, {'type': 'text', 'text': application['context']}], application
+
+    def record_improvement_event(self, chat_id, kind, metadata, *, request_id=None, turn_id=None):
+        """Local metadata is observational; it never authorizes optimizer disclosure."""
+        if self.improvement is None:
+            return None
+        try:
+            turn_id = turn_id or self.active.get(chat_id)
+            if self.harness_versions is not None and turn_id:
+                scope = self.harness_activation
+                row = self.harness_versions.db.execute('SELECT version_id,procedure_sha256 FROM harness_applications '
+                    'WHERE project_id=? AND chat_id=? AND domain=? AND turn_id=? ORDER BY created DESC LIMIT 1',
+                    (scope['project_id'],chat_id,scope['domain'],turn_id)).fetchone()
+                if row:
+                    metadata = {**metadata, 'version_id':row[0],'procedure_sha256':row[1]}
+            return self.improvement.record(chat_id,kind,metadata,request_id=request_id,turn_id=turn_id)
+        except Exception:
+            return None  # Observation cannot replay, fail or change the user's action.
+
+    def improvement_control(self, chat_id, action='status'):
+        if self.improvement is None:
+            return {'enabled':False}
+        return self.improvement.control(chat_id,action)
+
+    def improvement_status(self, chat_id):
+        return self.improvement_control(chat_id)
 
     def bind_harness_turn(self, chat_id, request_id, turn_id):
         application_id = self._harness_prepared.get((chat_id, request_id))
@@ -990,6 +1025,7 @@ class Controller:
                 return  # A queued old thread cannot update its replacement.
             if msg.get('method') == 'turn/completed':
                 turn = params['turn']
+                self.record_improvement_event(chat_id,'task_terminal',{'status':turn['status']},turn_id=turn['id'])
                 if self.active.get(chat_id) == turn['id']:
                     self.active.pop(chat_id, None)
                 self.interactions.cancel_turn(thread_id, turn['id'])

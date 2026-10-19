@@ -54,7 +54,7 @@ class BudgetStopped(RuntimeError):
 class PipelineStore:
     """One private SQLite journal; every query carries the complete owner scope."""
 
-    def __init__(self, root, project_id, chat_id, domain='media-depth'):
+    def __init__(self, root, project_id, chat_id, domain='media-depth', *, invocation_guard=None):
         for value in (project_id, domain):
             if not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', str(value)):
                 raise ValueError('Use a bounded explicit project and domain identifier.')
@@ -64,6 +64,7 @@ class PipelineStore:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root.chmod(0o700)
         self.scope = (str(project_id), chat_id, str(domain))
+        self.invocation_guard = invocation_guard
         self.lock = threading.RLock()
         self.path = self.root / 'pipeline.sqlite3'
         self.db = sqlite3.connect(self.path, check_same_thread=False)
@@ -190,6 +191,8 @@ class PipelineStore:
         identities = [input_identity(r) for r in manifest['holdout']]
         known = [input_identity(r)
                  for split in ('dev', 'regression') for r in manifest[split]]
+        if {input_identity(r) for r in manifest['dev']} & {input_identity(r) for r in manifest['regression']}:
+            raise ValueError('Regression inputs must be disjoint from the current DEV inputs.')
         if set(known) & set(identities):
             raise ValueError('Fresh holdout must be disjoint from DEV and regression.')
         if len(set(identities)) != len(identities):
@@ -235,10 +238,15 @@ class PipelineStore:
                             (now(), cycle_id, self.key))
             self.event('holdout_opened', {'frozen_sha256': digest(cycle['frozen'])}, cycle_id)
 
+    def require_running(self):
+        if self.invocation_guard is not None:
+            self.invocation_guard()
+        if self.setting('stopped'):
+            raise BudgetStopped('Pipeline stopped; resume explicitly before another call or activation.')
+
     def budget_hook(self, cycle_id):
         def reserve(kind, identity):
-            if self.setting('stopped'):
-                raise BudgetStopped('Pipeline stopped; resume explicitly before another native call.')
+            self.require_running()
             cycle = self.cycle(cycle_id)
             limit_key = {'producer': 'max_producers', 'role': 'max_roles', 'role_tool': 'max_role_tools'}.get(kind)
             if not limit_key:
@@ -511,12 +519,16 @@ def approved_development_evidence(store, cycle):
     cases = []
     signature = store.db.execute('SELECT signature FROM queue WHERE id=? AND scope=?',
                                  (cycle['queue_id'], store.key)).fetchone()[0]
+    revision = cycle['config'].get('development_revision')
     for case in store.cases(approved_only=True, signature=signature):
         payload = case['payload']
         if payload.get('descriptor', {}).get('id') not in ids:
             continue
-        feedback = [json.loads(r[0]) for r in store.db.execute(
-            'SELECT value FROM feedback WHERE case_id=? AND scope=? ORDER BY created,id', (case['id'], store.key))]
+        if revision is not None and case['id'] not in revision['case_ids']:
+            continue
+        feedback = [json.loads(r['value']) for r in store.db.execute(
+            'SELECT id,value FROM feedback WHERE case_id=? AND scope=? ORDER BY created,id', (case['id'], store.key))
+            if revision is None or r['id'] in revision['feedback_ids']]
         cases.append({'case_id': case['id'], 'development_case': payload, 'user_feedback': feedback})
     value = {'scope': store.scope, 'cases': cases, 'source': 'explicitly approved current DEV cases only',
              'attempt_history': _prior_dev_attempt_history(store, cycle)}
@@ -562,7 +574,24 @@ def schedule_demo(store):
     return store.create_cycle('source-preserving-depth', manifest, config)
 
 
-def schedule_next(store):
+def development_revision(store, signature, descriptor_id):
+    """Exact approved feedback revision; no prompt or attachment is inferred."""
+    cases = [case for case in store.cases(approved_only=True, signature=signature)
+             if case['payload'].get('descriptor', {}).get('id') == descriptor_id]
+    feedback = [row['id'] for case in cases for row in store.db.execute(
+        'SELECT id FROM feedback WHERE case_id=? AND scope=? ORDER BY created,id',
+        (case['id'], store.key))]
+    return {'descriptor_id': descriptor_id, 'case_ids': [case['id'] for case in cases],
+            'feedback_ids': sorted(feedback)}
+
+
+def _check_budget_limits(config, limits):
+    if limits is not None and any(config.get(key, 0) > limits[key]
+                                  for key in ('max_producers', 'max_roles', 'max_role_tools')):
+        raise ValueError('The planned cycle exceeds the configured worker budget envelope.')
+
+
+def schedule_next(store, *, transport_identity=None, budget_limits=None):
     """Consume the highest-priority approved new DEV case using the same recipe.
 
     The initial supported deployment scope is layered choreography. A new family
@@ -571,34 +600,84 @@ def schedule_next(store):
     from .harness2_media import make_descriptor, exposed_regression, preflight_descriptors
     cycles = store.cycles()
     used = {row['descriptor']['id'] for c in cycles for row in c['manifest']['dev']}
-    groups = store.db.execute('SELECT signature FROM queue WHERE scope=? AND state="pending" ORDER BY priority DESC,updated', (store.key,)).fetchall()
+    # Feedback can arrive while a group is scheduled and the terminal journal
+    # later marks it completed. Reconsider completed groups, but only an unused
+    # DEV or a not-yet-consumed feedback revision can pass the checks below.
+    groups = store.db.execute('SELECT signature FROM queue WHERE scope=? AND state IN ("pending","completed") ORDER BY priority DESC,updated', (store.key,)).fetchall()
     for group in groups:
-        for case in store.cases(approved_only=True, signature=group['signature']):
+        cases = store.cases(approved_only=True, signature=group['signature'])
+        cases.sort(key=lambda c: c['payload'].get('descriptor', {}).get('id') in used)
+        for case in cases:
             dev = case['payload'].get('descriptor')
-            if not dev or dev.get('id') in used:
+            if not dev:
+                continue
+            revision = development_revision(store, group['signature'], dev.get('id'))
+            consumed = {identity for previous in cycles
+                        if any(r['descriptor']['id'] == dev.get('id') for r in previous['manifest']['dev'])
+                        for identity in previous['config'].get('development_revision', {}).get('feedback_ids', [])}
+            if dev.get('id') in used and not set(revision['feedback_ids']) - consumed:
                 continue
             if dev.get('family') != 'choreography' or dev.get('split') != 'dev':
                 raise ValueError('Automatic queue scheduling currently supports only approved layered choreography DEV descriptors.')
             import uuid
             namespace = 'queued-'+uuid.uuid4().hex
             prior = next((c for c in reversed(cycles) if c['phase'] == 'completed'), None)
-            reg = ([{**r['descriptor'], 'split': 'regression'} for r in prior['manifest']['holdout']]
-                   if prior else [exposed_regression('holdout-create-reeds309-depth'), exposed_regression('holdout-repair-reeds310-depth')])
+            def descriptor_source(value):
+                return {key:value[key] for key in ('family','size','title','seed') if key in value}
+            prior_rows = [r for previous in reversed(cycles) if previous['phase']=='completed'
+                          for split in ('holdout','regression') for r in previous['manifest'][split]]
+            known_dev_inputs = {input_identity(r) for previous in cycles for rows in previous['manifest'].values()
+                                for r in rows if r['descriptor']['id']==dev['id']
+                                or descriptor_source(r['descriptor'])==descriptor_source(dev)}
+            latest = [r for r in prior['manifest']['holdout']
+                      if input_identity(r) not in known_dev_inputs] if prior else []
+            target_regressions = max(2,len({input_identity(r) for r in latest}))
+            pool = [r['descriptor'] for r in latest] + [r['descriptor'] for r in prior_rows] + [
+                exposed_regression('holdout-create-reeds309-depth'),
+                exposed_regression('holdout-repair-reeds310-depth')]
             hold = [make_descriptor(namespace, i, split='holdout', kind=kind)
                     for i,kind in enumerate(('creation', 'repair'))]
-            manifest = {split: [_seal_descriptor(store, d) for d in ds]
-                        for split,ds in (('dev',[dev]), ('regression',reg), ('holdout',hold))}
+            config = default_config()
+            nominal = 4 * config.get('k', 1) + 2 * (target_regressions + len(hold))
+            config['max_producers'] = max(config['max_producers'], nominal + 4)
+            if config['max_producers'] > 32:
+                raise ValueError('The automatic recipe exceeds its finite producer ceiling.')
+            _check_budget_limits(config, budget_limits)
+            dev_row = _seal_descriptor(store,dev)
+            reg_rows, seen_sources, seen_descriptors = [], {input_identity(dev_row)}, set()
+            for descriptor in pool:
+                descriptor = {**descriptor,'split':'regression'}
+                if (descriptor['id'] in seen_descriptors or descriptor['id']==dev['id']
+                        or descriptor_source(descriptor)==descriptor_source(dev)):
+                    continue
+                seen_descriptors.add(descriptor['id'])
+                row = _seal_descriptor(store,descriptor)
+                identity = input_identity(row)
+                if identity in seen_sources:
+                    continue
+                seen_sources.add(identity)
+                reg_rows.append(row)
+                if len(reg_rows)==target_regressions:
+                    break
+            if len(reg_rows) != target_regressions:
+                raise ValueError('Insufficient distinct exposed regression sources for this DEV case.')
+            manifest = {'dev':[dev_row], 'regression':reg_rows,
+                        'holdout':[_seal_descriptor(store,d) for d in hold]}
             controls = preflight_descriptors([dev,hold[1] if dev['kind'] == 'creation' else hold[0]],
                                             _scope_root(store) / 'construction-controls' / namespace)
             if controls['status'] != 'pass':
                 raise ValueError('Authored construction controls failed; native search remains closed.')
-            config = default_config()
+            config['policy']['regression_tasks'] = len(reg_rows)
+            config['policy']['holdout_tasks'] = len(hold)
+            config['development_revision'] = revision
+            if transport_identity is not None:
+                config['native_transport'] = transport_identity
             config['construction_controls_sha256'] = digest(controls)
             return store.create_cycle(group['signature'], manifest, config)
     return None
 
 
-def run_cycle(store, cycle_id, *, runtime_home=None):
+def run_cycle(store, cycle_id, *, runtime_home=None, native_client_factory=None, transport_identity=None):
     """Resume genuine upstream search, then independently admit its frozen output."""
     from .harness2_upstream import SubscriptionRole, NativeRoleSpec, run_development
     from .harness2_media import MediaBenchmarkAdapter, source_commitment
@@ -606,6 +685,8 @@ def run_cycle(store, cycle_id, *, runtime_home=None):
     if cycle['phase'] == 'completed':
         return cycle
     config = cycle['config']
+    if config.get('native_transport') != transport_identity:
+        raise ValueError('The native execution transport differs from its sealed configuration.')
     if config['implementation'] != implementation():
         raise ValueError('Implementation changed after sealing; completed evidence is preserved. Start a new cycle under the changed implementation.')
     root = _scope_root(store) / 'cycles' / cycle_id
@@ -624,13 +705,15 @@ def run_cycle(store, cycle_id, *, runtime_home=None):
         if cycle['frozen'] is None:
             store.update(cycle_id, phase='searching')
             role = SubscriptionRole(root / 'roles', runtime_home=runtime_home,
-                timeout=config['role_timeout'], budget_hook=store.budget_hook(cycle_id), native_lock_path=root / 'native.lock')
+                timeout=config['role_timeout'], budget_hook=store.budget_hook(cycle_id), native_lock_path=root / 'native.lock',
+                **({'client_factory': native_client_factory} if native_client_factory is not None else {}))
             channels = {'proposer': NativeRoleSpec(timeout=config['role_timeout']),
                         'selector': NativeRoleSpec(timeout=config['role_timeout'])}
             dev = [row['descriptor'] for row in cycle['manifest']['dev']]
             adapter = MediaBenchmarkAdapter(root / 'development', dev, channels=channels,
                 runtime_home=runtime_home, timeout=config['producer_timeout'],
-                baseline_procedure=parent['procedure'], budget_hook=store.budget_hook(cycle_id), native_lock_path=root / 'native.lock')
+                baseline_procedure=parent['procedure'], budget_hook=store.budget_hook(cycle_id), native_lock_path=root / 'native.lock',
+                native_client_factory=native_client_factory, transport_identity=transport_identity)
             for row in cycle['manifest']['dev']:
                 if source_commitment(row['descriptor'], adapter._task(row['descriptor']['id'])) != row['commitment']:
                     raise ValueError('DEV material differs from its sealed source.')
@@ -689,7 +772,8 @@ def run_cycle(store, cycle_id, *, runtime_home=None):
         rows = [*cycle['manifest']['regression'], *cycle['manifest']['holdout']]
         outer = MediaBenchmarkAdapter(root / 'independent', [r['descriptor'] for r in rows],
             runtime_home=runtime_home, timeout=config['producer_timeout'], baseline_procedure=parent['procedure'],
-            budget_hook=store.budget_hook(cycle_id), optimizer=False, freeze_sha256=freeze_sha, native_lock_path=root / 'native.lock')
+            budget_hook=store.budget_hook(cycle_id), optimizer=False, freeze_sha256=freeze_sha, native_lock_path=root / 'native.lock',
+            native_client_factory=native_client_factory, transport_identity=transport_identity)
         pairs = []
         for index, row in enumerate(rows):
             descriptor = row['descriptor']
@@ -715,11 +799,13 @@ def run_cycle(store, cycle_id, *, runtime_home=None):
         write_once(root / 'evaluation.json', evaluation)
         decision = acceptance([p for p in pairs if p['split'] == 'regression'],
                               [p for p in pairs if p['split'] == 'holdout'], policy=config['policy'])
+        store.require_running()
         evidence = {'cycle_id': cycle_id, 'evaluation_sha256': digest(evaluation),
                     'freeze_sha256': freeze_sha, 'policy_sha256': digest(config['policy'])}
         receipt = versions.record_decision(candidate['id'], accepted=decision['accepted'], evidence=evidence,
                                           reason='; '.join(decision['reasons']) or 'Strict fresh gain without regression.')
         if decision['accepted']:
+            store.require_running()
             current = versions.resolve(*store.scope)
             if current['id'] != candidate['id']:
                 versions.activate(candidate['id'], expected_active=parent['id'])
@@ -739,7 +825,8 @@ def run_cycle(store, cycle_id, *, runtime_home=None):
         versions.close()
 
 
-def work(store, *, runtime_home=None, max_cycles=1, demo=False):
+def work(store, *, runtime_home=None, max_cycles=1, demo=False,
+         native_client_factory=None, transport_identity=None, budget_limits=None):
     if type(max_cycles) is not int or not 1 <= max_cycles <= 20:
         raise ValueError('A finite cycle limit from 1 to 20 is required.')
     with store.worker():
@@ -752,10 +839,12 @@ def work(store, *, runtime_home=None, max_cycles=1, demo=False):
             if pending is None and demo:
                 pending = schedule_demo(store)
             elif pending is None:
-                pending = schedule_next(store)
+                pending = schedule_next(store, transport_identity=transport_identity, budget_limits=budget_limits)
             if pending is None:
                 break
-            run_cycle(store, pending['id'], runtime_home=runtime_home)
+            _check_budget_limits(pending['config'], budget_limits)
+            run_cycle(store, pending['id'], runtime_home=runtime_home,
+                      native_client_factory=native_client_factory, transport_identity=transport_identity)
 
 
 def status(store):

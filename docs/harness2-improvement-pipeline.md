@@ -14,6 +14,24 @@ and regression material; their revealed holdouts are never fresh evidence again.
 The independent two-cycle results belong in the accompanying execution report.
 This guide describes behavior and reproduction, not a claim of measured gain.
 
+For an installed Oak, the opt-in production bridge now connects actual task,
+review, confirmed delivery and owner-reply metadata to this registry. The normal
+gateway manages a bounded background worker; approved supported cases reach
+the same genuine upstream search and independent gate without an operator
+writing another experiment driver. `/improve status|stop|resume` exposes its
+state and control in the authorized conversation. Configure it through
+[`harness_improvement`](configuration.md#bounded-procedure-improvement).
+
+This is deliberately scoped: raw conversations and private artifacts are not
+automatically exported or approved. Metadata-only real cases await a supported
+replay adapter and explicit source permission. The initial replay recipe is
+synthetic layered media. Production monitoring therefore reports observations
+without pretending that every real task has an independent quality verdict or
+automatically triggering a quality rollback from an unverified failure.
+Existing trusted rollback and accepted-only native follow-up remain separate.
+An installed, running improvement system can correctly reject every candidate;
+its deployment is not itself measured quality improvement.
+
 Upstream reflection can legitimately return `NO_ENTRY`. Oak preserves those
 verbatim DEV responses and unsuccessful attempt metadata in a separate scoped
 `attempt_history`, with original SHA verification and a 16 KiB limit across the

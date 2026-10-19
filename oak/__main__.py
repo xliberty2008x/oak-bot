@@ -267,6 +267,8 @@ async def run(config_path):
                     group.create_task(controller.run_events())
                     group.create_task(gateway.run())
                     group.create_task(controller.scheduler.run())
+                    if controller.improvement is not None:
+                        group.create_task(controller.improvement.run())
                     if tunnel:
                         group.create_task(tunnel.maintain(config['web'].get('port', 8765), publish_tunnel))
                     if desktop is not None and desktop.enabled:

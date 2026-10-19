@@ -23,12 +23,79 @@ paths resolve against the configuration file's directory.
 | `runtime_config` | Runtime options such as approval policy and web search |
 | `browser_action_approval` | `always` (default) or owner-selected `never` for routine browser actions |
 | `quality_review` | `true` enables independent visual review before image/video file delivery; requires the execution worker and ChatGPT subscription runtime (default `false` for existing deployments) |
+| `harness_improvement` | Opt-in local observations, bounded background Harness² work and scoped procedure application; see below |
 | `piper_model` | Optional local `.onnx` narration model with adjacent `.onnx.json` |
 | `vosk_model` | Optional extracted local speech-recognition model directory |
 | `whisper_model` | Optional local faster-whisper model, used instead of Vosk |
 | `search_url` | Optional public SearXNG `/search` URL with JSON output enabled |
 | `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
+
+## Bounded procedure improvement
+
+The production bridge is opt-in. Its private directory must stay outside Git,
+separate from the executor's account home and browser profile. For example:
+
+```json
+{
+  "harness_improvement": {
+    "enabled": true,
+    "root": "/absolute/private/oak-improvement",
+    "project_id": "my-oak",
+    "domain": "media-depth",
+    "chat_ids": [123456789],
+    "worker": {
+      "enabled": true,
+      "cycle_limit": 1,
+      "poll_seconds": 30,
+      "max_producers": 16,
+      "max_roles": 8,
+      "max_role_tools": 512
+    }
+  }
+}
+```
+
+Use the actual authorized conversation IDs. Scope stays separate for each
+project, conversation and domain. `cycle_limit` is a persistent total across
+the configured project/domain, including restarts and removed conversations;
+restarting or resuming does not replenish it. Per-cycle inference/tool caps
+are checked before scheduling. The normal managed Oak service starts the
+worker with the gateway. It reuses the existing attested execution profile
+and ChatGPT subscription with fixed `gpt-6.1-sol / low`, without copying auth
+or falling back to another provider. Do not start a second worker/poller.
+
+Real task completion, review and confirmed-delivery events contribute only
+bounded local metadata, opaque references, hashes and the actually applied
+procedure version. Raw prompts, answers, artifact paths and provider errors
+are not collected by this bridge. These cases remain unapproved and await a
+supported replay adapter; their presence does not authorize optimization on
+private materials. Reply references can associate owner feedback without
+copying its text. Keep explicit source permission separate from that linkage.
+
+The initial automatic replay recipe supports approved synthetic layered-media
+creation/repair descriptors. It generates fresh holdouts, invokes actual
+upstream Harness² and independently accepts or rejects its frozen procedure.
+Other media tasks and live provider failures require a corresponding replay
+adapter and evaluation contract. The worker does not invent a passing score
+for an unsupported case. Rejection keeps the active procedure unchanged.
+
+In an authorized conversation, `/improve` or `/improve status` shows the worker,
+case counts and last decision. `/improve stop` pauses improvement work;
+`/improve resume` permits continuation within the remaining budget. These
+commands do not stop the user's main task, approve private disclosure or
+increase budgets. The scoped activation store is derived from the same root;
+an explicit `harness_activation` must agree with it.
+
+The operator CLI can inspect the same private state without starting a model:
+
+```sh
+python -m oak.harness2_production --config /absolute/private/config.json status
+```
+
+See [the pipeline guide](harness2-improvement-pipeline.md) for approved-case
+registration and independent admission. Installing this mechanism is distinct
+from demonstrating a measured quality gain.
 
 ## Reminder times
 

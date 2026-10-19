@@ -448,7 +448,8 @@ class MediaBenchmarkAdapter:
 
     def __init__(self, root, descriptors, *, channels=None, runtime_home=None, effort='low',
                  timeout=600, baseline_procedure='', runtime_factory=None, budget_hook=None,
-                 optimizer=True, freeze_sha256=None, native_lock_path=None):
+                 optimizer=True, freeze_sha256=None, native_lock_path=None,
+                 native_client_factory=None, transport_identity=None):
         from .harness2_upstream import NativeRoleSpec, upstream
         api = upstream()
         self.root = Path(root).resolve()
@@ -466,6 +467,7 @@ class MediaBenchmarkAdapter:
             raise ValueError('The fixed native demonstration requires low effort and bounded time.')
         self.runtime_home, self.effort, self.timeout = runtime_home, effort, timeout
         self.runtime_factory, self.budget_hook, self.optimizer = runtime_factory, budget_hook, optimizer
+        self.native_client_factory = native_client_factory
         self.native_lock_path = Path(native_lock_path).resolve() if native_lock_path is not None else None
         self.implementation_sha256 = evaluator_fingerprint()['sha256']
         self.substrate = MediaSubstrate()
@@ -496,6 +498,7 @@ class MediaBenchmarkAdapter:
                   'freeze_sha256': freeze_sha256,
                   'native_lock_path': str(self.native_lock_path) if self.native_lock_path is not None else None,
                   'implementation_sha256': self.implementation_sha256,
+                  **({'native_transport': transport_identity} if transport_identity is not None else {}),
                   'baseline_procedure_sha256': hashlib.sha256(baseline_procedure.encode()).hexdigest()}
         config_path = self.root / 'adapter.json'
         if config_path.exists() and json.loads(config_path.read_text()) != config:
@@ -673,7 +676,7 @@ class MediaBenchmarkAdapter:
                     _write(workspace.parent / 'trace.json', trace)
                     return value
                 kwargs['tool_handler'] = capture
-            return RuntimeClient(**kwargs)
+            return (self.native_client_factory or RuntimeClient)(**kwargs)
         return PilotRuntime(runtime_home=self.runtime_home, model=MODEL, effort=self.effort,
                             timeout=duration, client_factory=client_factory)
 

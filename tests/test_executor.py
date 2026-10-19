@@ -4,6 +4,9 @@ import hashlib
 import io
 import os
 import socket
+import shutil
+import subprocess
+import sys
 from types import SimpleNamespace
 from oak import executor_worker as worker
 import copy
@@ -150,6 +153,87 @@ class PolicyTests(unittest.TestCase):
             self.assertFalse(any(path.name == 'private-account.json' for path in files))
             self.assertTrue(any(path.name == 'index.html' for path in files))
             self.assertTrue(all('private marker' not in path.read_text() for path in files if path.is_file()))
+
+    def test_render_packages_exact_harness2_core_license_and_isolated_release_import(self):
+        setup = setup_module()
+        source = Path(__file__).resolve().parents[1]
+        vendor = source / 'third_party/harness2'
+        locked = json.loads((vendor/'UPSTREAM.json').read_text())
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp)/'bundle'
+            with patch.object(setup, 'run', side_effect=AssertionError('render must not provision')):
+                profile = setup.render({**SPEC, 'source': str(source)}, destination)
+            release = destination / profile['code_root'].lstrip('/')
+            packaged = release / 'third_party/harness2'
+            expected = {*locked['files'], 'UPSTREAM.json'}
+            self.assertEqual({path.relative_to(packaged).as_posix() for path in packaged.rglob('*') if path.is_file()},
+                             expected)
+            for name in expected:
+                with self.subTest(file=name):
+                    data = (packaged/name).read_bytes()
+                    self.assertEqual(data, (vendor/name).read_bytes())
+                    installed = str(Path(profile['code_root'])/'third_party/harness2'/name)
+                    self.assertEqual(profile['manifest'][installed], hashlib.sha256(data).hexdigest())
+            self.assertEqual(profile['readonly'], SPEC['readonly'])
+            self.assertEqual(profile['policy_digest'], policy_digest(profile))
+            # A fresh isolated interpreter cannot fall back to this checkout's
+            # vendor directory or an already imported harness2 package.
+            code = ('import json,sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); '
+                    'from oak.harness2_upstream import upstream; core=upstream(); '
+                    'print(json.dumps({"commit":core.commit,"module":str(Path(core.schedule.__file__).resolve())}))')
+            result = subprocess.run([sys.executable, '-I', '-B', '-c', code, str(release)],
+                                    cwd=temp, check=True, capture_output=True, text=True, timeout=20)
+            imported = json.loads(result.stdout)
+            self.assertEqual(imported['commit'], setup.HARNESS2_COMMIT)
+            self.assertEqual(Path(imported['module']), packaged/'harness2/core/schedule.py')
+
+    def test_harness2_packaging_rejects_missing_changed_linked_or_extra_code(self):
+        setup = setup_module()
+        original = Path(__file__).resolve().parents[1]/'third_party/harness2'
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'source'
+            vendor = source/'third_party/harness2'
+            (source/'oak').mkdir(parents=True)
+            for name in ('executor.py', 'executor_worker.py', 'harness2_upstream.py'):
+                (source/'oak'/name).write_text('# local packaging protocol fixture\n')
+            for change in ('missing_vendor', 'manifest', 'core', 'license', 'symlink', 'hardlink', 'extra_module'):
+                with self.subTest(change=change):
+                    if vendor.exists():
+                        shutil.rmtree(vendor)
+                    if change != 'missing_vendor':
+                        shutil.copytree(original, vendor, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                    if change == 'manifest':
+                        (vendor/'UPSTREAM.json').write_text('{}')
+                    elif change == 'core':
+                        (vendor/'harness2/core/prompts.py').write_text('# changed\n')
+                    elif change == 'license':
+                        (vendor/'LICENSE').unlink()
+                    elif change == 'symlink':
+                        (vendor/'LICENSE').unlink()
+                        (vendor/'LICENSE').symlink_to(original/'LICENSE')
+                    elif change == 'hardlink':
+                        os.link(vendor/'LICENSE', vendor/'linked-license')
+                    elif change == 'extra_module':
+                        (vendor/'harness2/core/unreviewed.py').write_text('# unsupported\n')
+                    with self.assertRaises(ValueError):
+                        setup.render({**SPEC, 'source': str(source)}, Path(temp)/('bundle-'+change))
+
+    def test_harness2_packaging_omits_unlocked_data_and_refuses_directory_symlink(self):
+        setup = setup_module()
+        original = Path(__file__).resolve().parents[1]/'third_party/harness2'
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'source'
+            vendor = source/'third_party/harness2'
+            vendor.parent.mkdir(parents=True)
+            vendor.symlink_to(original, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'directories cannot be symlinks'):
+                setup.harness2_files(source)
+            vendor.unlink()
+            shutil.copytree(original, vendor, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+            (vendor/'unrelated-private.json').write_text('PACKAGE_PRIVATE_CANARY')
+            files = setup.harness2_files(source)
+            self.assertFalse(any('unrelated-private' in name or b'PACKAGE_PRIVATE_CANARY' in data
+                                 for name, data in files.items()))
 
     def test_migration_refuses_active_gateway_and_existing_destination(self):
         import fcntl

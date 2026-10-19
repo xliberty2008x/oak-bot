@@ -572,6 +572,26 @@ class NativeAdapter(unittest.TestCase):
         self.assertEqual(completed[0]['result']['observations'], [{'ok': True}])
         self.assertNotIn(str(self.root), json.dumps(completed))
 
+    def test_protected_factory_reaches_pilot_and_independent_reviewer_capture_seam(self):
+        adapter = self.adapter()
+        adapter.runtime_factory = None
+        seen = []
+        def protected_factory(**kwargs):
+            seen.append(kwargs)
+            return object()
+        adapter.native_client_factory = protected_factory
+        workspace = self.root / 'factory-proof' / 'workspace'
+        workspace.mkdir(parents=True)
+        runtime = adapter._runtime([],workspace.parent/'evidence',600,workspace,workspace.parent)
+        # PilotRuntime passes this same client_factory to its independent
+        # QualityReviewer; producer and reviewer callbacks remain host-side.
+        callback = object()
+        runtime.client_factory(cwd=str(workspace),sandbox='read-only',
+                               config={'web_search':'disabled'},tool_handler=callback)
+        self.assertEqual(len(seen),1)
+        self.assertEqual(seen[0]['sandbox'],'read-only')
+        self.assertIsNot(seen[0]['tool_handler'],callback)  # Trace capture wraps the callback.
+
 
 if __name__ == '__main__':
     unittest.main()

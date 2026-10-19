@@ -376,6 +376,7 @@ class Tools:
                 header = stream.read(32)
             if bound or path.suffix.lower() in VISUAL_SUFFIXES or _kind(header) != 'unsupported':
                 review, snapshot = await self.quality.review(chat_id, path, snapshot=delivery_path)
+                self._improvement_review(chat_id,review)
                 if review.get('verdict') != 'pass':
                     return {**review, 'queued_for_delivery': False, 'path': str(path)}
                 delivery_path = snapshot
@@ -385,8 +386,24 @@ class Tools:
             raise ValueError('Task stopped before delivery.')
         await self.controller.emit(chat_id, {'type': 'CUSTOM', 'name': 'artifact',
                                            'value': {'path': str(delivery_path), 'name': name, 'caption': caption}})
+        self._improvement_event(chat_id,'artifact_queued',{'delivery_status':'queued',
+            **({'sha256':review['sha256']} if review else {})})
         return {'path': str(path), 'queued_for_delivery': True,
                 **({'review_id': review['review_id'], 'sha256': review['sha256']} if review else {})}
+
+    def _improvement_event(self, chat_id, kind, metadata):
+        hook = getattr(self.controller,'record_improvement_event',None)
+        if callable(hook):
+            try:
+                hook(chat_id,kind,metadata)
+            except Exception:
+                pass
+
+    def _improvement_review(self, chat_id, review):
+        self._improvement_event(chat_id,'artifact_review',{
+            'verdict':review.get('verdict'),'sha256':review.get('sha256'),'review_id':review.get('review_id'),
+            'issues':len(review.get('issues',[])),'checks':len(review.get('checks',[])),
+            'major_issues':sum(i.get('severity') in {'major','blocker'} for i in review.get('issues',[]) if isinstance(i,dict))})
 
     async def _approve_browser_action(self, metadata, action, *, account=False):
         if self.browser_action_approval == 'never' or action not in {'click', 'type', 'upload', 'download'}:
@@ -540,6 +557,7 @@ class Tools:
                 return {'ok': False, 'verdict': 'unverified', 'summary': 'Independent visual review is not configured.'}
             path = await self._artifact_file(args['path'])
             report, _ = await self.quality.review(chat_id, **{**args, 'path': path})
+            self._improvement_review(chat_id,report)
             return {**report, 'path': str(path)}
         if name == 'oak_experience':
             if args['action'] == 'search':
