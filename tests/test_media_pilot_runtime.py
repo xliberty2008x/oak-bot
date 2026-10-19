@@ -3,14 +3,17 @@
 import asyncio
 import base64
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from oak.media_pilot_runtime import PilotRuntime, _PilotTools
+from oak.quality_media import codec_environment
 from oak.runtime import MODEL
 
 
@@ -344,6 +347,45 @@ class PilotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('LEFT_PROCEDURE', value)
             self.assertNotIn('RIGHT_PROCEDURE', value)
             self.assertFalse(self.task['brief'] in value and other_task['brief'] in value)
+
+
+@unittest.skipUnless(all(importlib.util.find_spec(name) for name in ('PIL', 'numpy'))
+                     and Path('/usr/bin/ffmpeg').is_file() and Path('/usr/bin/ffprobe').is_file(),
+                     'Provisioned Pillow, numpy and distro ffmpeg/ffprobe are required')
+class PilotCodecFactsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_actual_mp4_codec_and_container_brands_are_bound_to_decoded_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            workspace, state = root / 'workspace', root / 'control'
+            workspace.mkdir()
+            state.mkdir()
+            # Use a non-media extension: the actual container/codec must be
+            # extracted from these bytes, rather than inferred from the path.
+            path = workspace / 'candidate.data'
+            subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                '-i', 'testsrc2=size=96x64:rate=6:duration=1', '-an', '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-f', 'mp4', str(path)],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=20, env=codec_environment())
+            tools = _PilotTools(SimpleNamespace(), {'brief': 'Inspect this actual video.'},
+                                workspace, state, None)
+            try:
+                data = await tools.inspect(path)
+                expected = hashlib.sha256(path.read_bytes()).hexdigest()
+                self.assertEqual(data['type'], 'video')
+                self.assertEqual(data['decode_status'], 'complete')
+                self.assertTrue(data['evidence'])
+                facts = data['codec_facts']
+                self.assertEqual(data['sha256'], expected)
+                self.assertEqual(facts['sha256'], expected)
+                self.assertIn('mp4', facts['format_name'].split(','))
+                self.assertEqual(facts['format_tags']['major_brand'], 'isom')
+                self.assertIn('avc1', facts['format_tags']['compatible_brands'])
+                self.assertEqual(facts['streams'], [{'codec_name': 'h264', 'codec_type': 'video'}])
+                self.assertFalse(data['audio_present'])
+                self.assertEqual(tools.files.handles, {})
+            finally:
+                tools.files.close_all()
 
 
 if __name__ == '__main__':

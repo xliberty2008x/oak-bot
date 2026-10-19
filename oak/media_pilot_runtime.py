@@ -13,13 +13,14 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import time
 import uuid
 
 from .controller import Controller
 from .executor_worker import FileTransfers
 from .quality import QualityReviewer, REVIEW_INSTRUCTIONS, _DISABLED_FEATURES
-from .quality_media import inspect_media
+from .quality_media import codec_environment, inspect_media
 from .runtime import MODEL, RuntimeClient
 from .tools import SPECS, _spec
 
@@ -49,6 +50,75 @@ _MAX_ARTIFACT = 256 * 1024 * 1024
 
 def _sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+async def _video_codec_facts(data, sha256):
+    """Bounded facts from trusted ffprobe, with no producer paths or claims."""
+    if _sha(data) != sha256:
+        raise ValueError('Codec input does not match the inspected snapshot.')
+    process = await asyncio.create_subprocess_exec(
+        '/usr/bin/ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
+        '-show_entries', 'format=format_name:format_tags=major_brand,compatible_brands:stream=codec_name,codec_type',
+        '-of', 'json', 'pipe:0', stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE, stderr=subprocess.DEVNULL,
+        env=codec_environment(), limit=65536)
+
+    async def write_input():
+        try:
+            for offset in range(0, len(data), 65536):
+                process.stdin.write(data[offset:offset + 65536])
+                await process.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            process.stdin.close()
+            with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                await process.stdin.wait_closed()
+
+    async def read_output():
+        output = bytearray()
+        while block := await process.stdout.read(8192):
+            output.extend(block)
+            if len(output) > 65536:
+                raise ValueError('Codec fact output exceeds its limit.')
+        return output
+
+    jobs = [asyncio.create_task(write_input()), asyncio.create_task(read_output())]
+    try:
+        async with asyncio.timeout(20):
+            _, raw = await asyncio.gather(*jobs)
+            if await process.wait() != 0:
+                raise ValueError('Codec inspection did not complete.')
+        decoded = json.loads(raw)
+        format_data = decoded.get('format') or {}
+        format_name = format_data.get('format_name')
+        streams = decoded.get('streams')
+        if (not isinstance(format_name, str) or not re.fullmatch('[A-Za-z0-9_,.-]{1,200}', format_name)
+                or not isinstance(streams, list) or not 1 <= len(streams) <= 64):
+            raise ValueError('Invalid codec inspection facts.')
+        facts = []
+        for stream in streams:
+            row = {key: stream.get(key) for key in ('codec_name', 'codec_type')}
+            if any(not isinstance(value, str) or not re.fullmatch('[A-Za-z0-9_.-]{1,80}', value)
+                   for value in row.values()):
+                raise ValueError('Invalid stream codec facts.')
+            facts.append(row)
+        tags = format_data.get('tags') or {}
+        format_tags = {key: tags[key] for key in ('major_brand', 'compatible_brands') if key in tags}
+        if any(not isinstance(value, str) or not re.fullmatch('[A-Za-z0-9_. -]{1,256}', value)
+               for value in format_tags.values()):
+            raise ValueError('Invalid container brand facts.')
+        return {'sha256': sha256, 'format_name': format_name,
+                'format_tags': format_tags, 'streams': facts}
+    finally:
+        if process.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
+            await process.wait()
+        for job in jobs:
+            if not job.done():
+                job.cancel()
+        await asyncio.gather(*jobs, return_exceptions=True)
 
 
 def _native_result(value, images=()):
@@ -155,8 +225,20 @@ class _PilotTools:
 
     async def inspect(self, path):
         path = self.path(path)
-        sha = await asyncio.to_thread(lambda: _sha(self.read(path)))
-        return await asyncio.to_thread(inspect_media, self.files, str(path), sha)
+        snapshot = await asyncio.to_thread(self.read, path)
+        sha = _sha(snapshot)
+        data = await asyncio.to_thread(inspect_media, self.files, str(path), sha)
+        if data.get('sha256') != sha:
+            raise ValueError('Visual evidence does not match the inspected snapshot.')
+        if data.get('type') == 'video':
+            try:
+                data['codec_facts'] = await _video_codec_facts(snapshot, sha)
+            except (OSError, ValueError, TimeoutError, subprocess.SubprocessError):
+                data['codec_facts'] = {'sha256': sha, 'available': False,
+                                       'error_code': 'codec_probe_failed'}
+            if _sha(snapshot) != sha or await asyncio.to_thread(lambda: _sha(self.read(path))) != sha:
+                raise ValueError('Artifact bytes changed during codec inspection.')
+        return data
 
     async def handle(self, metadata):
         try:

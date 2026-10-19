@@ -417,6 +417,7 @@ def report(root):
               'suite_sha256': state['suite_sha256'], 'implementation_sha256': state['implementation_sha256'],
               'environment': state['environment'],
               'complete': complete, 'frozen': state['frozen'], 'summaries': summaries,
+              'procedures': state['procedures'],
               'paired_holdout': pairs, 'wins': sum(row['outcome'] == 'win' for row in pairs),
               'losses': sum(row['outcome'] == 'loss' for row in pairs),
               'ties': sum(row['outcome'] == 'tie' for row in pairs),
@@ -436,7 +437,13 @@ def report(root):
             lines.append(f'| {split} | {key} | {row["finished"]}/{row["expected"]} | {row["passed"]} | '
                          f'{row["first_review_passed"]} | {row["unverified"]} | {row["median_seconds"]} |')
     lines.extend(['', f'Paired held-out outcomes: {result["wins"]} wins, {result["losses"]} losses, '
-                  f'{result["ties"]} ties.', '', *['- ' + text for text in result['limitations']], '',
+                  f'{result["ties"]} ties.', '', '## Procedures', ''])
+    for key, procedure in state['procedures'].items():
+        lines.extend([f'### {key}', '', procedure['hypothesis'], ''])
+        if procedure['procedure']:
+            lines.extend(['    ' + line for line in procedure['procedure'].splitlines()])
+            lines.append('')
+    lines.extend(['## Limits', '', *['- ' + text for text in result['limitations']], '',
                   'This command does not publish or promote lessons into a live conversation.'])
     (Path(root) / 'report.md').write_text('\n'.join(lines) + '\n')
     return result
@@ -478,6 +485,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         asyncio.run(_main(args))
+    except KeyboardInterrupt:
+        parser.exit(130, 'Pilot interrupted. Completed receipts remain; unfinished attempts are not passes.\n')
     except (ValueError, OSError, TimeoutError):
         # Native diagnostics can include account data. Keep public CLI errors bounded.
         parser.exit(1, 'Pilot command incomplete. Check bounded receipts/settings; no pass was inferred.\n')
