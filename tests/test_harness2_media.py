@@ -270,6 +270,69 @@ class NativeAdapter(unittest.TestCase):
         self.assertFalse(result['source_immutable'])
         self.assertFalse(list(directory.glob('interrupted-*.json')))
 
+    def test_finished_pending_integrity_recovers_negative_without_native_replay(self):
+        class SourceViolation(FakeRuntime):
+            async def run(self, task, workspace, procedure):
+                value = await super().run(task, workspace, procedure)
+                Path(task['reference_paths'][0]).write_bytes(b'fixture source violation')
+                value.update(status='failed', source_immutable=False, delivered=False,
+                             artifact_path=None, artifact_sha256=None)
+                return value
+        adapter = self.adapter()
+        adapter.runtime_factory = SourceViolation
+        original_write = media._write
+        def interrupt_after_terminal(path, payload):
+            original_write(path, payload)
+            if (Path(path).name == 'receipt.json' and payload.get('state') == 'finished'
+                    and payload.get('terminal_integrity') == 'pending_validation'):
+                raise RuntimeError('Fixture interruption after durable terminal receipt.')
+        with patch.object(media, '_write', side_effect=interrupt_after_terminal):
+            with self.assertRaises(RuntimeError):
+                adapter.execute(self.descriptor['id'], None, 'pending-invalid-terminal')
+        directory = adapter.root / 'executions' / hashlib.sha256(b'pending-invalid-terminal').hexdigest()
+        pending = json.loads((directory / 'receipt.json').read_text())
+        self.assertEqual(pending['state'], 'finished')
+        self.assertEqual(pending['terminal_integrity'], 'pending_validation')
+        self.assertEqual(len(FakeRuntime.calls), 1)
+        resumed = adapter.execute(self.descriptor['id'], None, 'pending-invalid-terminal')
+        self.assertEqual(resumed, directory)
+        recovered = json.loads((directory / 'receipt.json').read_text())
+        self.assertEqual(recovered['state'], 'finished')
+        self.assertEqual(recovered['terminal_integrity'], 'failed')
+        self.assertEqual(recovered['receipt'], pending['receipt'])
+        self.assertEqual(recovered['integrity_recovery'], 'validation_resumed_from_terminal_receipt')
+        self.assertFalse(adapter.delivered(directory))
+        result = media.evaluate_delivery(self.descriptor, directory, freeze_sha256='f' * 64)
+        self.assertFalse(result['joint_passed'])
+        self.assertFalse(result['source_immutable'])
+        self.assertEqual(len(FakeRuntime.calls), 1)
+        self.assertEqual(len(self.budget), 1)
+        self.assertFalse(list(directory.glob('interrupted-*.json')))
+
+    def test_finished_pending_integrity_recovers_verified_without_native_replay(self):
+        adapter = self.adapter()
+        original_write = media._write
+        def interrupt_after_terminal(path, payload):
+            original_write(path, payload)
+            if (Path(path).name == 'receipt.json' and payload.get('state') == 'finished'
+                    and payload.get('terminal_integrity') == 'pending_validation'):
+                raise RuntimeError('Fixture interruption after durable terminal receipt.')
+        with patch.object(media, '_write', side_effect=interrupt_after_terminal):
+            with self.assertRaises(RuntimeError):
+                adapter.execute(self.descriptor['id'], None, 'pending-valid-terminal')
+        directory = adapter.execute(self.descriptor['id'], None, 'pending-valid-terminal')
+        recovered = json.loads((directory / 'receipt.json').read_text())
+        self.assertEqual(recovered['state'], 'finished')
+        self.assertEqual(recovered['terminal_integrity'], 'verified')
+        self.assertTrue(adapter.delivered(directory))
+        self.assertEqual(len(FakeRuntime.calls), 1)
+        self.assertEqual(len(self.budget), 1)
+        Path(recovered['receipt']['artifact_path']).unlink()
+        with self.assertRaises(ValueError):
+            adapter.execute(self.descriptor['id'], None, 'pending-valid-terminal')
+        self.assertEqual(json.loads((directory / 'receipt.json').read_text())['terminal_integrity'], 'verified')
+        self.assertEqual(len(FakeRuntime.calls), 1)
+
     def test_shared_native_lock_delays_transport_until_other_role_releases(self):
         path = self.root / 'native.lock'
         event = threading.Event()

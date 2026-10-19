@@ -62,11 +62,12 @@ class Controller:
             if (not isinstance(self.harness_activation, dict)
                     or set(self.harness_activation) != {'store_path', 'project_id', 'domain'}):
                 raise ValueError('Harness activation requires an explicit store, project and domain.')
-            from .harness_versions import HarnessVersions
+            from .harness_versions import HarnessVersions, _scope as validate_harness_scope
+            # Validate identifiers without reading a different conversation.
+            # The actual conversation is resolved in prepare_harness_input.
+            validate_harness_scope(self.harness_activation['project_id'], 0,
+                                   self.harness_activation['domain'])
             self.harness_versions = HarnessVersions(self.harness_activation['store_path'])
-            # Validate the explicitly configured scope before any native input.
-            self.harness_versions.resolve(self.harness_activation['project_id'], 1,
-                                          self.harness_activation['domain'])
         self.tools = None
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row

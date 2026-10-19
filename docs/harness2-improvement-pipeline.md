@@ -309,7 +309,7 @@ original scoped pointer; it does not deploy to a production Oak instance.
 Focused standard-library checks are reproducible with:
 
 ```sh
-.venv-media/bin/python -m unittest tests.test_harness2_upstream tests.test_harness2_media tests.test_harness2_pipeline tests.test_harness_versions tests.test_harness_activation tests.test_harness2_activation_demo
+PYTHONPATH=tests .venv-media/bin/python -m unittest test_harness2_upstream test_harness2_media test_harness2_pipeline test_harness2_pipeline_history test_harness2_report test_harness_versions test_harness_activation test_harness2_activation_demo test_harness_rollback_quarantine test_harness_controller_scope test_media_pilot_runtime test_state
 ```
 
 Keep three evidence classes separate in reports: local tests and authored codec

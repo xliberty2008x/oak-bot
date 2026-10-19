@@ -236,6 +236,17 @@ class HarnessVersions:
             if not decision or not decision['accepted'] or not self.db.execute(
                     'SELECT 1 FROM harness_activation_events WHERE version_id=?', (target_id,)).fetchone():
                 raise ValueError('Rollback requires a previously active verified version.')
+            if self.db.execute("SELECT 1 FROM harness_activation_events WHERE action='rollback' AND previous_id=?",
+                               (target_id,)).fetchone():
+                raise ValueError('A quarantined regressed version cannot be a rollback target.')
+            ancestor, seen = current['parent_id'], set()
+            while ancestor is not None and ancestor != target_id:
+                if ancestor in seen:
+                    raise ValueError('Harness ancestry contains a cycle.')
+                seen.add(ancestor)
+                ancestor = self.version(ancestor)['parent_id']
+            if ancestor != target_id:
+                raise ValueError('Rollback target must be a verified ancestor of the current version.')
             # Keep the target's prior verified ancestor, never promote the
             # regressed version to the default rollback destination.
             prior = self.db.execute('SELECT previous_id FROM harness_activation_events WHERE version_id=? '

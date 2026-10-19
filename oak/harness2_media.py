@@ -581,7 +581,23 @@ class MediaBenchmarkAdapter:
                 if any(prior.get(key) != value for key, value in identity.items()):
                     raise ValueError('An execution identity cannot be reused with changed inputs.')
                 if prior.get('state') == 'finished':
-                    self._verify_record(prior)
+                    if prior.get('terminal_integrity') == 'pending_validation':
+                        # Native execution already returned. Recover only the
+                        # unfinished journal validation, never the producer.
+                        # Invalid evidence is a conservative completed negative;
+                        # the interruption does not establish when it changed.
+                        try:
+                            self._verify_record(prior)
+                            prior['terminal_integrity'] = 'verified'
+                        except (OSError, ValueError):
+                            prior.update(terminal_integrity='failed',
+                                         integrity_error_code='native_terminal_integrity_failure')
+                        prior['integrity_recovery'] = 'validation_resumed_from_terminal_receipt'
+                        _write(marker, prior)
+                    else:
+                        # Evidence changed after a verified completion remains
+                        # a hard integrity error, not a reclassified retry.
+                        self._verify_record(prior)
                     return run_dir
                 interrupted = run_dir / ('interrupted-' + str(prior.get('attempt', 1)) + '.json')
                 if not interrupted.exists():
