@@ -1,13 +1,13 @@
 # Harder media procedure pilot
 
-This opt-in experiment compares Oak's current procedure with two reusable
-procedures on synthetic media tasks that require visual inference. It builds
+This guide records the development calibration for an opt-in comparison of
+Oak's current procedure with reusable media procedures. It builds
 on the first [media procedure pilot](media-harness-pilot.md) and
 [PR #103](https://github.com/xliberty2008x/oak-bot/pull/103). The first experiment
 found equal held-out success and slower candidate execution. None of these
 commands changes live Oak procedures or promotes conversation experience.
 
-The main comparison uses `--suite perceptual`: 12 new tasks, split into six
+The calibration uses `--suite perceptual`: 12 tasks, split into six
 development and six held-out tasks. Each split has one creation and one repair
 task in each of three families:
 
@@ -200,6 +200,16 @@ aesthetic ground truth, and neither establishes general media quality, quality
 on real user artwork, audio quality, external-provider behavior or live Telegram
 delivery.
 
-The main perceptual comparison results are pending. This guide records the
-protocol and earlier calibration honestly; it does not claim that a challenger
-improves quality or that current Oak fails the new development set.
+The [completed development calibration](evaluations/hard-media-harness-pilot-2026-10-19/perceptual-development-calibration.json)
+passed **12/12 joint deliveries and 12/12 source-property checks**, all with a
+first-review visual pass. No material visual defect or unverified review was
+reported. The median completed attempt took 129.426 seconds. One unfinished
+attempt was interrupted when its outer execution session ended; completed
+outcomes were retained, and only the interrupted task resumed in a fresh workspace.
+
+The development gate correctly refused candidate authoring at this ceiling.
+No candidate procedures or held-out model runs were produced. These receipts
+are calibration evidence, not a quality-improvement comparison. The next
+[complex-media pilot](media-harness-complex-pilot.md) adds projective
+registration, multiple depth layers and articulated motion with fresh held-out
+examples, rather than tightening these tasks' acceptance thresholds.

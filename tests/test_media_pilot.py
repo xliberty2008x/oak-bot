@@ -8,6 +8,7 @@ import importlib.util
 import copy
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -450,19 +451,214 @@ class PerceptualPilotContracts(PilotFixture, unittest.IsolatedAsyncioTestCase):
                            'reviews': [{'verdict': 'revise', 'sha256': digest,
                                         'issues': [{'severity': 'major', 'description': 'Rectangular eyelid wipe.'}]}]}}
         self.assertTrue(pilot._development_quality_failure(row, 'perceptual'))
+        self.assertTrue(pilot._development_quality_failure(row, 'complex'))
         self.assertFalse(pilot._development_quality_failure(row, 'hard'))
         for field, value in [('sha256', 'b' * 64), ('verdict', 'unverified'),
                              ('issues', [{'severity': 'minor'}]), ('issues', [])]:
             invalid = copy.deepcopy(row)
             invalid['receipt']['reviews'][0][field] = value
             self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+            self.assertFalse(pilot._development_quality_failure(invalid, 'complex'))
         for field, value in [('status', 'timeout'), ('candidate_complete', False)]:
             invalid = copy.deepcopy(row)
             invalid['receipt'][field] = value
             self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+            self.assertFalse(pilot._development_quality_failure(invalid, 'complex'))
         invalid = copy.deepcopy(row)
         invalid['candidate_quality']['structural_status'] = 'fail'
         self.assertFalse(pilot._development_quality_failure(invalid, 'perceptual'))
+        self.assertFalse(pilot._development_quality_failure(invalid, 'complex'))
+
+
+class BatchPilotContracts(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name) / 'experiment'
+        tasks = tuple({'id': f'{split}-{number}', 'split': split, 'kind': 'repair',
+                       'brief': f'Synthetic {split} task {number}.', 'output_name': 'final.png'}
+                      for split in ('dev', 'holdout') for number in range(1, 7))
+        self.provider = SimpleNamespace(TASKS=tasks,
+            materialize_task=lambda task_id, workspace: {'id': task_id, 'source_hashes': {}})
+        for target, value in (('_suite', (self.provider, self.provider)),
+                              ('_implementation', 'implementation')):
+            mocked = patch.object(pilot, target, return_value=value)
+            mocked.start()
+            self.addCleanup(mocked.stop)
+        self.state = pilot.initialize(self.root, suite='complex', repeats=2,
+                                      timeout=600, effort='high', workers=1)
+        self.runtime = SimpleNamespace(run=AsyncMock(return_value={
+            'status': 'timeout', 'delivered': False, 'reviews': [],
+            'tool_calls': 0, 'elapsed_seconds': 1.}))
+        self.snapshot = self.root / 'protocol-candidate.data'
+        self.snapshot.write_bytes(b'unit-only immutable candidate protocol bytes')
+
+    def save(self):
+        pilot._write(self.root / 'pilot.json', self.state)
+
+    def finish(self, key):
+        split, task_id, procedure_id, repeat = key.split('/')
+        digest = pilot._file_hash(self.snapshot)
+        receipt = {'status': 'unverified', 'delivered': False, 'candidate_complete': True,
+            'candidate_path': str(self.snapshot), 'candidate_sha256': digest,
+            'reviews': [{'verdict': 'revise', 'sha256': digest,
+                         'issues': [{'severity': 'major', 'evidence': 'Synthetic visible defect.'}]}],
+            'tool_calls': 1, 'elapsed_seconds': 1.}
+        quality = {'status': 'fail', 'structural_status': 'pass', 'quality_score': .4,
+                   'checks': [{'criterion': 'content:synthetic', 'status': 'fail'}]}
+        structural = {'status': 'unverified', 'checks': []}
+        self.state['runs'][key] = {'state': 'finished', 'split': split, 'task_id': task_id,
+            'procedure_id': procedure_id, 'repeat': int(repeat), 'source_immutable': True,
+            'receipt': receipt, 'structural': structural, 'candidate_quality': quality,
+            'metrics': pilot._metrics(receipt, structural, True, quality)}
+
+    def candidates(self):
+        return [{'procedure': 'Inspect source boundaries.', 'hypothesis': 'Fewer edge defects.'},
+                {'procedure': 'Check every motion frame.', 'hypothesis': 'Fewer temporal defects.'}]
+
+    async def test_limit_filters_finished_jobs_before_slicing_the_existing_rotated_order(self):
+        self.state['procedures'].update({f'candidate-{i}': value
+            for i, value in enumerate(self.candidates(), 1)})
+        first = 'dev/dev-1/candidate-1/1'
+        third = 'dev/dev-1/candidate-2/2'
+        self.finish(first)
+        self.finish(third)
+        with redirect_stdout(io.StringIO()):
+            count = await pilot._run_split(self.root, self.state, 'dev',
+                ['candidate-1', 'candidate-2'], self.runtime, max_runs=2)
+        self.assertEqual(count, 2)
+        self.assertEqual(list(self.state['runs']), [first, third,
+            'dev/dev-1/candidate-2/1', 'dev/dev-1/candidate-1/2'])
+        self.assertEqual(self.runtime.run.await_count, 2)
+        self.assertEqual(len(self.state['interrupted_attempts']), 0)
+        self.assertFalse((self.root / 'workspaces' / 'dev' / 'dev-2').exists())
+        self.assertTrue(all(row['state'] == 'finished' for row in self.state['runs'].values()))
+
+    async def test_one_run_batches_preserve_full_plan_and_never_replay_finished_failures(self):
+        original_settings = self.state['settings_sha256']
+        with redirect_stdout(io.StringIO()):
+            for expected in range(1, 13):
+                self.state = await pilot.baseline(self.root, self.runtime, max_runs=1)
+                self.assertEqual(len(self.state['runs']), expected)
+            await pilot.baseline(self.root, self.runtime, max_runs=1)
+        self.assertEqual(self.runtime.run.await_count, 12)
+        self.assertEqual(self.state['settings_sha256'], original_settings)
+        self.assertNotIn('batch_size', self.state['config'])
+        self.assertNotIn('max_runs', self.state['config'])
+        self.assertEqual(len(pilot._keys(self.state, 'dev', 'baseline')), 12)
+        self.assertEqual(len(pilot._keys(self.state, 'holdout', 'baseline')), 12)
+        self.assertEqual(self.state['interrupted_attempts'], [])
+        self.assertTrue(all(row['attempt'] == 1 for row in self.state['runs'].values()))
+
+    async def test_default_unlimited_split_finishes_all_remaining_planned_attempts(self):
+        with redirect_stdout(io.StringIO()):
+            count = await pilot._run_split(self.root, self.state, 'dev', ['baseline'], self.runtime)
+            again = await pilot._run_split(self.root, self.state, 'dev', ['baseline'], self.runtime)
+        self.assertEqual((count, again), (12, 0))
+        self.assertEqual(self.runtime.run.await_count, 12)
+
+    async def test_invalid_execution_limits_create_no_records_or_workspaces(self):
+        for limit in (0, -1, 37, True, 1.5, '1'):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                await pilot._run_split(self.root, self.state, 'dev', ['baseline'],
+                                       self.runtime, max_runs=limit)
+        self.runtime.run.assert_not_awaited()
+        self.assertEqual(self.state['runs'], {})
+        self.assertFalse((self.root / 'workspaces').exists())
+
+    async def test_partial_limited_development_does_not_propose_or_create_candidate_records(self):
+        with patch.object(pilot, 'propose', new_callable=AsyncMock) as propose, \
+                redirect_stdout(io.StringIO()):
+            self.state = await pilot.develop(self.root, self.runtime, max_runs=1)
+        propose.assert_not_awaited()
+        self.assertEqual(self.runtime.run.await_count, 1)
+        self.assertEqual(set(self.state['procedures']), {'baseline'})
+        self.assertEqual(len(self.state['runs']), 1)
+        with self.assertRaises(ValueError):
+            pilot.freeze(self.root)
+
+    async def test_last_baseline_proposal_and_candidate_batches_are_separate_and_propose_once(self):
+        for key in pilot._keys(self.state, 'dev', 'baseline')[:-1]:
+            self.finish(key)
+        self.save()
+        with patch.object(pilot, 'propose', new_callable=AsyncMock,
+                          return_value=self.candidates()) as propose, redirect_stdout(io.StringIO()):
+            self.state = await pilot.develop(self.root, self.runtime, max_runs=1)
+            self.assertEqual(self.runtime.run.await_count, 1)
+            propose.assert_not_awaited()
+            self.assertEqual(len(self.state['runs']), 12)
+            self.state = await pilot.develop(self.root, self.runtime, max_runs=1)
+            propose.assert_awaited_once()
+            self.assertEqual(self.runtime.run.await_count, 1)  # Proposal-only invocation.
+            self.assertEqual(set(self.state['procedures']), {'baseline', 'candidate-1', 'candidate-2'})
+            self.assertEqual(len(self.state['runs']), 12)
+            self.state = await pilot.develop(self.root, self.runtime, max_runs=1)
+            self.state = await pilot.develop(self.root, self.runtime, max_runs=1)
+            propose.assert_awaited_once()
+        self.assertEqual(self.runtime.run.await_count, 3)
+        self.assertEqual(len(self.state['runs']), 14)
+        with self.assertRaises(ValueError):
+            pilot.freeze(self.root)
+
+    async def test_unlimited_development_keeps_legacy_propose_then_all_candidates_flow(self):
+        for key in pilot._keys(self.state, 'dev', 'baseline'):
+            self.finish(key)
+        self.save()
+        with patch.object(pilot, 'propose', new_callable=AsyncMock,
+                          return_value=self.candidates()) as propose, redirect_stdout(io.StringIO()):
+            self.state = await pilot.develop(self.root, self.runtime)
+        propose.assert_awaited_once()
+        self.assertEqual(self.runtime.run.await_count, 24)
+        self.assertEqual(len(self.state['runs']), 36)
+
+    async def test_partial_evaluation_keeps_expected_counts_and_completeness_until_all_batches_finish(self):
+        self.state['procedures'].update({f'candidate-{i}': value
+            for i, value in enumerate(self.candidates(), 1)})
+        for procedure_id in self.state['procedures']:
+            for key in pilot._keys(self.state, 'dev', procedure_id):
+                self.finish(key)
+        self.save()
+        pilot.freeze(self.root)
+        with redirect_stdout(io.StringIO()):
+            await pilot.evaluate(self.root, self.runtime, max_runs=2)
+        partial = pilot.report(self.root)
+        self.assertFalse(partial['complete'])
+        self.assertTrue(pilot.load(self.root)['holdout_started'])
+        for summary in partial['summaries']['holdout'].values():
+            self.assertEqual((summary['expected'], summary['finished']), (12, 1))
+        with redirect_stdout(io.StringIO()):
+            await pilot.evaluate(self.root, self.runtime, max_runs=36)
+        complete = pilot.report(self.root)
+        self.assertTrue(complete['complete'])
+        self.assertEqual(len(complete['paired_holdout']), 12)
+        self.assertEqual(self.runtime.run.await_count, 24)
+
+
+class BatchFingerprintAndCliContracts(unittest.TestCase):
+    def test_complex_fingerprint_includes_its_transitive_grader_sources(self):
+        required = {'media_pilot_complex_tasks.py', 'media_pilot_complex_quality.py',
+                    'media_pilot_hard_tasks.py', 'media_pilot_hard_quality.py',
+                    'media_pilot_perceptual_tasks.py', 'media_pilot_perceptual_quality.py'}
+        with patch.object(pilot, '_file_hash', side_effect=lambda path: Path(path).name) as digest:
+            first = pilot._implementation('complex')
+            names = {Path(call.args[0]).name for call in digest.call_args_list}
+        self.assertTrue(required.issubset(names))
+        with patch.object(pilot, '_file_hash', side_effect=lambda path:
+                          'changed helper' if Path(path).name == 'media_pilot_perceptual_quality.py'
+                          else Path(path).name):
+            self.assertNotEqual(first, pilot._implementation('complex'))
+
+    def test_cli_accepts_complex_and_optional_batch_size_without_changing_default(self):
+        for limit in (None, 1, 36):
+            arguments = ['baseline', '--output', '/private/protocol-only', '--suite', 'complex']
+            if limit is not None:
+                arguments += ['--batch-size', str(limit)]
+            with patch.object(pilot, '_main', new_callable=AsyncMock) as run:
+                pilot.main(arguments)
+            parsed = run.await_args.args[0]
+            self.assertEqual(parsed.suite, 'complex')
+            self.assertEqual(parsed.batch_size, limit)
+
 
 
 if __name__ == '__main__':

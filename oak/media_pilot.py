@@ -52,6 +52,9 @@ def _suite(name):
     if name == 'perceptual':
         from . import media_pilot_perceptual_tasks as tasks, media_pilot_perceptual_quality as quality
         return tasks, quality
+    if name == 'complex':
+        from . import media_pilot_complex_tasks as tasks, media_pilot_complex_quality as quality
+        return tasks, quality
     raise ValueError('Unknown pilot suite.')
 
 
@@ -62,9 +65,11 @@ def _implementation(suite='basic'):
              'runtime.py', 'tools.py')
     if suite == 'hard':
         names += ('media_pilot_hard_tasks.py', 'media_pilot_hard_quality.py')
-    if suite == 'perceptual':
+    if suite in {'perceptual', 'complex'}:
         names += ('media_pilot_hard_tasks.py', 'media_pilot_hard_quality.py',
                   'media_pilot_perceptual_tasks.py', 'media_pilot_perceptual_quality.py')
+    if suite == 'complex':
+        names += ('media_pilot_complex_tasks.py', 'media_pilot_complex_quality.py')
     return _hash({name: _file_hash(directory / name) for name in names})
 
 
@@ -214,7 +219,13 @@ def _metrics(receipt, structural, immutable, candidate_quality=None):
             'elapsed_seconds': round(float(receipt.get('elapsed_seconds', 0)), 3)}
 
 
-async def _run_split(root, state, split, procedure_ids, runtime):
+def _validate_max_runs(max_runs):
+    if max_runs is not None and (type(max_runs) is not int or not 1 <= max_runs <= 36):
+        raise ValueError('An execution batch must contain 1 through 36 producer attempts.')
+
+
+async def _run_split(root, state, split, procedure_ids, runtime, *, max_runs=None):
+    _validate_max_runs(max_runs)
     root = Path(root)
     rows = [row for row in state['tasks'] if row['split'] == split]
     jobs = []
@@ -224,7 +235,13 @@ async def _run_split(root, state, split, procedure_ids, runtime):
             offset = (index + repeat - 1) % len(procedure_ids)
             order = procedure_ids[offset:] + procedure_ids[:offset]
             for procedure_id in order:
-                jobs.append((row, procedure_id, repeat))
+                key = f'{split}/{row["id"]}/{procedure_id}/{repeat}'
+                if state['runs'].get(key, {}).get('state') != 'finished':
+                    jobs.append((row, procedure_id, repeat))
+    # Apply the execution limit before creating tasks or touching any run
+    # workspace. Planned task/repetition counts remain in the frozen manifest.
+    if max_runs is not None:
+        jobs = jobs[:max_runs]
     semaphore = asyncio.Semaphore(state['config']['workers'])
 
     async def bounded(row, procedure_id, repeat):
@@ -232,6 +249,7 @@ async def _run_split(root, state, split, procedure_ids, runtime):
             await _run_attempt(root, state, split, row, procedure_id, repeat, runtime)
 
     await asyncio.gather(*(bounded(*job) for job in jobs))
+    return len(jobs)
 
 
 async def _run_attempt(root, state, split, row, procedure_id, repeat, runtime):
@@ -268,7 +286,7 @@ async def _run_attempt(root, state, split, row, procedure_id, repeat, runtime):
             digest = receipt.get(prefix + '_sha256')
             if not path.is_file() or _file_hash(path) != digest:
                 raise ValueError('Artifact snapshot digest changed.')
-            if state['config'].get('suite') in {'hard', 'perceptual'}:
+            if state['config'].get('suite') in {'hard', 'perceptual', 'complex'}:
                 value = await asyncio.to_thread(quality_module.evaluate_artifact, row['id'],
                     path, workspace, artifact_root=path.parent)
             else:
@@ -388,11 +406,11 @@ async def propose(evidence, *, runtime_home, effort='high', timeout=300, client_
                         'threadId': thread_id, 'turnId': turn_id}), 3)
 
 
-async def baseline(root, runtime):
+async def baseline(root, runtime, *, max_runs=None):
     state = load(root)
     if state['frozen'] or state['holdout_started']:
         raise ValueError('Development is closed for this experiment.')
-    await _run_split(root, state, 'dev', [BASELINE], runtime)
+    await _run_split(root, state, 'dev', [BASELINE], runtime, max_runs=max_runs)
     return state
 
 
@@ -414,18 +432,24 @@ def _development_quality_failure(row, suite):
     # halos. Only a material visual rejection of these exact final bytes opens
     # the perceptual gate; missing evidence and an earlier repaired defect do not.
     digest = receipt.get('candidate_sha256')
-    return suite == 'perceptual' and isinstance(digest, str) and any(
+    return suite in {'perceptual', 'complex'} and isinstance(digest, str) and any(
         review.get('verdict') == 'revise' and review.get('sha256') == digest
         and any(issue.get('severity') in {'major', 'blocker'} for issue in review.get('issues', []))
         for review in receipt.get('reviews', []))
 
 
-async def develop(root, runtime, *, runtime_home=None):
+async def develop(root, runtime, *, runtime_home=None, max_runs=None):
     state = load(root)
     if state['frozen'] or state['holdout_started']:
         raise ValueError('Development is closed for this experiment.')
-    await _run_split(root, state, 'dev', [BASELINE], runtime)
-    if state['config'].get('suite') in {'hard', 'perceptual'}:
+    baseline_runs = await _run_split(root, state, 'dev', [BASELINE], runtime, max_runs=max_runs)
+    if max_runs is not None:
+        summary = _summarize(state, 'dev', BASELINE)
+        if summary['finished'] != summary['expected'] or baseline_runs:
+            # Finish the baseline phase in its own limited invocation. Never
+            # author procedures from a partial or newly completed batch.
+            return state
+    if state['config'].get('suite') in {'hard', 'perceptual', 'complex'}:
         failures = [row for row in state['runs'].values()
                     if _development_quality_failure(row, state['config']['suite'])]
         if not failures:
@@ -438,7 +462,11 @@ async def develop(root, runtime, *, runtime_home=None):
         for index, candidate in enumerate(candidates, 1):
             state['procedures'][f'candidate-{index}'] = candidate
         _write(Path(root) / 'pilot.json', state)
-    await _run_split(root, state, 'dev', ['candidate-1', 'candidate-2'], runtime)
+        if max_runs is not None:
+            # A proposal is itself a bounded model call. Keep it in a separate
+            # limited invocation so batch-size 1 cannot chain two long phases.
+            return state
+    await _run_split(root, state, 'dev', ['candidate-1', 'candidate-2'], runtime, max_runs=max_runs)
     return state
 
 
@@ -455,7 +483,7 @@ def freeze(root):
         raise ValueError('All development runs must finish before selection.')
     base = summaries[BASELINE]
     # Baseline participates; no automatic adoption of the last edited harness.
-    hard = state['config'].get('suite') in {'hard', 'perceptual'}
+    hard = state['config'].get('suite') in {'hard', 'perceptual', 'complex'}
     if hard:
         eligible = [BASELINE] + [key for key, row in summaries.items() if key != BASELINE
             and row['quality_passed'] >= base['quality_passed']
@@ -494,7 +522,8 @@ def freeze(root):
     return state['frozen']
 
 
-async def evaluate(root, runtime):
+async def evaluate(root, runtime, *, max_runs=None):
+    _validate_max_runs(max_runs)
     state = load(root)
     frozen = state['frozen']
     if not frozen:
@@ -510,7 +539,7 @@ async def evaluate(root, runtime):
     # Even if baseline won development, test the best frozen challenger to
     # answer the requested comparison without silently promoting it.
     arms = [BASELINE, challenger]
-    await _run_split(root, state, 'holdout', arms, runtime)
+    await _run_split(root, state, 'holdout', arms, runtime, max_runs=max_runs)
     return state
 
 
@@ -554,7 +583,7 @@ def report(root):
                   'Candidates receive a shared isolated local Python/Pillow/FFmpeg tool adapter.',
                   'Held-out feedback cannot be used to revise a procedure in this experiment.']}
     _write(Path(root) / 'report.json', result)
-    title = 'Oak harder media procedure pilot' if state['config'].get('suite') in {'hard', 'perceptual'} else 'Oak media procedure pilot'
+    title = 'Oak harder media procedure pilot' if state['config'].get('suite') in {'hard', 'perceptual', 'complex'} else 'Oak media procedure pilot'
     lines = ['# ' + title, '',
              f'Model: `{MODEL}`. Held-out evaluation complete: **{complete}**.', '',
              '| Split | Procedure | Finished | Delivered quality pass | Source contract pass | Mean source fidelity | First-review pass | Unverified | Median seconds |',
@@ -596,11 +625,11 @@ async def _main(args):
     runtime = PilotRuntime(runtime_home=args.runtime_home, effort=state['config']['effort'],
                            timeout=state['config']['timeout'])
     if args.command == 'baseline':
-        await baseline(root, runtime)
+        await baseline(root, runtime, max_runs=args.batch_size)
     elif args.command == 'develop':
-        await develop(root, runtime, runtime_home=args.runtime_home)
+        await develop(root, runtime, runtime_home=args.runtime_home, max_runs=args.batch_size)
     else:
-        await evaluate(root, runtime)
+        await evaluate(root, runtime, max_runs=args.batch_size)
     report(root)
 
 
@@ -609,12 +638,17 @@ def main(argv=None):
     parser.add_argument('command', choices=('init', 'baseline', 'develop', 'freeze', 'evaluate', 'report'))
     parser.add_argument('--output', required=True, help='Private experiment directory, outside the source checkout.')
     parser.add_argument('--runtime-home', help='Existing ChatGPT-authenticated runtime home; never copied.')
-    parser.add_argument('--suite', default='basic', choices=('basic', 'hard', 'perceptual'))
+    parser.add_argument('--suite', default='basic', choices=('basic', 'hard', 'perceptual', 'complex'))
     parser.add_argument('--effort', default='high', choices=('low', 'medium', 'high'))
     parser.add_argument('--timeout', type=int, default=300)
     parser.add_argument('--repeats', type=int, default=1, choices=(1, 2, 3))
     parser.add_argument('--workers', type=int, default=2, choices=(1, 2, 3))
+    parser.add_argument('--batch-size', type=int, choices=range(1, 37), default=None,
+                        help='Execute at most N unfinished producer attempts in this invocation (1–36). '
+                             'Limited development separates baseline, proposal and candidate phases.')
     args = parser.parse_args(argv)
+    if args.batch_size is not None and args.command not in {'baseline', 'develop', 'evaluate'}:
+        parser.error('--batch-size applies only to baseline, develop and evaluate.')
     try:
         asyncio.run(_main(args))
     except KeyboardInterrupt:
