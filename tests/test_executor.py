@@ -262,6 +262,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                     response = {'id': message['id'], 'ok': True, 'result': result}
                     if self.behavior == 'secret_error' and message['op'] != 'hello':
                         response = {'id': message['id'], 'ok': False, 'error': 'secret=private-token'}
+                    elif self.behavior == 'browser_preflight' and message['op'] == 'browser.run':
+                        result = await self.upload_worker.dispatch(message['op'], message['args'])
+                        response = {'id': message['id'], 'ok': True, 'result': result}
                     writer.write(encode(response))
                     await writer.drain()
             finally:
@@ -290,6 +293,26 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.behavior = 'secret_error'
         with self.assertRaisesRegex(ExecutionUnavailable, '^ExecutionError$'):
             await self.client.call('browser.run', {})
+
+    async def test_upload_preflight_evidence_survives_worker_wire_instead_of_class_only_error(self):
+        from oak.browser import BrowserTools, MAX_UPLOAD
+        source = Path(self.temp.name) / 'private-file-canary.mp4'
+        with source.open('wb') as stream:
+            stream.truncate(MAX_UPLOAD + 1)
+        self.upload_worker = worker.Worker({'workspace': self.temp.name, 'runtime_home': self.temp.name})
+        self.addAsyncCleanup(self.upload_worker.close)
+        self.behavior = 'browser_preflight'
+        with patch.object(BrowserTools, '_start', new_callable=AsyncMock) as start:
+            result = await self.client.call('browser.run',
+                                            {'action': 'upload', 'selector': '#file', 'files': [str(source)]})
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.assertEqual(result['error']['code'], 'payload_too_large')
+        self.assertEqual(result['error']['stage'], 'upload_preflight')
+        self.assertEqual(result['error']['observed_bytes'], MAX_UPLOAD + 1)
+        self.assertEqual(result['error']['max_bytes'], MAX_UPLOAD)
+        self.assertNotIn(source.name, json.dumps(result))
+        start.assert_not_awaited()
 
     async def test_cancel_closes_connection_instead_of_leaving_adapter_running(self):
         self.behavior = 'block'

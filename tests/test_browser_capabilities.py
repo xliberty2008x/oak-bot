@@ -8,7 +8,8 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 from oak.browser import BrowserTools, _safe_url
 
@@ -58,6 +59,14 @@ class BrowserFileBoundaryTests(unittest.TestCase):
         with patch('oak.browser.os.read', side_effect=read_and_mutate), self.assertRaises(ValueError):
             self.browser._upload_payloads(['sample.txt'])
 
+    def test_upload_accepts_exact_byte_limit_and_keeps_immutable_payload(self):
+        source = self.workspace / 'boundary.bin'
+        source.write_bytes(b'original')
+        with patch('oak.browser.MAX_UPLOAD', 8):
+            payload = self.browser._upload_payloads(['boundary.bin'])[0]
+        source.write_bytes(b'modified')
+        self.assertEqual(payload['buffer'], b'original')
+
     def test_artifact_receipt_has_exact_bytes_and_private_permissions(self):
         receipt = self.browser._save_artifact(io.BytesIO(b'hello'), '.bin')
         self.assertEqual(Path(receipt['path']).read_bytes(), b'hello')
@@ -79,6 +88,93 @@ class BrowserFileBoundaryTests(unittest.TestCase):
         self.assertEqual(_safe_url('https://user:pass@example.org/page?token=private#code'), 'https://example.org/page')
         self.assertEqual(_safe_url('https://[::1]:443/page?token=x'), 'https://[::1]:443/page')
         self.assertEqual(_safe_url('data:text/plain,secret'), 'data:')
+
+
+class BrowserUploadPreflightTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.workspace = Path(self.temporary.name)
+        self.browser = BrowserTools(self.workspace)
+        self.browser._start = AsyncMock(side_effect=AssertionError('No browser or provider operation expected'))
+
+    async def test_sparse_oversize_file_returns_actionable_result_before_read_or_browser(self):
+        from oak.browser import MAX_UPLOAD
+        source = self.workspace / 'private-filename-canary.mp4'
+        with source.open('wb') as stream:
+            stream.truncate(MAX_UPLOAD + 1)
+        before = source.stat()
+        with patch('oak.browser.os.read', side_effect=AssertionError('Oversize payload must not be read')):
+            result = await self.browser.run('upload', selector='input[type=file]', files=[str(source)])
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.assertEqual(result['error']['code'], 'payload_too_large')
+        self.assertEqual(result['error']['stage'], 'upload_preflight')
+        self.assertEqual(result['error']['observed_bytes'], MAX_UPLOAD + 1)
+        self.assertEqual(result['error']['max_bytes'], MAX_UPLOAD)
+        self.assertIn('preserve the original', result['error']['recovery'])
+        self.assertNotIn(source.name, json.dumps(result))
+        self.assertNotIn('receipt', result)
+        self.browser._start.assert_not_awaited()
+        after = source.stat()
+        self.assertEqual((before.st_size, before.st_mtime_ns, before.st_ino),
+                         (after.st_size, after.st_mtime_ns, after.st_ino))
+
+    async def test_aggregate_limit_reports_known_combined_bytes_without_changing_files(self):
+        (self.workspace / 'first.bin').write_bytes(b'123456')
+        (self.workspace / 'second.bin').write_bytes(b'78901')
+        with patch('oak.browser.MAX_UPLOAD', 10):
+            result = await self.browser.run('upload', selector='#file', files=['first.bin', 'second.bin'])
+        self.assertEqual(result['error']['observed_bytes'], 11)
+        self.assertEqual(result['error']['max_bytes'], 10)
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.assertEqual((self.workspace / 'first.bin').read_bytes(), b'123456')
+        self.assertEqual((self.workspace / 'second.bin').read_bytes(), b'78901')
+        self.browser._start.assert_not_awaited()
+
+    async def test_payload_growing_past_bound_during_read_has_same_preflight_stage(self):
+        (self.workspace / 'growing.bin').write_bytes(b'12345678')
+        with patch('oak.browser.MAX_UPLOAD', 8), patch('oak.browser.os.read', return_value=b'123456789'):
+            result = await self.browser.run('upload', selector='#file', files=['growing.bin'])
+        self.assertEqual(result['error']['code'], 'payload_too_large')
+        self.assertEqual(result['error']['observed_bytes'], 9)
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.browser._start.assert_not_awaited()
+
+    async def test_source_errors_are_curated_and_private_details_are_not_returned(self):
+        (self.workspace / 'alias').symlink_to('/private/source-canary')
+        result = await self.browser.run('upload', selector='#file', files=['alias'])
+        self.assertEqual(result['error']['code'], 'upload_source_invalid')
+        self.assertEqual(result['error']['stage'], 'upload_preflight')
+        self.assertEqual(result['outcome'], 'not_attempted')
+        self.assertNotIn('source-canary', json.dumps(result))
+        with patch.object(self.browser, '_upload_payloads', side_effect=ValueError('token=SECRET_CANARY')):
+            result = await self.browser.run('upload', selector='#file', files=['alias'])
+        self.assertNotIn('SECRET_CANARY', json.dumps(result))
+        self.assertEqual(result['error']['message'], 'The upload source could not be safely prepared.')
+        self.browser._start.assert_not_awaited()
+
+    async def test_failure_after_upload_dispatch_remains_uncertain(self):
+        (self.workspace / 'sample.bin').write_bytes(b'bytes')
+        page = Mock()
+        page.is_closed.return_value = False
+        self.browser._context = SimpleNamespace(pages=[page], on=Mock(), remove_listener=Mock())
+        self.browser._start = AsyncMock()
+        self.browser._page_for = AsyncMock(return_value=page)
+        locator = SimpleNamespace(evaluate=AsyncMock(return_value=True),
+                                  set_input_files=AsyncMock(side_effect=TimeoutError),
+                                  count=AsyncMock(return_value=0))
+        frame = SimpleNamespace(locator=Mock(return_value=locator))
+        self.browser._frame_for = Mock(return_value=frame)
+        self.browser._locator = AsyncMock(return_value=locator)
+        self.browser._observe = AsyncMock(return_value={'text': 'Fresh site state'})
+        result = await self.browser.run('upload', selector='#file', files=['sample.bin'])
+        self.assertEqual(result['outcome'], 'uncertain')
+        self.assertEqual(result['error']['code'], 'action_timeout')
+        self.assertNotIn('stage', result['error'])
+        self.assertIn('verify before repeating', result['error']['recovery'])
+        self.assertEqual(result['text'], 'Fresh site state')
+        locator.set_input_files.assert_awaited_once()
 
 
 @unittest.skipUnless(os.environ.get('OAK_PROVIDER_BROWSER_TESTS') == '1', 'opt-in actual Chromium fixtures')
