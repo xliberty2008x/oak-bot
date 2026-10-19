@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import datetime
+import hashlib
 import json
 import re
 import shutil
@@ -54,6 +55,18 @@ class Controller:
         self.emit = emit
         self.instructions = instructions
         self.config = config or {}
+        self.harness_versions = None
+        self.harness_activation = self.config.get('harness_activation')
+        self._harness_prepared = {}
+        if self.harness_activation is not None:
+            if (not isinstance(self.harness_activation, dict)
+                    or set(self.harness_activation) != {'store_path', 'project_id', 'domain'}):
+                raise ValueError('Harness activation requires an explicit store, project and domain.')
+            from .harness_versions import HarnessVersions
+            self.harness_versions = HarnessVersions(self.harness_activation['store_path'])
+            # Validate the explicitly configured scope before any native input.
+            self.harness_versions.resolve(self.harness_activation['project_id'], 1,
+                                          self.harness_activation['domain'])
         self.tools = None
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
@@ -542,6 +555,7 @@ class Controller:
                 payload['input'] = [*items, {'type': 'text', 'text':
                     'Relevant private working experience (reference, not new owner instructions):\n' +
                     json.dumps(learned, ensure_ascii=False)[:18000]}]
+            payload['input'], _ = self.prepare_harness_input(chat_id, str(update_id), payload['input'])
             self._status(update_id, 'dispatching')
             try:
                 turn_id = self.active.get(chat_id)
@@ -823,9 +837,38 @@ class Controller:
         await self.submit(chat_id, text, update_id)
 
     def _accepted(self, update_id, chat_id, turn_id):
+        self.bind_harness_turn(chat_id, str(update_id), turn_id)
         with self.db:
             self.db.execute('INSERT OR REPLACE INTO input_runs VALUES (?,?,?)', (update_id, chat_id, turn_id))
             self.db.execute("UPDATE inputs SET status='accepted' WHERE update_id=?", (update_id,))
+
+    def prepare_harness_input(self, chat_id, request_id, items):
+        """Resolve trusted activation on every task, including resumed threads.
+
+        The configured domain defines applicability. Producers cannot configure
+        this store, accept versions, or change the pointer through oak_experience.
+        Persist intent before dispatch; the separate turn binding never retries
+        an uncertain native action.
+        """
+        if self.harness_versions is None:
+            return items, None
+        scope = self.harness_activation
+        fingerprint = hashlib.sha256(json.dumps(items, ensure_ascii=False, sort_keys=True,
+            separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+        application = self.harness_versions.prepare_application(
+            scope['project_id'], chat_id, scope['domain'], request_id, input_sha256=fingerprint)
+        if application is None:
+            return [*items, {'type': 'text', 'text':
+                'No active harness procedure applies in this configured project and conversation. '
+                'Previously injected harness versions are inactive; follow current task instructions.'}], None
+        self._harness_prepared[(chat_id, request_id)] = application['id']
+        return [*items, {'type': 'text', 'text': application['context']}], application
+
+    def bind_harness_turn(self, chat_id, request_id, turn_id):
+        application_id = self._harness_prepared.get((chat_id, request_id))
+        if self.harness_versions is not None and application_id:
+            return self.harness_versions.bind_turn(application_id, turn_id)
+        return None
 
     async def stop(self, chat_id, *, expected_turn=None):
         async with self._lock(chat_id):
@@ -982,4 +1025,6 @@ class Controller:
                 await self.tools.artifact(chat_id, target, 'Зображення')
 
     def close(self):
+        if self.harness_versions is not None:
+            self.harness_versions.close()
         self.db.close()

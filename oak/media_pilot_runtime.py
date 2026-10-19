@@ -530,6 +530,7 @@ class PilotRuntime:
         if type(timeout) not in (int, float) or not 0 < timeout <= 1800:
             raise ValueError('Invalid pilot timeout.')
         self.runtime_home = runtime_home if runtime_home is not None else config.get('runtime_home')
+        self.harness_activation = config.get('harness_activation')
         self.model, self.effort, self.timeout = model, effort, timeout
         self.client_factory, self.reviewer_factory = client_factory, reviewer_factory
 
@@ -582,7 +583,9 @@ class PilotRuntime:
                     async def emit(*_):
                         pass
                     controller = Controller(wrapped, str(state / 'controller.sqlite'), str(state), emit,
-                                            config={'runtime_config': {'model_reasoning_effort': self.effort}})
+                                            config={'runtime_config': {'model_reasoning_effort': self.effort},
+                                                    **({'harness_activation': self.harness_activation}
+                                                       if self.harness_activation is not None else {})})
                     controller.tools, tools.controller = tools, controller
                     thread_id = await controller._thread(1)
                     tools.thread_id = thread_id
@@ -591,9 +594,19 @@ class PilotRuntime:
                         + '\nRequested output filename: ' + task.get('output_name', 'choose an appropriate name')
                         + '\nThe working filesystem of oak_pilot_render is /workspace. '
                           'Complete independent review and local delivery before finishing.')
+                    activation_request = 'pilot-' + state.name
+                    native_input, application = controller.prepare_harness_input(
+                        1, activation_request, [{'type': 'text', 'text': prompt}])
+                    if application:
+                        result['harness_application'] = {key: application[key] for key in
+                            ('id', 'project_id', 'chat_id', 'domain', 'request_id', 'version_id',
+                             'procedure_sha256', 'context_sha256', 'input_sha256')}
                     turn = await client.request('turn/start', {'threadId': thread_id, 'model': MODEL,
-                        'effort': self.effort, 'input': [{'type': 'text', 'text': prompt}], 'environments': []})
+                        'effort': self.effort, 'input': native_input, 'environments': []})
                     tools.turn_id = turn['turn']['id']
+                    controller.bind_harness_turn(1, activation_request, tools.turn_id)
+                    if application:
+                        result['harness_application']['turn_id'] = tools.turn_id
                     controller.active[1] = tools.turn_id
                     try:
                         result['status'], result['error_code'] = await self._wait(client, tools)
