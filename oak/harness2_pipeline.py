@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import sqlite3
 import stat
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -216,6 +217,8 @@ class PipelineStore:
 
     def update(self, cycle_id, *, phase=None, **fields):
         previous = self.cycle(cycle_id)
+        if previous['phase'] == 'completed' and phase not in (None, 'completed'):
+            raise ValueError('A terminal cycle cannot be reopened; authorize a fresh cycle.')
         if set(fields) - {'search', 'frozen', 'decision'}:
             raise ValueError('Immutable cycle inputs and policy cannot be edited.')
         for key, value in fields.items():
@@ -248,6 +251,8 @@ class PipelineStore:
         def reserve(kind, identity):
             self.require_running()
             cycle = self.cycle(cycle_id)
+            if cycle['phase'] == 'completed':
+                raise BudgetStopped('A terminal cycle cannot reserve another native call.')
             limit_key = {'producer': 'max_producers', 'role': 'max_roles', 'role_tool': 'max_role_tools'}.get(kind)
             if not limit_key:
                 raise ValueError('Unknown budget category.')
@@ -585,6 +590,129 @@ def development_revision(store, signature, descriptor_id):
             'feedback_ids': sorted(feedback)}
 
 
+def _termination_files(root):
+    """Commit original private bytes without importing their content as lessons."""
+    result = {}
+    for path in sorted(root.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('Cycle termination evidence cannot contain links.')
+        if path.is_file() and path.relative_to(root).as_posix() not in {'termination.json','decision.json'}:
+            result[path.relative_to(root).as_posix()] = {'sha256':file_sha(path),'size':path.stat().st_size}
+    return result
+
+
+def _write_terminal_once(path, value, *, staging_root):
+    """Atomic terminal publication without consuming any original cycle bytes.
+
+    An interrupted write leaves its unique staging file outside the original
+    cycle inventory. Keep that evidence; a retry never overwrites the orphan.
+    Legacy decision.tmp/termination.tmp inside a cycle remain original evidence.
+    """
+    if path.exists():
+        if json.loads(path.read_text()) != value:
+            raise ValueError('Immutable terminal evidence already differs: '+path.name)
+        return
+    staging_root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    descriptor,temporary = tempfile.mkstemp(prefix=path.stem+'.',suffix='.tmp',dir=staging_root)
+    with os.fdopen(descriptor,'w') as stream:
+        stream.write(canonical(value)+'\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary,path)
+
+
+def _finish_without_candidate(store, cycle_id, *, classification, reason_code,
+                              authorization_reference=None, search=None):
+    """Terminal non-admission, distinct from an independently measured rejection.
+
+    Caller owns the worker lock. This operation never runs the old sealed
+    implementation, registers a candidate, opens holds or changes old receipts.
+    """
+    cycle = store.cycle(cycle_id)
+    root = _scope_root(store)/'cycles'/cycle_id
+    root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    terminal_path = root/'termination.json'
+    staging_root = _scope_root(store)/'termination-staging'/cycle_id
+    if cycle['frozen'] is not None or (root/'freeze.json').exists():
+        raise ValueError('Only a cycle without a frozen candidate may close before evaluation.')
+    if store.db.execute('SELECT 1 FROM exposure WHERE cycle_id=? AND scope=? AND split="holdout" '
+                        'AND opened IS NOT NULL',(cycle_id,store.key)).fetchone():
+        raise ValueError('A cycle with opened holdouts cannot close as unmeasured.')
+    if cycle['phase'] == 'completed' and not terminal_path.exists():
+        raise ValueError('A completed decision cannot be replaced by infrastructure closure.')
+    if terminal_path.exists():
+        record = json.loads(terminal_path.read_text())
+        if (record.get('cycle_id') != cycle_id or record.get('classification') != classification
+                or record.get('reason_code') != reason_code
+                or record.get('authorization_reference') != authorization_reference):
+            raise ValueError('Recorded cycle termination is immutable.')
+        if record['config_sha256'] != digest(cycle['config']) or record['manifest_sha256'] != digest(cycle['manifest']):
+            raise ValueError('Sealed cycle inputs differ from their termination receipt.')
+        if cycle['decision'] is not None and (cycle['decision'].get('evidence',{}).get('termination_sha256') != digest(record)):
+            raise ValueError('Recorded cycle termination differs from its committed journal.')
+        if _termination_files(root) != record['original_files']:
+            raise ValueError('Original cycle evidence changed after termination.')
+    else:
+        if cycle['decision'] is not None:
+            raise ValueError('A recorded decision cannot be replaced by infrastructure closure.')
+        versions = _versions(store)
+        try:
+            active = versions.resolve(*store.scope)
+        finally:
+            versions.close()
+        record = {'version':1,'cycle_id':cycle_id,'outcome':'not_admitted',
+            'classification':classification,'reason_code':reason_code,
+            'evaluated':False,'quality_rejection':False,'candidate_id':None,
+            'authorization_reference':authorization_reference,'closed_at':now(),
+            'original_cycle_sha256':digest(cycle),'original_phase':cycle['phase'],
+            'config_sha256':digest(cycle['config']),'manifest_sha256':digest(cycle['manifest']),
+            'search_sha256':digest(search) if search is not None else None,
+            'closing_implementation_sha256':implementation()['sha256'],
+            'original_files':_termination_files(root),
+            'active_id':active['id'] if active else None}
+        _write_terminal_once(terminal_path,record,staging_root=staging_root)
+    decision = {'accepted':False,'reasons':[record['reason_code']],
+        'outcome':'not_admitted','classification':record['classification'],
+        'evaluated':False,'quality_rejection':False,'candidate_id':None,
+        'active_id':record['active_id'],'broad_quality_improvement_claim':False,
+        'evidence':{'cycle_id':cycle_id,'termination_sha256':digest(record),
+            'config_sha256':record['config_sha256'],'manifest_sha256':record['manifest_sha256'],
+            'search_sha256':record['search_sha256']}}
+    _write_terminal_once(root/'decision.json',decision,staging_root=staging_root)
+    if cycle['phase'] == 'completed':
+        if cycle['decision'] != decision:
+            raise ValueError('Terminal cycle journal differs from its immutable receipt.')
+        return cycle
+    with store.lock,store.db:
+        store.db.execute('UPDATE cycles SET decision=?,search=COALESCE(search,?),phase="completed",updated=? '
+                         'WHERE id=? AND scope=?',(canonical(decision),canonical(search) if search is not None else None,
+                                                   now(),cycle_id,store.key))
+        store.db.execute('UPDATE queue SET state="completed",updated=? WHERE id=? AND scope=?',
+                         (now(),cycle['queue_id'],store.key))
+        store.event('cycle_not_admitted',decision,cycle_id)
+    return store.cycle(cycle_id)
+
+
+def close_pre_freeze(store, cycle_id, *, reason_code, authorization_reference):
+    """Trusted explicit recovery across implementation drift, never a rerun.
+
+    The reference is a private SHA-256 commitment to the operator/user's
+    authorization. It is not provider text, an optimizer instruction or approval
+    of a new cycle's private material. A new cycle still needs a finite worker
+    quota and a supported, approved new case or feedback revision.
+    """
+    if reason_code not in {'review_transport_configuration_error','implementation_changed_before_freeze'}:
+        raise ValueError('Use a declared pre-freeze infrastructure reason code.')
+    if not isinstance(authorization_reference,str) or not re.fullmatch('[a-f0-9]{64}',authorization_reference):
+        raise ValueError('An explicit SHA-256 authorization reference is required.')
+    with store.worker():
+        cycle = store.cycle(cycle_id)
+        path = _scope_root(store)/'cycles'/cycle_id/'upstream-result.json'
+        search = json.loads(path.read_text()) if path.is_file() else cycle['search']
+        return _finish_without_candidate(store,cycle_id,classification='infrastructure_abort',
+            reason_code=reason_code,authorization_reference=authorization_reference,search=search)
+
+
 def _check_budget_limits(config, limits):
     if limits is not None and any(config.get(key, 0) > limits[key]
                                   for key in ('max_producers', 'max_roles', 'max_role_tools')):
@@ -621,10 +749,12 @@ def schedule_next(store, *, transport_identity=None, budget_limits=None):
                 raise ValueError('Automatic queue scheduling currently supports only approved layered choreography DEV descriptors.')
             import uuid
             namespace = 'queued-'+uuid.uuid4().hex
-            prior = next((c for c in reversed(cycles) if c['phase'] == 'completed'), None)
+            evaluated_history = [c for c in cycles if c['phase']=='completed'
+                                 and (c['decision'] or {}).get('evaluated',True)]
+            prior = next(reversed(evaluated_history),None)
             def descriptor_source(value):
                 return {key:value[key] for key in ('family','size','title','seed') if key in value}
-            prior_rows = [r for previous in reversed(cycles) if previous['phase']=='completed'
+            prior_rows = [r for previous in reversed(evaluated_history)
                           for split in ('holdout','regression') for r in previous['manifest'][split]]
             known_dev_inputs = {input_identity(r) for previous in cycles for rows in previous['manifest'].values()
                                 for r in rows if r['descriptor']['id']==dev['id']
@@ -704,6 +834,12 @@ def run_cycle(store, cycle_id, *, runtime_home=None, native_client_factory=None,
             write_once(parent_path, {'id': parent['id'], 'procedure_sha256': parent['procedure_sha256']})
         if cycle['frozen'] is None:
             store.update(cycle_id, phase='searching')
+            search_path = root / 'upstream-result.json'
+            if search_path.exists():
+                search = json.loads(search_path.read_text())
+                if search.get('provenance',{}).get('chosen_harness') is None:
+                    return _finish_without_candidate(store,cycle_id,
+                        classification='search_no_candidate',reason_code='upstream_no_candidate',search=search)
             role = SubscriptionRole(root / 'roles', runtime_home=runtime_home,
                 timeout=config['role_timeout'], budget_hook=store.budget_hook(cycle_id), native_lock_path=root / 'native.lock',
                 **({'client_factory': native_client_factory} if native_client_factory is not None else {}))
@@ -726,7 +862,6 @@ def run_cycle(store, cycle_id, *, runtime_home=None, native_client_factory=None,
                 context = approved_development_evidence(store, cycle)
                 write_once(context_path, context)
             write_once(adapter.task_files(dev[0]['id']) / 'OAK_CASE_EVIDENCE.json', context)
-            search_path = root / 'upstream-result.json'
             if search_path.exists():
                 search = json.loads(search_path.read_text())
             else:
@@ -734,6 +869,9 @@ def run_cycle(store, cycle_id, *, runtime_home=None, native_client_factory=None,
                     work_dir=root / 'upstream', library_dir=_scope_root(store) / 'upstream-library', k=config['k'])
                 search = {'upstream': result.to_dict(), 'provenance': result.oak_provenance}
                 write_once(search_path, search)
+            if search.get('provenance',{}).get('chosen_harness') is None:
+                return _finish_without_candidate(store,cycle_id,
+                    classification='search_no_candidate',reason_code='upstream_no_candidate',search=search)
             chosen = Path(search['provenance']['chosen_harness']).resolve(strict=True)
             if not chosen.is_relative_to(root / 'upstream'):
                 raise ValueError('The chosen upstream harness is outside this cycle.')
@@ -872,6 +1010,10 @@ def main(argv=None):
     commands.add_parser('status')
     commands.add_parser('stop')
     commands.add_parser('resume')
+    close = commands.add_parser('close-pre-freeze')
+    close.add_argument('--cycle',required=True)
+    close.add_argument('--reason-code',required=True)
+    close.add_argument('--authorization-reference',required=True)
     runner = commands.add_parser('work')
     runner.add_argument('--runtime-home')
     runner.add_argument('--max-cycles', type=int, default=1)
@@ -899,6 +1041,10 @@ def main(argv=None):
             work(store, runtime_home=args.runtime_home, max_cycles=args.max_cycles, demo=args.demo)
         elif args.command in {'stop', 'resume'}:
             store.setting('stopped', args.command == 'stop')
+        elif args.command == 'close-pre-freeze':
+            result = close_pre_freeze(store,args.cycle,reason_code=args.reason_code,
+                                     authorization_reference=args.authorization_reference)
+            print(canonical({'cycle_id':result['id'],'phase':result['phase'],'decision':result['decision']}))
         elif args.command == 'case-add':
             print(store.record_case(json.loads(Path(args.json).read_text()), signature=args.signature,
                                     approved=args.optimizer_approved, priority=args.priority))

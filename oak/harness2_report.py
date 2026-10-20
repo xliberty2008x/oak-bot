@@ -77,7 +77,7 @@ class _Evidence:
     def json(self, path):
         return json.loads(self.bytes(path))
 
-    def hash_file(self, value, *, expected=None, allow_invalid=False):
+    def hash_file(self, value, *, expected=None, allow_invalid=False, remember=True):
         path = self._path(value)
         if not path.exists():
             if allow_invalid:
@@ -97,7 +97,8 @@ class _Evidence:
         if not verified and not allow_invalid:
             raise ValueError('Completed execution evidence no longer matches its recorded SHA.')
         relative = path.relative_to(self.root).as_posix()
-        self.index[relative] = actual
+        if remember:
+            self.index[relative] = actual
         return {'path': relative, 'available': True, 'bytes': before.st_size,
                 'sha256': actual, 'expected_sha256': expected, 'verified': verified}
 
@@ -584,6 +585,54 @@ def _learned_followups(evidence, scope, cycles, versions, cases, exposures):
     return exported
 
 
+def _unmeasured_cycle(row, directory, evidence, db, key):
+    """Verify closure privately; publish counts without unopened source identity."""
+    decision = row['decision'] or {}
+    if (row['frozen'] is not None or decision.get('accepted') is not False
+            or decision.get('evaluated') is not False or decision.get('quality_rejection') is not False
+            or decision.get('candidate_id') is not None or decision.get('outcome') != 'not_admitted'
+            or decision.get('classification') not in {'infrastructure_abort','search_no_candidate'}
+            or any((directory/name).exists() for name in ('freeze.json','evaluation.json'))):
+        raise ValueError('Unmeasured cycle closure is inconsistent with admission evidence.')
+    held = db.execute('SELECT COUNT(*) n,SUM(opened IS NOT NULL) opened FROM exposure WHERE scope=? '
+                      'AND cycle_id=? AND split="holdout"',(key,row['id'])).fetchone()
+    if held['opened'] or held['n'] != len(row['manifest']['holdout']):
+        raise ValueError('Unmeasured cycle must retain all original unopened holdouts.')
+    record = evidence.json(directory/'termination.json')
+    if (record.get('cycle_id') != row['id'] or record.get('evaluated') is not False
+            or record.get('classification') != decision['classification']
+            or record.get('config_sha256') != _digest(row['config'])
+            or record.get('manifest_sha256') != _digest(row['manifest'])
+            or record.get('search_sha256') != (_digest(row['search']) if row['search'] is not None else None)
+            or _digest(record) != decision.get('evidence',{}).get('termination_sha256')
+            or evidence.json(directory/'decision.json') != decision):
+        raise ValueError('Unmeasured cycle differs from its immutable termination commitments.')
+    actual = {path.relative_to(directory).as_posix() for path in directory.rglob('*')
+              if path.is_file() and path.relative_to(directory).as_posix() not in {'termination.json','decision.json'}}
+    if actual != set(record['original_files']):
+        raise ValueError('Unmeasured cycle original file inventory changed.')
+    for name,facts in record['original_files'].items():
+        # Hash verification is private: original paths can identify a still
+        # unopened source. Do not add these names/images to the public index.
+        evidence.hash_file(directory/name,expected=facts['sha256'],remember=False)
+    counts = [dict(r) for r in db.execute('SELECT kind,state,COUNT(*) count FROM operations WHERE scope=? '
+              'AND cycle_id=? GROUP BY kind,state ORDER BY kind,state',(key,row['id']))]
+    public_journal = {name:row[name] for name in ('id','ordinal','phase','created','updated','decision')}
+    public_journal.update(frozen=None,config={name:row['config'][name] for name in
+        ('model','effort','k','max_producers','max_roles','max_role_tools','producer_timeout','role_timeout')
+        if name in row['config']})
+    return {'journal':public_journal,'evaluated':False,'excluded_from_quality_denominator':True,
+        'manifest_counts':{split:len(rows) for split,rows in row['manifest'].items()},
+        'unopened_holdouts':held['n'],'files':{'termination.json':{name:record[name] for name in
+            ('version','cycle_id','outcome','classification','reason_code','evaluated','quality_rejection',
+             'closed_at','config_sha256','manifest_sha256','closing_implementation_sha256')}},
+        'original_files_verified':len(record['original_files']),
+        'producer_records':[],'role_attempts':[],'harnesses':[],'operations':[],
+        'operation_counts':counts,'budget_accounting':'persisted intents; not an attestation of native completion',
+        'metrics':{**_metrics([]),'evaluated':False,'excluded_from_quality_denominator':True},
+        'limitation':'Unmeasured terminal cycle. Unopened descriptors, seeds, source paths and images remain private; no baseline/candidate quality result is inferred.'}
+
+
 def export_report(root, project, chat, *, domain='media-depth'):
     """Return a portable report; no model, evaluation or account file is opened."""
     root = Path(root).resolve(strict=True)
@@ -607,9 +656,12 @@ def export_report(root, project, chat, *, domain='media-depth'):
         for row in raw_cycles:
             for name in ('config', 'manifest', 'frozen', 'search', 'decision'):
                 row[name] = json.loads(row[name]) if row[name] is not None else None
+            directory = scope_root / 'cycles' / row['id']
+            if (row['decision'] or {}).get('evaluated') is False:
+                cycles.append(_unmeasured_cycle(row,directory,evidence,db,key))
+                continue
             if not row['frozen'] or not row['decision']:
                 raise ValueError('A completed cycle must contain its immutable freeze and decision.')
-            directory = scope_root / 'cycles' / row['id']
             files = {}
             for name in ('parent.json', 'upstream-result.json', 'freeze.json', 'evaluation.json', 'decision.json'):
                 files[name] = evidence.json(directory / name)
