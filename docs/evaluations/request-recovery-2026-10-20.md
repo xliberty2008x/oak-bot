@@ -41,3 +41,23 @@ frame cleanup, private-safe error categories, repeated recovery, failed notice
 delivery, conversation isolation, bounded migration references and exact-turn
 completion checks. A native model round trip and installed-service observation
 are separate deployment checks, not implied by these protocol probes.
+
+## Installed verification
+
+The installed Controller subsequently resumed the affected thread with its
+existing history and completed a further RPC in 9.327 seconds under concurrent
+test load. No owner input was replayed or model turn started in that conversation.
+The normal subscription-backed smoke check on separate test context passed
+streaming, persisted same-thread recall, steering and interruption. This is real
+model execution; it is not a claim that a new child Telegram message was sent.
+
+Deployment verification checked 214 protected files, all 10 execution-boundary
+checks, HTTP readiness and unchanged configuration, schedules, memory, Harness
+state and uncertain work. The running gateway remained at zero automatic
+restarts during verification.
+
+All 64 focused controller/recovery/event/transport tests passed. A subsequent
+54-test executor/transport run also passed after updating the synthetic exited
+process fixture to supply an EOF stdout stream. The broad discovery run was
+stopped during expensive unrelated synthetic-media rendering; it is not recorded
+as a full-suite pass.

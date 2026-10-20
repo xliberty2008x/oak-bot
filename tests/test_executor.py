@@ -432,7 +432,9 @@ class RuntimeRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_runtime_uses_fixed_proxy_and_removes_shared_display(self):
         from oak.runtime import RuntimeClient
         from types import SimpleNamespace
-        process = SimpleNamespace(returncode=0)
+        stdout = asyncio.StreamReader()
+        stdout.feed_eof()
+        process = SimpleNamespace(returncode=0, stdout=stdout)
         client = RuntimeClient(execution={'profile': '/synthetic'})
         replies = [{'codexHome': '/synthetic/runtime'}, {'account': {'type': 'chatgpt'}}]
         with patch.dict('os.environ', {'DISPLAY': ':90', 'XAUTHORITY': '/private/cookie',
