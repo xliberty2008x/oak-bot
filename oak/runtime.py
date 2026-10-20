@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -173,6 +174,7 @@ class RuntimeClient:
 
     async def _read_loop(self):
         failure = "Agent runtime disconnected."
+        reason = 'eof'
         try:
             while line := await self.process.stdout.readline():
                 message = json.loads(line)
@@ -203,8 +205,16 @@ class RuntimeClient:
                             future.set_result(message.get("result", {}))
         except asyncio.CancelledError:
             raise
+        except json.JSONDecodeError:
+            failure = "Agent runtime transport failed."
+            reason = 'invalid_json'
+        except ValueError as error:
+            failure = "Agent runtime transport failed."
+            reason = ('frame_limit_exceeded' if isinstance(error.__context__, asyncio.LimitOverrunError)
+                      else 'invalid_message')
         except Exception:
             failure = "Agent runtime transport failed."
+            reason = 'transport_error'
         finally:
             self._authenticated = False
             for future in self._pending.values():
@@ -215,7 +225,11 @@ class RuntimeClient:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             if not self._closing:
-                await self.events.put({"method": "client/disconnected", "params": {"message": failure}})
+                # Static classifications only: never expose the raw frame or
+                # exception text, which may contain private history or URLs.
+                logging.getLogger(__name__).warning('Agent runtime transport closed: %s', reason)
+                await self.events.put({"method": "client/disconnected", "params": {
+                    "message": failure, "reason": reason}})
 
     def _server_request_done(self, request_id, task):
         if self._server_requests.get(request_id) is task:
@@ -294,6 +308,18 @@ class RuntimeClient:
         process = self.process
         if process is None:
             return
+        # A failed line reader may leave stdout paused with a large unread
+        # response. Drain it without parsing so child shutdown can finish and
+        # pipe transports do not survive the event loop.
+        if self._reader is not None:
+            self._reader.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._reader
+        async def drain_output():
+            with contextlib.suppress(OSError, ValueError):
+                while await process.stdout.read(65536):
+                    pass
+        drain = asyncio.create_task(drain_output())
         if process.returncode is None:
             process.stdin.close()
             try:
@@ -307,7 +333,9 @@ class RuntimeClient:
                     with contextlib.suppress(ProcessLookupError):
                         process.kill()
                     await process.wait()
-        for task in (self._reader, self._stderr):
+        with contextlib.suppress(asyncio.TimeoutError, OSError, ValueError):
+            await asyncio.wait_for(asyncio.shield(drain), 3)
+        for task in (drain, self._stderr):
             if task is not None:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):

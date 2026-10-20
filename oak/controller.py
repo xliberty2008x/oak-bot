@@ -93,6 +93,10 @@ class Controller:
                 chat_id INTEGER NOT NULL, status TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS conversation_models (
                 chat_id INTEGER PRIMARY KEY, model TEXT NOT NULL, effort TEXT);
+            CREATE TABLE IF NOT EXISTS recovery_notices (
+                chat_id INTEGER NOT NULL, kind TEXT NOT NULL, reference TEXT NOT NULL,
+                notice_id TEXT NOT NULL, state TEXT NOT NULL,
+                PRIMARY KEY(chat_id,kind,reference));
         """)
         for table, column, definition in (
             ('chats', 'tools_version', "TEXT NOT NULL DEFAULT ''"),
@@ -271,6 +275,43 @@ class Controller:
         with self.db:
             self.db.execute('UPDATE inputs SET status=? WHERE update_id=?', (status, update_id))
 
+    def _history_output_files(self, chat_id, thread_id, turn_ids):
+        """Recover typed output references without hydrating historic tool media."""
+        turn_ids = [value for value in turn_ids[:12] if isinstance(value, str) and value]
+        if not turn_ids or self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ui_events'").fetchone() is None:
+            return []
+        placeholders = ','.join('?' for _ in turn_ids)
+        rows = self.db.execute(
+            "SELECT event FROM ui_events WHERE chat_id=? AND run_id IN (" + placeholders + ") "
+            "AND json_extract(event,'$.threadId')=? "
+            "AND json_extract(event,'$.type') IN ('TOOL_CALL_START','TOOL_CALL_ARGS','TOOL_CALL_RESULT') "
+            "ORDER BY sequence DESC LIMIT 768", [chat_id, *turn_ids, thread_id]).fetchall()
+        calls, references = {}, []
+        for row in reversed(rows):
+            event = json.loads(row[0])
+            key = (event.get('runId'), event.get('toolCallId'))
+            kind = event.get('type')
+            if kind == 'TOOL_CALL_START':
+                if event.get('toolCallName') == 'oak_send_file':
+                    calls[key] = {}
+                continue
+            if key not in calls:
+                continue  # A partial or unrelated receipt does not identify an output.
+            try:
+                value = json.loads(event.get('delta' if kind == 'TOOL_CALL_ARGS' else 'content', ''))
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(value, dict):
+                continue
+            if kind == 'TOOL_CALL_ARGS':
+                calls[key]['path'] = _history_file(value.get('path'), self.cwd)
+            elif value.get('status') == 'completed' and value.get('success') is True:
+                path = calls.pop(key).get('path')
+                if path:
+                    references.append({'kind': 'file_queued_for_delivery', 'path': path})
+        return references[-32:]
+
     async def _thread(self, chat_id):
         thread_id = self.threads.get(chat_id)
         if thread_id in self.loaded:
@@ -299,9 +340,11 @@ class Controller:
         if self.tools and thread_id:
             if record['tools_version'] != tools_version:
                 previous_id = thread_id
-                snapshot = await self.client.request('thread/read', {'threadId': thread_id, 'includeTurns': True})
+                snapshot = await self.client.request('thread/turns/list', {
+                    'threadId': thread_id, 'itemsView': 'summary', 'limit': 12, 'sortDirection': 'desc'})
+                turns = list(reversed(snapshot.get('data', [])[:12]))
                 history, references = [], []
-                for turn in snapshot.get('thread', {}).get('turns', [])[-12:]:
+                for turn in turns:
                     for item in turn.get('items', []):
                         if item.get('type') == 'agentMessage':
                             history.append('Assistant: ' + item.get('text', ''))
@@ -312,17 +355,7 @@ class Controller:
                                 path = _history_file(part.get('path'), self.cwd) if part.get('type') == 'localImage' else None
                                 if path:
                                     references.append({'kind': 'owner_image', 'path': path})
-                        elif (item.get('type') == 'dynamicToolCall' and item.get('tool') == 'oak_send_file'
-                              and item.get('status') == 'completed' and item.get('success') is True):
-                            arguments = item.get('arguments')
-                            if isinstance(arguments, str) and len(arguments) <= 65536:
-                                try:
-                                    arguments = json.loads(arguments)
-                                except ValueError:
-                                    arguments = None
-                            path = _history_file(arguments.get('path'), self.cwd) if isinstance(arguments, dict) else None
-                            if path:
-                                references.append({'kind': 'file_queued_for_delivery', 'path': path})
+                references += self._history_output_files(chat_id, thread_id, [turn.get('id') for turn in turns])
                 context += '\n\nPrevious conversation context, for reference:\n' + '\n'.join(history)[-24000:]
                 # Keep file identities separately so a long final message cannot
                 # truncate the selected attachment. Retain only these typed
@@ -433,6 +466,10 @@ class Controller:
             params['developerInstructions'] = context
         if thread_id:
             params['threadId'] = thread_id
+            # Native history stays in the resumed thread. Echoing all past
+            # media/tool results back to this gateway can exceed its wire
+            # limit before the next input is even dispatched.
+            params['excludeTurns'] = True
         elif self.tools:
             params['dynamicTools'] = self.tools.specs
         result = await self.client.request('thread/resume' if thread_id else 'thread/start', params)
@@ -580,9 +617,9 @@ class Controller:
                                 await asyncio.sleep(0.25)
                     # Start acknowledgement can precede activation. A rejected
                     # steer alone does not prove that the previous turn ended.
-                    snapshot = await self.client.request('thread/read', {
-                        'threadId': thread_id, 'includeTurns': True})
-                    previous = next((turn for turn in snapshot.get('thread', {}).get('turns', [])
+                    snapshot = await self.client.request('thread/turns/list', {
+                        'threadId': thread_id, 'itemsView': 'notLoaded', 'limit': 12, 'sortDirection': 'desc'})
+                    previous = next((turn for turn in snapshot.get('data', [])
                                      if turn.get('id') == turn_id), {})
                     if previous.get('status') not in {'completed', 'interrupted', 'failed'}:
                         raise RuntimeError('Не вдалося підтвердити стан поточної задачі. '
@@ -962,14 +999,35 @@ class Controller:
     async def recover(self):
         """Recover queued inputs, explicitly report ambiguous previous work."""
         self.a2ui.recover()
-        affected = {r[0] for r in self.db.execute(
-            "SELECT chat_id FROM inputs WHERE status IN ('dispatching','uncertain') "
-            "UNION SELECT chat_id FROM turns WHERE status='inProgress'")}
+        affected = {}
+        for row in self.db.execute(
+            "SELECT chat_id,'input' AS kind,CAST(update_id AS TEXT) AS reference "
+            "FROM inputs WHERE status IN ('dispatching','uncertain') "
+            "UNION SELECT chat_id,'turn',turn_id FROM turns WHERE status='inProgress'"):
+            if self.db.execute(
+                'SELECT 1 FROM recovery_notices WHERE chat_id=? AND kind=? AND reference=?',
+                tuple(row)).fetchone() is None:
+                affected.setdefault(row['chat_id'], []).append((row['kind'], row['reference']))
         with self.db:
             self.db.execute("UPDATE inputs SET status='uncertain' WHERE status='dispatching'")
             self.db.execute("UPDATE turns SET status='uncertain' WHERE status='inProgress'")
-        for chat_id in affected:
-            await self.emit(chat_id, {'type': 'RUN_ERROR', 'message':
+            for chat_id, references in affected.items():
+                notice_id = 'recovery-' + hashlib.sha256(json.dumps(
+                    [chat_id, sorted(references)], separators=(',', ':')).encode()).hexdigest()
+                self.db.executemany('INSERT INTO recovery_notices VALUES (?,?,?,?,?)',
+                    [(chat_id, kind, reference, notice_id, 'pending') for kind, reference in references])
+        notices = self.db.execute("SELECT DISTINCT chat_id,notice_id FROM recovery_notices "
+                                  "WHERE state='pending' ORDER BY chat_id,notice_id").fetchall()
+        for chat_id, notice_id in notices:
+            # Reserve each attempt before its sink may persist or send. A crash
+            # cannot establish that notice's delivery outcome. Other scopes'
+            # untouched pending notices remain recoverable, and the original
+            # uncertain input/turn remains available for explicit owner review.
+            with self.db:
+                self.db.execute("UPDATE recovery_notices SET state='attempted' "
+                                "WHERE chat_id=? AND notice_id=? AND state='pending'",
+                                (chat_id, notice_id))
+            await self.emit(chat_id, {'type': 'RUN_ERROR', 'runId': notice_id, 'message':
                 'Процес перезапустився під час задачі. Її стан невизначений; автоматично повторювати не буду.'})
         for row in self.db.execute("SELECT * FROM inputs WHERE status='pending' ORDER BY update_id").fetchall():
             await self.submit(row['chat_id'], row['text'], row['update_id'], json.loads(row['attachments']))

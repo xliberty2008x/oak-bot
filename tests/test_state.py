@@ -7,7 +7,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from oak.bus import EventBus
 from oak.controller import Controller
+from oak.events import EventMapper
 from oak.interaction import Interactions
 from oak.memory import MemoryStore
 from oak.runtime import RpcError
@@ -33,11 +35,11 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                     {'type': 'localImage', 'path': workspace + '/secrets/account.png'},
                     {'type': 'localImage', 'path': workspace + '/inbox/../../outside.png'},
                     {'type': 'image', 'url': 'https://example.test/image?private-token'}]},
-                {'type': 'dynamicToolCall', 'tool': 'oak_send_file', 'status': 'completed', 'success': True,
+                {'type': 'dynamicToolCall', 'id': 'sent-file', 'tool': 'oak_send_file', 'status': 'completed', 'success': True,
                  'arguments': json.dumps({'path': output, 'caption': 'Do not copy arbitrary arguments.'})},
-                {'type': 'dynamicToolCall', 'tool': 'oak_send_file', 'status': 'completed', 'success': False,
+                {'type': 'dynamicToolCall', 'id': 'failed-file', 'tool': 'oak_send_file', 'status': 'completed', 'success': False,
                  'arguments': {'path': workspace + '/artifacts/failed.mp4'}},
-                {'type': 'dynamicToolCall', 'tool': 'unrelated_tool', 'status': 'completed', 'success': True,
+                {'type': 'dynamicToolCall', 'id': 'unrelated', 'tool': 'unrelated_tool', 'status': 'completed', 'success': True,
                  'arguments': {'path': workspace + '/artifacts/unrelated.mp4'},
                  'contentItems': [{'type': 'inputText', 'text': 'Do not copy generic results.'}]},
                 {'type': 'agentMessage', 'text': 'Large previous reply: ' + 'x' * 25000},
@@ -45,9 +47,11 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
             client = AsyncMock()
 
             async def request(method, params):
-                if method == 'thread/read':
-                    self.assertEqual(params, {'threadId': 'previous-thread', 'includeTurns': True})
-                    return {'thread': {'turns': [{'items': items}]}}
+                if method == 'thread/turns/list':
+                    self.assertEqual(params, {'threadId': 'previous-thread', 'itemsView': 'summary',
+                                              'limit': 12, 'sortDirection': 'desc'})
+                    return {'data': [{'id': 'previous-turn', 'items': [
+                        item for item in items if item['type'] != 'dynamicToolCall']}], 'nextCursor': 'older-history'}
                 if method == 'thread/start':
                     return {'model': params['model'], 'modelProvider': 'openai', 'thread': {'id': 'upgraded-thread'}}
                 if method == 'turn/start':
@@ -64,6 +68,12 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                                       (7, 'previous-thread', 'oak-v15-a2ui-display-cards'))
                 controller.db.execute('INSERT INTO conversation_models(chat_id,model,effort) VALUES (?,?,?)',
                                       (7, 'synthetic-choice', 'ultra'))
+                bus, mapper = EventBus(controller), EventMapper()
+                for item in items:
+                    if item['type'] == 'dynamicToolCall':
+                        for event in mapper.feed({'method': 'item/completed', 'params': {
+                                'threadId': 'previous-thread', 'turnId': 'previous-turn', 'item': item}}):
+                            await bus.emit(7, event)
                 with (patch.object(Path, 'resolve', side_effect=AssertionError('No runtime path resolution')),
                         patch.object(Path, 'read_bytes', side_effect=AssertionError('No attachment reads')),
                         patch.object(Path, 'stat', side_effect=AssertionError('No attachment stat'))):
@@ -78,6 +88,8 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                     self.assertNotIn(omitted, context)
                 self.assertEqual(params['model'], 'synthetic-choice')
                 self.assertEqual(params['dynamicTools'], [])
+                self.assertEqual([call.args[0] for call in client.request.await_args_list],
+                                 ['thread/turns/list', 'thread/start'])
                 self.assertEqual(controller.model_settings(7), {'model': 'synthetic-choice', 'effort': 'ultra'})
                 record = controller.db.execute('SELECT tools_version,previous_thread_id FROM chats WHERE chat_id=7').fetchone()
                 self.assertEqual(tuple(record), ('oak-v16-browser-capabilities', 'previous-thread'))
@@ -87,6 +99,117 @@ class StateTests(unittest.IsolatedAsyncioTestCase):
                                  ('upgraded-thread', 'synthetic-choice', 'ultra'))
             finally:
                 controller.close()
+
+    async def test_historic_output_references_require_complete_scoped_success_receipt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            controller = Controller(AsyncMock(), ':memory:', folder, AsyncMock())
+            self.addCleanup(controller.close)
+            bus = EventBus(controller)
+            workspace = str(Path(folder).resolve())
+
+            async def record(chat=7, thread='selected-thread', turn='selected-turn', name='selected',
+                             *, include_start=True, include_args=True, success=True):
+                mapper = EventMapper()
+                item = {'type': 'dynamicToolCall', 'id': name, 'tool': 'oak_send_file',
+                        'status': 'completed', 'success': success,
+                        'arguments': {'path': workspace + '/artifacts/' + name + '.mp4'}}
+                for event in mapper.feed({'method': 'item/completed', 'params': {
+                        'threadId': thread, 'turnId': turn, 'item': item}}):
+                    if event['type'] == 'TOOL_CALL_START' and not include_start:
+                        continue
+                    if event['type'] == 'TOOL_CALL_ARGS' and not include_args:
+                        continue
+                    await bus.emit(chat, event)
+
+            await record()
+            await record(chat=8, name='other-owner')
+            await record(thread='other-thread', name='other-thread')
+            await record(turn='older-turn', name='older-turn')
+            await record(name='failed', success=False)
+            await record(name='missing-start', include_start=False)
+            await record(name='missing-args', include_args=False)
+            self.assertEqual(controller._history_output_files(7, 'selected-thread', ['selected-turn']), [
+                {'kind': 'file_queued_for_delivery', 'path': workspace + '/artifacts/selected.mp4'}])
+            self.assertEqual(controller._history_output_files(7, 'selected-thread', []), [])
+            # A busy history whose receipt start fell outside the bounded
+            # window cannot authorize reconstructing that tool's arguments.
+            with controller.db:
+                filler = json.dumps({'type': 'TOOL_CALL_ARGS', 'threadId': 'selected-thread',
+                                     'runId': 'selected-turn', 'toolCallId': 'filler', 'delta': '{}'})
+                controller.db.executemany(
+                    'INSERT INTO ui_events(chat_id,run_id,event) VALUES (?,?,?)',
+                    [(7, 'selected-turn', filler)] * 768)
+            self.assertEqual(controller._history_output_files(7, 'selected-thread', ['selected-turn']), [])
+
+    async def test_tool_upgrade_keeps_bounded_summary_turns_in_chronological_order(self):
+        client = AsyncMock()
+
+        async def request(method, params):
+            if method == 'thread/turns/list':
+                self.assertEqual(params['itemsView'], 'summary')
+                self.assertEqual(params['limit'], 12)
+                self.assertEqual(params['sortDirection'], 'desc')
+                return {'data': [
+                    {'id': 'newer', 'items': [{'type': 'agentMessage', 'text': 'NEWER_RESULT'}]},
+                    {'id': 'older', 'items': [{'type': 'userMessage', 'content': [
+                        {'type': 'text', 'text': 'OLDER_REQUEST'}]}]},
+                ], 'nextCursor': 'deliberately-not-hydrated'}
+            self.assertEqual(method, 'thread/start')
+            return {'model': params['model'], 'modelProvider': 'openai', 'thread': {'id': 'new'}}
+
+        client.request.side_effect = request
+        controller = Controller(client, ':memory:', '.', AsyncMock())
+        self.addCleanup(controller.close)
+        controller.tools = SimpleNamespace(version='new-tools', specs=[], computer=None,
+                                           browser_action_approval='never')
+        controller.threads[7] = 'old'
+        controller.db.execute('INSERT INTO chats(chat_id,thread_id,tools_version) VALUES (?,?,?)',
+                              (7, 'old', 'old-tools'))
+        await controller._thread(7)
+        context = client.request.await_args.args[1]['developerInstructions']
+        self.assertLess(context.index('OLDER_REQUEST'), context.index('NEWER_RESULT'))
+        self.assertEqual([call.args[0] for call in client.request.await_args_list],
+                         ['thread/turns/list', 'thread/start'])
+
+    async def test_steer_reconciliation_starts_only_after_exact_terminal_turn_metadata(self):
+        for status in ('completed', 'interrupted', 'failed', 'absent'):
+            with self.subTest(status=status):
+                client = AsyncMock()
+                controller = Controller(client, ':memory:', '.', AsyncMock())
+                self.addCleanup(controller.close)
+                controller._thread = AsyncMock(return_value='selected-thread')
+                controller.threads[7] = 'selected-thread'
+                controller.active[7] = 'selected-turn'
+
+                async def request(method, params):
+                    if method == 'turn/steer':
+                        raise RpcError(-1, 'no active turn')
+                    if method == 'thread/turns/list':
+                        self.assertEqual(params, {'threadId': 'selected-thread', 'itemsView': 'notLoaded',
+                                                  'limit': 12, 'sortDirection': 'desc'})
+                        return {'data': [{'id': 'other-turn' if status == 'absent' else 'selected-turn',
+                                          'status': 'completed' if status == 'absent' else status}],
+                                'nextCursor': 'older-history-not-needed'}
+                    self.assertEqual(method, 'turn/start')
+                    return {'turn': {'id': 'replacement-turn'}}
+
+                client.request.side_effect = request
+                with patch('oak.controller.asyncio.sleep', new_callable=AsyncMock):
+                    if status == 'absent':
+                        with self.assertRaises(RuntimeError):
+                            await controller.submit(7, 'Synthetic follow-up', 101)
+                        self.assertEqual(controller.active[7], 'selected-turn')
+                        self.assertNotIn('turn/start', [call.args[0] for call in client.request.await_args_list])
+                        self.assertEqual(controller.db.execute(
+                            'SELECT status FROM inputs').fetchone()[0], 'uncertain')
+                    else:
+                        self.assertTrue(await controller.submit(7, 'Synthetic follow-up', 101))
+                        self.assertEqual(controller.active[7], 'replacement-turn')
+                        self.assertEqual(controller.db.execute(
+                            'SELECT status FROM inputs').fetchone()[0], 'accepted')
+                self.assertEqual(sum(call.args[0] == 'thread/turns/list'
+                                     for call in client.request.await_args_list), 1)
+                self.assertNotIn('thread/read', [call.args[0] for call in client.request.await_args_list])
 
     def test_history_file_references_are_lexical_workspace_paths(self):
         from oak.controller import _history_file

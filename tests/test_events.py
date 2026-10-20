@@ -303,11 +303,13 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         controller._thread = AsyncMock(return_value='t')
         controller.active[1] = 'r'
         client.request.side_effect = [RpcError(-1, 'no active turn')] * 6 + [
-            {'thread': {'turns': [{'id': 'r', 'status': 'inProgress'}]}}]
+            {'data': [{'id': 'r', 'status': 'inProgress'}]}]
         with patch('oak.controller.asyncio.sleep', new_callable=AsyncMock):
             with self.assertRaises(RuntimeError):
                 await controller.submit(1, 'correction', 1)
         self.assertNotIn('turn/start', [call.args[0] for call in client.request.await_args_list])
+        self.assertEqual(client.request.await_args.args, ('thread/turns/list', {
+            'threadId': 't', 'itemsView': 'notLoaded', 'limit': 12, 'sortDirection': 'desc'}))
         self.assertEqual(controller.db.execute('SELECT status FROM inputs').fetchone()[0], 'uncertain')
 
     async def test_execution_rejected_before_authentication(self):
