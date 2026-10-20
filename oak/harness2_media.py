@@ -14,8 +14,10 @@ import contextlib
 import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import tempfile
 import threading
 import time
 from typing import Mapping
@@ -319,6 +321,31 @@ def source_commitment(descriptor, task):
     return {**value, 'sha256': canonical_sha(value)}
 
 
+def _publish_optimizer_source(target, data):
+    """Publish complete immutable bytes; upstream copies after our lock exits."""
+    def require_identical():
+        if target.is_symlink() or not target.is_file() or target.read_bytes() != data:
+            raise ValueError('Existing optimizer source differs.')
+    if target.exists() or target.is_symlink():
+        require_identical()
+        return
+    # Stage beside the returned directory, so its recursive copy cannot pick
+    # up temporary files. A link publishes the full file without overwriting.
+    fd, name = tempfile.mkstemp(prefix='.optimizer-source-', dir=target.parent.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            require_identical()
+    finally:
+        temporary.unlink()
+
+
 def _sanitized_source(descriptor, task, destination):
     """Optimizer evidence contains observations and work, without measurement recipes."""
     destination = Path(destination)
@@ -332,14 +359,14 @@ def _sanitized_source(descriptor, task, destination):
             raise ValueError('The source changed before optimizer context construction.')
         target = destination / original.name
         data = original.read_bytes()
-        if target.exists() and target.read_bytes() != data:
-            raise ValueError('Existing optimizer source differs.')
-        target.write_bytes(data)
+        _publish_optimizer_source(target, data)
     allowed = ('family', 'size', 'duration', 'fps', 'frame_count', 'assets',
                'actor_atlas_crops', 'depth_order', 'motion')
     public = {key: contract[key] for key in allowed if key in contract}
     public['intent'] = contract['review_manifest']['visual']
-    _write(destination / 'work.json', public)
+    data = (json.dumps(public, ensure_ascii=False, indent=2, sort_keys=True,
+                       allow_nan=False) + '\n').encode('utf-8')
+    _publish_optimizer_source(destination / 'work.json', data)
     return destination
 
 

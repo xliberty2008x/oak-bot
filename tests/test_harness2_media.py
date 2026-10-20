@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import threading
 import unittest
@@ -290,6 +291,77 @@ class NativeAdapter(unittest.TestCase):
         self.assertEqual(paths[0], paths[1])
         self.assertEqual(materialize.call_count, 1)
         self.assertTrue((paths[0] / 'work.json').is_file())
+
+    def test_published_optimizer_sources_and_contract_are_never_reopened_for_write(self):
+        adapter = self.adapter()
+        files = adapter.task_files(self.descriptor['id'])
+        before = {path.name:path.read_bytes() for path in files.iterdir()}
+        original_open = Path.open
+        def read_only_existing(path,mode='r',*args,**kwargs):
+            if path.parent == files and any(char in mode for char in 'wax+'):
+                raise AssertionError('Published source was reopened for write: '+path.name)
+            return original_open(path,mode,*args,**kwargs)
+        with patch.object(Path,'open',read_only_existing):
+            self.assertEqual(adapter.task_files(self.descriptor['id']),files)
+        self.assertEqual({path.name:path.read_bytes() for path in files.iterdir()},before)
+
+    def test_parallel_upstream_copy_cannot_observe_a_truncated_republication(self):
+        from oak.harness2_upstream import upstream
+        core = upstream()
+        adapter = self.adapter()
+        files = adapter.task_files(self.descriptor['id'])
+        image = next(path for path in files.iterdir() if path.suffix == '.png')
+        expected = image.read_bytes()
+        copying,publication_ready,copied = threading.Event(),threading.Event(),threading.Event()
+        original_write,original_copy = Path.write_bytes,shutil.copy2
+        def delayed_republication(path,data):
+            if path == image and copying.is_set():
+                # Expose the truncate window deterministically if a later
+                # task_files call ever rewrites the already-published image.
+                with path.open('wb') as handle:
+                    publication_ready.set()
+                    if not copied.wait(5):
+                        raise AssertionError('Concurrent context copy did not finish.')
+                    return handle.write(data)
+            return original_write(path,data)
+        def controlled_copy(source,target,*args,**kwargs):
+            if Path(source) == image:
+                copying.set()
+                if not publication_ready.wait(5):
+                    raise AssertionError('Concurrent task_files call did not finish.')
+                try:
+                    return original_copy(source,target,*args,**kwargs)
+                finally:
+                    copied.set()
+            return original_copy(source,target,*args,**kwargs)
+        def another_context():
+            if not copying.wait(5):
+                raise AssertionError('Source copy did not start.')
+            adapter.task_files(self.descriptor['id'])
+            publication_ready.set()
+        context = self.root/'concurrent-upstream-context'
+        with (patch.object(Path,'write_bytes',delayed_republication),
+              patch('shutil.copy2',side_effect=controlled_copy),
+              ThreadPoolExecutor(max_workers=2) as pool):
+            first = pool.submit(core.context.copy_source,adapter,self.descriptor['id'],context)
+            second = pool.submit(another_context)
+            first.result(timeout=10)
+            second.result(timeout=10)
+        self.assertEqual((context/'source'/image.name).read_bytes(),expected)
+        self.assertEqual(image.read_bytes(),expected)
+
+    def test_changed_published_source_or_contract_fails_without_overwriting_evidence(self):
+        adapter = self.adapter()
+        files = adapter.task_files(self.descriptor['id'])
+        image = next(path for path in files.iterdir() if path.suffix == '.png')
+        for path in (image,files/'work.json'):
+            with self.subTest(name=path.name):
+                original = path.read_bytes()
+                path.write_bytes(b'corrupt-public-context-fixture')
+                with self.assertRaisesRegex(ValueError,'Existing optimizer source differs'):
+                    adapter.task_files(self.descriptor['id'])
+                self.assertEqual(path.read_bytes(),b'corrupt-public-context-fixture')
+                path.write_bytes(original)
 
     def test_nondev_adapter_requires_explicit_postfreeze_independent_mode(self):
         held = media.make_descriptor('future-unseen', 3, split='holdout')

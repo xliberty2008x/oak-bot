@@ -304,6 +304,43 @@ unreconciled budget intents remain visible separately. Budgets and implementatio
 cannot be enlarged or rewritten inside a sealed cycle. A changed implementation
 requires a new cycle, preserving old evidence.
 
+## Closing an unmeasured infrastructure cycle
+
+A search that returns no chosen harness now ends without constructing a
+candidate or opening its holdouts. Its journal uses terminal `phase="completed"`
+with `outcome="not_admitted"`, `classification="search_no_candidate"`,
+`accepted=false`, `evaluated=false` and `quality_rejection=false`. This is an
+unmeasured outcome, not a baseline/candidate quality comparison.
+
+An operator can explicitly retire a stuck cycle from an older implementation:
+
+```sh
+.venv-media/bin/python -m oak.harness2_pipeline --root /absolute/private/oak-h2-run --project media-demo --chat 1 --domain media-depth close-pre-freeze --cycle CYCLE_ID --reason-code review_transport_configuration_error --authorization-reference AUTHORIZATION_SHA256
+```
+
+Replace `AUTHORIZATION_SHA256` with a 64-character lowercase SHA-256 commitment
+to the explicit authorization, retained privately. The other declared reason
+is `implementation_changed_before_freeze`. This command acquires the worker
+lock and refuses a frozen candidate or any opened holdout. It performs no model
+call and creates no candidate or activation. Its immutable `termination.json`
+commits the original configuration, manifest, search and original file bytes;
+it records `classification="infrastructure_abort"` without rewriting those
+inputs or native receipts. Repeating the same closure verifies its commitments;
+changed evidence or authorization fails closed.
+
+The closed cycle still consumes its original cycle quota. A replacement needs
+separate finite authorization and a supported approved DEV case or new approved
+feedback revision. It seals the current implementation and new holdouts. Old
+unopened holdouts remain reserved and are excluded from the replacement's
+regression history. Authentic, SHA-verified earlier DEV role observations can
+still appear in attempt history; closure creates no optimizer lesson.
+
+Public export retains its public-fixture permission checks. For a verified
+unmeasured closure it publishes unopened-holdout counts and termination hashes,
+omits unopened descriptors, seeds, source paths and images, and excludes the
+cycle from quality denominators. Normal measured cycles retain all original
+freeze and evaluation checks. No quality gain is inferred from recovery.
+
 ## Applying accepted procedures and reverting
 
 `HarnessVersions` stores immutable parents, procedure hashes, evidence and

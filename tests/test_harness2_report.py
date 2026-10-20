@@ -1,6 +1,7 @@
 """Portable synthetic evidence export; no models, codecs or provider calls."""
 
 import hashlib
+import copy
 import importlib.util
 import json
 import os
@@ -8,7 +9,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from oak.harness2_pipeline import PipelineStore, digest
+from oak.harness2_pipeline import PipelineStore, close_pre_freeze, digest
 if os.environ.get('OAK_H2_HISTORY_REPORT'):
     spec = importlib.util.spec_from_file_location('oak._history_report_draft', os.environ['OAK_H2_HISTORY_REPORT'])
     report_module = importlib.util.module_from_spec(spec)
@@ -126,6 +127,54 @@ class ReportTests(unittest.TestCase):
     def test_export_rejects_pending_cycles_before_disclosing_holdout(self):
         with self.assertRaisesRegex(ValueError, 'completed cycles'):
             export_report(self.root, *self.scope[:2], domain=self.scope[2])
+
+    def close_unmeasured(self):
+        manifest=copy.deepcopy(self.manifest)
+        for split,rows in manifest.items():
+            for row in rows:
+                row['descriptor'].update(id='closed-'+split,seed='UNOPENED_SEED_CANARY' if split=='holdout' else 'public')
+                row['commitment']['inputs']={'PRIVATE_SOURCE_CANARY.png':digest(['closed',split])}
+        cycle=self.store.create_cycle('layer',manifest,self.config)
+        directory=self.scope_root/'cycles'/cycle['id']
+        directory.mkdir(parents=True)
+        source=directory/'PRIVATE_IMAGE_PATH_CANARY.png'
+        source.write_bytes(b'UNOPENED_IMAGE_BYTES_CANARY')
+        close_pre_freeze(self.store,cycle['id'],reason_code='review_transport_configuration_error',
+                         authorization_reference=digest('private-local-user-authorization'))
+        return cycle,directory,source
+
+    def test_unmeasured_closure_exports_counts_without_closed_inputs_or_quality_denominator(self):
+        self.finish()
+        self.close_unmeasured()
+        report=export_report(self.root,*self.scope[:2])
+        self.assertEqual(len(report['cycles']),2)
+        measured,closed=report['cycles']
+        self.assertEqual(measured['metrics']['fresh_holdout_pairs'],1)
+        self.assertFalse(closed['evaluated'])
+        self.assertTrue(closed['excluded_from_quality_denominator'])
+        self.assertEqual(closed['unopened_holdouts'],1)
+        self.assertEqual(closed['metrics']['fresh_holdout_pairs'],0)
+        self.assertEqual(closed['metrics']['groups'],[])
+        self.assertFalse(closed['journal']['decision']['quality_rejection'])
+        self.assertEqual(closed['original_files_verified'],1)
+        for private in ('UNOPENED_SEED_CANARY','PRIVATE_SOURCE_CANARY','PRIVATE_IMAGE_PATH_CANARY','UNOPENED_IMAGE_BYTES_CANARY'):
+            self.assertNotIn(private,json.dumps(report))
+
+    def test_unmeasured_original_evidence_tampering_still_fails_closed(self):
+        self.finish()
+        cycle,directory,source=self.close_unmeasured()
+        source.write_bytes(b'changed original bytes')
+        with self.assertRaisesRegex(ValueError,'recorded SHA'):
+            export_report(self.root,*self.scope[:2])
+
+    def test_false_unmeasured_label_cannot_bypass_normal_frozen_evidence_verification(self):
+        self.finish()
+        with self.store.db:
+            decision={**self.decision,'evaluated':False,'quality_rejection':False,'outcome':'not_admitted',
+                      'classification':'infrastructure_abort','candidate_id':None}
+            self.store.db.execute('UPDATE cycles SET decision=? WHERE id=?',(json.dumps(decision),self.cycle['id']))
+        with self.assertRaisesRegex(ValueError,'inconsistent with admission'):
+            export_report(self.root,*self.scope[:2])
 
     def test_private_case_fails_closed_even_if_unapproved(self):
         self.finish()

@@ -271,7 +271,15 @@ class TelegramGateway:
         lines.append(f'Без готового сценарію: {count("awaiting_adapter")}; очікують дозволу: {count("awaiting_approval")}.')
         decision = value.get('last_decision')
         if isinstance(decision, dict) and type(decision.get('accepted')) is bool:
-            lines.append('Останній кандидат: ' + ('прийнято.' if decision['accepted'] else 'відхилено.'))
+            classification = decision.get('classification')
+            if classification == 'infrastructure_abort':
+                lines.append('Останній цикл: якість не оцінювали через технічний збій.')
+            elif classification == 'search_no_candidate':
+                lines.append('Останній цикл: кандидат не сформований; якість не оцінювали.')
+            elif decision.get('evaluated') is False:
+                lines.append('Останній цикл: якість не оцінювали.')
+            else:
+                lines.append('Останній кандидат: ' + ('прийнято.' if decision['accepted'] else 'відхилено.'))
         version = value.get('active_version')
         if isinstance(version, str) and re.fullmatch('[a-f0-9]{64}', version):
             lines.append('Активна версія: ' + version[:12] + '.')

@@ -20,6 +20,7 @@ class FixtureController:
         self.enabled = True
         self.failed = False
         self.paused = False
+        self.decision = {'accepted': False, 'reasons': ['PRIVATE_REASON_CANARY']}
 
     def improvement_control(self, chat_id, action='status'):
         self.controls.append((chat_id, action))
@@ -32,7 +33,7 @@ class FixtureController:
         return {'enabled': True, 'phase': 'running', 'paused': self.paused,
             'cases': 4, 'approved_cases': 1, 'awaiting_adapter': 2, 'awaiting_approval': 1,
             'active_version': 'a' * 64, 'last_cycle': 1,
-            'last_decision': {'accepted': False, 'reasons': ['PRIVATE_REASON_CANARY']},
+            'last_decision': self.decision,
             'unexpected_private_field': 'PRIVATE_VALUE_CANARY'}
 
 
@@ -70,6 +71,29 @@ class ImprovementControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('/improve', command_names())
         self.assertIn('/improve status|stop|resume — Самопокращення', help_text())
         self.assertIn({'command': 'improve', 'description': 'Самопокращення'}, menu_commands())
+
+    async def test_unmeasured_closures_are_never_reported_as_quality_rejections(self):
+        for ordinal,classification in enumerate(('infrastructure_abort','search_no_candidate')):
+            with self.subTest(classification=classification):
+                self.controller.decision = {'accepted':False,'reasons':['PRIVATE_REASON_CANARY'],
+                    'outcome':'not_admitted','classification':classification,
+                    'evaluated':False,'quality_rejection':False}
+                response = await self.command('/improve status',update_id=ordinal+1)
+                self.assertIn('якість не оцінювали',response)
+                self.assertNotIn('відхилено',response)
+                self.assertNotIn('Останній кандидат:',response)
+                self.assertNotIn('PRIVATE_',response)
+                self.assertIn('технічний збій' if ordinal == 0 else 'кандидат не сформований',response)
+        self.controller.submit.assert_not_awaited()
+
+    async def test_measured_admission_and_rejection_keep_their_verdicts(self):
+        for ordinal,accepted in enumerate((False,True)):
+            with self.subTest(accepted=accepted):
+                self.controller.decision = {'accepted':accepted,'reasons':[],
+                    'evaluated':True,'quality_rejection':not accepted}
+                response = await self.command('/improve status',update_id=ordinal+1)
+                self.assertIn('Останній кандидат: '+('прийнято.' if accepted else 'відхилено.'),response)
+                self.assertNotIn('якість не оцінювали',response)
 
     async def test_stop_and_resume_change_only_loop_in_exact_topic(self):
         response = await self.command('/improve stop', topic=9)

@@ -1,5 +1,6 @@
 """Real production seams with local journals and mocked native transport only."""
 import asyncio
+import base64
 from functools import partial
 import json
 from pathlib import Path
@@ -146,6 +147,31 @@ class ProductionBridgeTests(unittest.TestCase):
         self.assertEqual(identity['effort'],'low')
         self.assertEqual(len(identity['bridge_source_sha256']),64)
 
+    def test_control_preserves_unmeasured_closure_without_disclosing_private_evidence(self):
+        for classification in ('infrastructure_abort','search_no_candidate'):
+            with self.subTest(classification=classification):
+                bridge = ProductionBridge(deployment(self.root,project=classification))
+                store = self.store(bridge)
+                approved_case(store)
+                complete_fake_cycle(store)
+                decision = {'accepted':False,'reasons':['fixed_reason'],
+                    'outcome':'not_admitted','classification':classification,
+                    'evaluated':False,'quality_rejection':False}
+                store.update(store.cycles()[-1]['id'],decision={**decision,
+                    'evidence':{'private_receipt':'PRIVATE_EVIDENCE_CANARY'},
+                    'authorization_reference':'PRIVATE_AUTHORIZATION_CANARY'})
+                visible = bridge.control(41)['last_decision']
+                self.assertEqual(visible,decision)
+                self.assertNotIn('PRIVATE_',json.dumps(visible))
+
+    def test_control_preserves_legacy_measured_decision(self):
+        store = self.store()
+        approved_case(store)
+        complete_fake_cycle(store)
+        decision = {'accepted':False,'reasons':['regression_loss']}
+        store.update(store.cycles()[-1]['id'],decision=decision)
+        self.assertEqual(self.bridge.control(41)['last_decision'],decision)
+
     def test_missing_boundary_blocks_before_work_and_never_falls_back(self):
         approved_case(self.store())
         with (patch.object(self.bridge,'transport',side_effect=ValueError('PRIVATE_ERROR')),
@@ -193,6 +219,124 @@ class ProductionBridgeTests(unittest.TestCase):
 
 
 class ProtectedRuntimeTests(unittest.IsolatedAsyncioTestCase):
+    def protected_factory(self, directory):
+        root = Path(directory)
+        profile_path = root/'profile.json'
+        profile_path.write_text('{"kind":"public protected profile fixture"}')
+        execution = {'profile':str(profile_path)}
+        bridge = ProductionBridge({**deployment(root/'improvement'), 'execution':execution})
+        profile = {'workspace':'/approved/workspace','runtime_home':'/approved/home',
+                   'policy_digest':'a'*64,'manifest':{'executor.py':'b'*64}}
+        with patch('oak.executor.require_boundary',return_value=profile):
+            factory, _, _ = bridge.transport()
+        return factory, execution, profile
+
+    async def test_actual_quality_reviewer_none_execution_uses_bound_protected_profile(self):
+        from oak.quality import QualityReviewer
+
+        class NativeReview:
+            def __init__(self, **kwargs):
+                self.options, self.requests, self.closed = kwargs, [], False
+                self.events = asyncio.Queue()
+                verdict = {'verdict':'pass','summary':'The public fixture is visible.','issues':[],
+                    'checks':[{'criterion':'Public fixture','status':'pass','evidence':'Supplied image.'}],
+                    'limitations':['Synthetic protocol fixture only.']}
+                self.events.put_nowait({'method':'item/completed','params':{'threadId':'review',
+                    'turnId':'review-turn','item':{'type':'agentMessage','phase':'final_answer',
+                    'text':json.dumps(verdict)}}})
+                self.events.put_nowait({'method':'turn/completed','params':{'threadId':'review',
+                    'turn':{'id':'review-turn','status':'completed'}}})
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                self.closed = True
+
+            async def request(self, method, params):
+                self.requests.append((method,params))
+                if method=='config/read':
+                    return {'config':{'mcp_servers':{}}}
+                if method=='thread/start':
+                    return {'model':'gpt-6.1-sol','modelProvider':'openai','thread':{'id':'review'}}
+                if method=='turn/start':
+                    return {'turn':{'id':'review-turn'}}
+                return {}
+
+        with tempfile.TemporaryDirectory() as directory:
+            factory,execution,profile = self.protected_factory(directory)
+            clients = []
+            def native(**kwargs):
+                client = NativeReview(**kwargs)
+                clients.append(client)
+                return client
+            def checked_profile(selected):
+                if selected != execution:
+                    raise ValueError('A protected execution profile is required.')
+                return profile
+            # PilotRuntime constructs this reviewer config without an execution
+            # key. QualityReviewer therefore explicitly passes execution=None.
+            reviewer = QualityReviewer({'workspace':'/host/review','runtime_home':'/host/home'},
+                                       client_factory=factory,timeout=1)
+            png = 'data:image/png;base64,'+base64.b64encode(b'\x89PNG\r\n\x1a\npublic protocol fixture').decode()
+            with (patch('oak.executor.load_profile',side_effect=checked_profile) as load,
+                  patch('oak.harness2_production.RuntimeClient',side_effect=native) as constructor):
+                result = await reviewer.review('Review the public fixture.',
+                    [{'label':'Synthetic candidate','image_url':png}],{'sha256':'c'*64},
+                    model='gpt-6.1-sol',effort='low')
+            self.assertEqual(result['verdict'],'pass')
+            self.assertNotIn('error_code',result)
+            self.assertEqual(result['model'],'gpt-6.1-sol')
+            load.assert_called_once_with(execution)
+            self.assertEqual(constructor.call_count,1)
+            self.assertEqual(clients[0].options['execution'],execution)
+            self.assertEqual(clients[0].options['cwd'],profile['workspace'])
+            self.assertEqual(clients[0].options['home'],profile['runtime_home'])
+            self.assertEqual(clients[0].options['sandbox'],'read-only')
+            self.assertFalse(clients[0].options['config']['features.shell_tool'])
+            self.assertFalse(clients[0].options['config']['features.apps'])
+            thread = next(value for method,value in clients[0].requests if method=='thread/start')
+            turn = next(value for method,value in clients[0].requests if method=='turn/start')
+            self.assertEqual(thread['cwd'],profile['workspace'])
+            self.assertEqual(thread['dynamicTools'],[])
+            self.assertEqual(turn['effort'],'low')
+            self.assertEqual(turn['model'],'gpt-6.1-sol')
+            self.assertTrue(clients[0].closed)
+
+    async def test_bound_factory_rejects_conflicting_execution_before_profile_or_native_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            factory,_,_ = self.protected_factory(directory)
+            with (patch('oak.executor.load_profile') as load,
+                  patch('oak.harness2_production.RuntimeClient') as native):
+                with self.assertRaises(ValueError):
+                    factory(execution={'profile':'/foreign/profile'},sandbox='read-only',
+                            config={'web_search':'disabled'})
+            load.assert_not_called()
+            native.assert_not_called()
+
+    async def test_bound_factory_accepts_matching_explicit_profile_without_changing_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            factory,execution,profile = self.protected_factory(directory)
+            config = {'web_search':'disabled','approval_policy':'never','features.shell_tool':False}
+            with (patch('oak.executor.load_profile',return_value=profile) as load,
+                  patch('oak.harness2_production.RuntimeClient') as native):
+                factory(execution=dict(execution),sandbox='read-only',config=config,
+                        home='/untrusted/home',cwd='/untrusted/cwd')
+            load.assert_called_once_with(execution)
+            self.assertEqual(native.call_args.kwargs['execution'],execution)
+            self.assertEqual(native.call_args.kwargs['home'],profile['runtime_home'])
+            self.assertEqual(native.call_args.kwargs['cwd'],profile['workspace'])
+            self.assertEqual(native.call_args.kwargs['sandbox'],'read-only')
+            self.assertEqual(native.call_args.kwargs['config'],config)
+
+    async def test_no_bound_or_explicit_profile_fails_without_a_local_auth_fallback(self):
+        with (patch('oak.executor.load_profile') as load,
+              patch('oak.harness2_production.RuntimeClient') as native):
+            with self.assertRaises(ValueError):
+                ExecutionRuntimeClient(execution=None,sandbox='read-only',config={'web_search':'disabled'})
+        load.assert_not_called()
+        native.assert_not_called()
+
     async def test_only_native_cwd_is_mapped_and_actual_model_permissions_tools_are_preserved(self):
         client = SimpleNamespace(request=AsyncMock(return_value={'ok':True}),
             __aenter__=AsyncMock(),__aexit__=AsyncMock())

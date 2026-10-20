@@ -29,7 +29,17 @@ class ExecutionRuntimeClient:
     and explicit native cwd requests are mapped into its fixed approved mount.
     Permissions, model, dynamic tools and callbacks are passed through unchanged.
     """
-    def __init__(self, *, execution, native_guard=None, native_lifecycle=None, **kwargs):
+    def __init__(self, protected_execution=None, /, *, execution=None,
+                 native_guard=None, native_lifecycle=None, **kwargs):
+        # QualityReviewer explicitly passes execution=None when its local
+        # evidence config has no profile. It cannot replace the deployment's
+        # positional binding, nor select another execution boundary.
+        if protected_execution is not None:
+            if execution is not None and execution != protected_execution:
+                raise ValueError('Conflicting protected execution profile.')
+            execution = protected_execution
+        if execution is None:
+            raise ValueError('Protected execution profile required; no local fallback.')
         from .executor import load_profile
         profile = load_profile(execution)
         if kwargs.get('sandbox') != 'read-only' or kwargs.get('config', {}).get('web_search') != 'disabled':
@@ -288,12 +298,15 @@ class ProductionBridge:
             state = json.loads(row[0]) if row else {}
             last = cycles[-1] if cycles else None
             decision = last.get('decision') if last else None
+            visible_decision = ({key:decision[key] for key in
+                ('accepted','reasons','outcome','classification','evaluated','quality_rejection')
+                if key in decision} if decision else None)
             return {'enabled':True,'phase':'stopped' if paused else state.get('state','awaiting-approved-case'),
                 'cases':len(cases),'approved_cases':sum(bool(c['approved']) for c in cases),
                 'awaiting_adapter':sum(c['payload'].get('adapter_status')=='awaiting_adapter' for c in cases),
                 'awaiting_approval':sum(not c['approved'] for c in cases),
                 'active_version':active['id'] if active else None, 'last_cycle':last['ordinal'] if last else None,
-                'last_decision':({'accepted':decision['accepted'],'reasons':decision['reasons']} if decision else None),
+                'last_decision':visible_decision,
                 'paused':paused,'reason':state.get('reason')}
         finally:
             store.close()
@@ -307,7 +320,7 @@ class ProductionBridge:
         identity = {'kind':'existing-oak-protected-subscription','policy_digest':profile['policy_digest'],
                     'profile_sha256':file_sha(execution['profile']), 'manifest_sha256':digest(profile['manifest']),
                     'bridge_source_sha256':file_sha(__file__), 'model':'gpt-6.1-sol','effort':'low'}
-        return partial(ExecutionRuntimeClient, execution=dict(execution)), profile['runtime_home'], identity
+        return partial(ExecutionRuntimeClient, dict(execution)), profile['runtime_home'], identity
 
     def tick(self):
         """One bounded restartable pass; never invent cases or launch a demo."""
