@@ -3,10 +3,28 @@
 import asyncio
 import base64
 import json
+import os
+import stat
 import uuid
 from pathlib import Path
 
 from .animation_tools import SPECS as CREATIVE_SPECS
+
+
+def _gateway_voice_source(path, inbox):
+    """Resolve only one gateway-owned, disposable voice input, never a worker path."""
+    try:
+        source, root = Path(path), Path(inbox)
+        if (not source.is_absolute() or not root.is_absolute() or source.parent != root
+                or root.resolve(strict=True) != root or source.resolve(strict=True) != source):
+            raise ValueError
+        info = source.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+            raise ValueError
+    except (OSError, TypeError, RuntimeError, ValueError):
+        raise ValueError('Unsupported temporary voice attachment location.') from None
+    return source
 
 
 def _spec(name, description, properties, required=()):
@@ -218,6 +236,8 @@ class Tools:
             config.get('runtime_home'))) if speech is not None else None)
         self._speech_tasks = set()
         self._speech_closed = False
+        self._gateway_voice_inbox = (Path(config['state_dir']).resolve() / 'voice-inbox'
+            if config.get('telegram_discard_voice_audio') is True and config.get('state_dir') else None)
         self.quality = None
         if type(config.get('quality_review', False)) is not bool:
             raise ValueError('quality_review must be boolean.')
@@ -284,7 +304,10 @@ class Tools:
             return await self.executor.call('media.' + operation, args)
         return await asyncio.to_thread(getattr(self.media, operation), **args)
 
-    async def transcribe(self, path):
+    async def transcribe(self, path, *, gateway_voice=False):
+        if gateway_voice and self.speech_to_text is None:
+            from .media import ToolUnavailable
+            raise ToolUnavailable('Приватний розпізнавач мовлення недоступний.')
         if self.speech_to_text is not None:
             from .media import ToolUnavailable
             if self._speech_closed:
@@ -294,6 +317,9 @@ class Tools:
             task = asyncio.current_task()
             self._speech_tasks.add(task)
             try:
+                if gateway_voice:
+                    source = _gateway_voice_source(path, self._gateway_voice_inbox)
+                    return await self.speech_to_text.transcribe(source)
                 return await self._broker_transcribe(path)
             finally:
                 self._speech_tasks.discard(task)

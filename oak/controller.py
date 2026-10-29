@@ -545,7 +545,7 @@ class Controller:
         except asyncio.CancelledError:
             self._status(update_id, 'cancelled')
             raise
-        except (ValueError, OSError):
+        except (ValueError, OSError, ToolUnavailable):
             self._status(update_id, 'failed')
             raise
         routing_lock = self._lock(chat_id)
@@ -698,10 +698,25 @@ class Controller:
         workspace = Path(self.cwd)
         inbox = workspace / 'inbox'
         files = getattr(self.tools, 'files', None)
-        if attachments and files is None:
-            inbox.mkdir(exist_ok=True)
         state_inbox = Path(self.config.get('state_dir', workspace)) / 'inbox'
         for attachment in attachments:
+            if (self.config.get('telegram_discard_voice_audio') is True
+                    and attachment.get('ephemeral_voice') is True):
+                from .tools import _gateway_voice_source
+                if attachment.get('mime') != 'audio/ogg' or not self.config.get('state_dir'):
+                    raise ValueError('Unsupported temporary voice attachment location.')
+                source = _gateway_voice_source(attachment.get('path'),
+                    Path(self.config['state_dir']).resolve() / 'voice-inbox')
+                if self.tools is None or not callable(getattr(self.tools, 'transcribe', None)):
+                    raise ToolUnavailable('Приватний розпізнавач мовлення недоступний.')
+                # Gateway retains the original until durable acceptance or a
+                # terminal failure. Never make a recoverable workspace copy or
+                # advertise this disappearing file to model tools after an error.
+                transcript = await self.tools.transcribe(source, gateway_voice=True)
+                details.append('Голосове повідомлення:\n' + transcript)
+                if transcripts is not None:
+                    transcripts.append(transcript)
+                continue
             if files is not None:
                 source = Path(attachment['path'])
                 if source.is_relative_to(state_inbox):
@@ -734,6 +749,7 @@ class Controller:
             source = Path(attachment['path']).resolve()
             if not source.is_file() or not any(source.is_relative_to(root.resolve()) for root in (workspace, state_inbox)):
                 raise ValueError('Unsupported attachment location.')
+            inbox.mkdir(exist_ok=True)
             destination = inbox / source.name
             if source != destination.resolve():
                 await asyncio.to_thread(shutil.copyfile, source, destination)
