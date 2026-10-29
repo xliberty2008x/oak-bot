@@ -1,0 +1,8 @@
+{
+  "speech_to_text": {
+    "enabled": false,
+    "broker_socket_path": "/run/oak-stt/asr.sock",
+    "max_duration_seconds": 60,
+    "request_timeout_seconds": 240
+  }
+}

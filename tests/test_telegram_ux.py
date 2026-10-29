@@ -303,12 +303,11 @@ class TelegramUXTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_voice_echo_uses_one_transcript_and_is_opt_in_bounded_and_deduplicated(self):
         from types import SimpleNamespace
-        from unittest.mock import Mock
         audio = self.root / 'inbox' / 'voice.ogg'
         audio.parent.mkdir(exist_ok=True)
         audio.write_bytes(b'synthetic')
-        transcribe = Mock(return_value='[link](https://example.invalid) ' + 'a' * 2200)
-        self.c.tools = SimpleNamespace(media=SimpleNamespace(transcribe=transcribe))
+        transcribe = AsyncMock(return_value='[link](https://example.invalid) ' + 'a' * 2200)
+        self.c.tools = SimpleNamespace(transcribe=transcribe)
         transcripts = []
         items = await self.c._input('listen', [{'path': str(audio), 'mime': 'audio/ogg'}], transcripts=transcripts)
         self.assertEqual(transcribe.call_count, 1)

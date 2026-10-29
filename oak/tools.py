@@ -139,7 +139,7 @@ SPECS = [
     _spec('oak_montage', 'Join workspace images into a short MP4 slideshow; this does not animate the image contents.',
           {'image_paths': {'type': 'array', 'items': STRING}, 'seconds_per_image': NUMBER}, ['image_paths']),
     _spec('oak_speak', 'Generate local Ukrainian narration and return the audio file.', {'text': STRING}, ['text']),
-    _spec('oak_transcribe', 'Transcribe a Ukrainian audio file from the workspace locally.', {'path': STRING}, ['path']),
+    _spec('oak_transcribe', 'Transcribe a Ukrainian audio file from the workspace using the configured speech recognizer.', {'path': STRING}, ['path']),
     _spec('oak_research', 'Search the public web, read a web page, or obtain public YouTube metadata.',
           {'action': {'type': 'string', 'enum': ['search', 'fetch', 'youtube']}, 'query': STRING}, ['action', 'query']),
     _spec('oak_browser', 'Inspect and operate the browser with open/read/click/type/screenshot/upload/download/wait/tabs/switch. '
@@ -204,7 +204,7 @@ class WorkerComputer:
 
 class Tools:
     specs = SPECS
-    version = 'oak-v19-private-cli-creative-media'
+    version = 'oak-v20-private-speech-broker'
 
     def __init__(self, controller, config, *, desktop=None):
         from .media import MediaTools
@@ -212,6 +212,12 @@ class Tools:
         from .browser import BrowserTools
         self.controller = controller
         self.workspace = Path(controller.cwd).resolve()
+        from .speech_to_text import SpeechToText, configuration as speech_configuration
+        speech = speech_configuration(config)
+        self.speech_to_text = (SpeechToText(speech, (self.workspace, config.get('state_dir'),
+            config.get('runtime_home'))) if speech is not None else None)
+        self._speech_tasks = set()
+        self._speech_closed = False
         self.quality = None
         if type(config.get('quality_review', False)) is not bool:
             raise ValueError('quality_review must be boolean.')
@@ -260,6 +266,14 @@ class Tools:
             await self.executor.start()
 
     async def close(self):
+        if self.speech_to_text is not None:
+            self._speech_closed = True
+            tasks = tuple(task for task in self._speech_tasks if task is not asyncio.current_task())
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            await self.speech_to_text.close()
         if self.executor:
             await self.executor.close()
         else:
@@ -271,7 +285,32 @@ class Tools:
         return await asyncio.to_thread(getattr(self.media, operation), **args)
 
     async def transcribe(self, path):
+        if self.speech_to_text is not None:
+            from .media import ToolUnavailable
+            if self._speech_closed:
+                raise ToolUnavailable('Розпізнавач мовлення зупинено.')
+            if self._speech_tasks:
+                raise ToolUnavailable('Розпізнавач уже обробляє інший запис.')
+            task = asyncio.current_task()
+            self._speech_tasks.add(task)
+            try:
+                return await self._broker_transcribe(path)
+            finally:
+                self._speech_tasks.discard(task)
         return await self.media_call('transcribe', path=str(path))
+
+    async def _broker_transcribe(self, path):
+        from .speech_to_text import MAX_INPUT_BYTES
+        if self.files is not None:
+            existing = self.files.stored(path)
+            snapshot = await self.files.snapshot(path if existing else self.files.path(path),
+                                                 limit=MAX_INPUT_BYTES)
+            try:
+                return await self.speech_to_text.transcribe(snapshot)
+            finally:
+                if not existing:
+                    snapshot.unlink(missing_ok=True)
+        return await self.speech_to_text.transcribe(self.file(path))
 
     def _computer_account(self, chat_id):
         sessions = getattr(self.controller, 'sessions', None)
