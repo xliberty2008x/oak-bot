@@ -7,7 +7,7 @@ private persona and configuration.
 
 Oak uses ChatGPT subscription authentication with `gpt-6.1-sol` by default.
 The owner can explicitly select a runtime-listed model for each session in the
-Mini App. There is no automatic API-key or model fallback.
+Mini App. The LLM runtime has no automatic API-key or model fallback.
 
 ## Capabilities
 
@@ -23,7 +23,7 @@ Mini App. There is no automatic API-key or model fallback.
 | Tools | Workspace files and runtime tools, interactive approvals and follow-up questions |
 | Images | Native image generation when available to the signed-in account; local Unicode title cards and thumbnails |
 | Video | FFmpeg MP4 previews and image montages |
-| Voice | Local Piper narration and local Vosk or optional faster-whisper transcription |
+| Voice | Local Piper narration; local Vosk/faster-whisper, or an explicitly configured speech broker |
 | Research | Public web search, readable pages and public YouTube metadata |
 | Browser | A dedicated Playwright profile with navigation, reading, clicking, typing and screenshots |
 | Computer use | Configured Linux X11 desktop, visual screenshots returned to the model, mouse, keyboard, dragging and scrolling |
@@ -93,7 +93,9 @@ and [bootstrap feature checks](docs/bootstrap.md#reproduce-the-feature-checks-wi
 ## Use in Telegram
 
 Send a task, photo, file or voice message. Send another message while Oak works
-to steer the current task. Voice input requires a configured local recognizer.
+to steer the current task. Voice input requires a configured recognizer.
+An optional [private speech broker](deployment/speech-to-text/GATEWAY.md) can use
+OpenAI transcription with local NeMo fallback, independently of the LLM and TTS.
 
 | Command | Action |
 | --- | --- |

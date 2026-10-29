@@ -742,7 +742,7 @@ class Controller:
                 items.append({'type': 'localImage', 'path': str(destination)})
             elif mime.startswith('audio/') and self.tools and destination.stat().st_size <= 100 * 1024 * 1024:
                 try:
-                    transcript = await asyncio.to_thread(self.tools.media.transcribe, destination)
+                    transcript = await self.tools.transcribe(destination)
                 except (ValueError, ToolUnavailable):
                     details.append('Attached audio available to tools: ' + str(destination))
                 else:

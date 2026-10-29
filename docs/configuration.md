@@ -27,6 +27,7 @@ paths resolve against the configuration file's directory.
 | `piper_model` | Optional local `.onnx` narration model with adjacent `.onnx.json` |
 | `vosk_model` | Optional extracted local speech-recognition model directory |
 | `whisper_model` | Optional local faster-whisper model, used instead of Vosk |
+| `speech_to_text` | Optional trusted gateway speech broker; disabled by default, separate from LLM authentication and local Piper TTS |
 | `search_url` | Optional public SearXNG `/search` URL with JSON output enabled |
 | `computer` | Optional X11 desktop control, with an explicit local display |
 | `web` | Optional authenticated web/Mini App settings described below |
@@ -299,6 +300,40 @@ and the [Vosk catalog](https://alphacephei.com/vosk/models). Use absolute local 
 For optional faster-whisper recognition, install `faster-whisper` in `.venv` and
 supply an existing local model; transcription does not download a model implicitly.
 Small recognition models can mishear speech, so inspect important transcriptions.
+
+### Optional private speech broker
+
+An explicitly enabled `speech_to_text` configuration routes automatic voice input
+and `oak_transcribe` through a separate trusted gateway client. The broker may
+send accepted audio to OpenAI and use local NeMo as fallback; provider access and
+billing must be authorized before enabling it. Credentials belong only to that
+broker, never Oak's JSON config, gateway environment, model home or executor.
+Without this configuration, existing local Vosk/faster-whisper behavior remains.
+
+```json
+{
+  "speech_to_text": {
+    "enabled": false,
+    "broker_socket_path": "/run/oak-stt/asr.sock",
+    "max_duration_seconds": 60,
+    "request_timeout_seconds": 240
+  }
+}
+```
+
+The gateway accepts at most 20 MiB for recognition and decodes at most 60 seconds
+to mono 16 kHz PCM16 in private tmpfs storage. Requests use a private owner-only
+Unix socket, explicit `uk-UA`, bounded responses and no redirects or retries.
+There is one speech job at a time, including executor-file transfer, with no
+waiting queue. Cancellation stops decoding and the local HTTP request; the broker
+owns provider deadlines and fallback behavior. A native CPU fallback can be slow.
+
+The original durable attachments and existing conversation text are preserved.
+Temporary decoded audio and newly created recognition snapshots are removed;
+this does not erase original Telegram attachments or rewrite conversation history.
+No new raw-audio, transcript or provider-error logs are created. Piper narration,
+subscription-backed LLM authentication and selected conversation models stay
+unchanged. See the [gateway rollout and rollback guide](../deployment/speech-to-text/GATEWAY.md).
 
 With a managed desktop, `oak_browser` uses the same visible Chromium context and
 the existing `state_dir/desktop/browser` profile as `oak_computer` (the executor's
