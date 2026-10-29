@@ -236,7 +236,7 @@ class Tools:
             config.get('runtime_home'))) if speech is not None else None)
         self._speech_tasks = set()
         self._speech_closed = False
-        self._gateway_voice_inbox = (Path(config['state_dir']) / 'voice-inbox'
+        self._gateway_voice_inbox = (Path(config['state_dir']).resolve() / 'voice-inbox'
             if config.get('telegram_discard_voice_audio') is True and config.get('state_dir') else None)
         self.quality = None
         if type(config.get('quality_review', False)) is not bool:

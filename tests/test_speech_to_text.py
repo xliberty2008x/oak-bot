@@ -453,6 +453,32 @@ class EphemeralControllerVoiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(list(self.workspace.iterdir()), [])
         self.assertTrue(self.source.exists())
 
+    async def test_configured_state_parent_is_normalized_for_controller_and_executor_tools(self):
+        via = self.root / 'via'
+        via.mkdir()
+        for configured in (str(via / '..' / 'state'), os.path.relpath(self.state)):
+            with self.subTest(configured=configured):
+                self.controller.config['state_dir'] = configured
+                tools = Tools(self.controller, self.controller.config)
+                self.addAsyncCleanup(tools.browser.close)
+                tools.speech_to_text = SimpleNamespace(
+                    transcribe=AsyncMock(return_value='Canonical voice transcript'), close=AsyncMock())
+                tools.executor = SimpleNamespace(close=AsyncMock())
+                self.addAsyncCleanup(tools.close)
+                rpc = SimpleNamespace(call=AsyncMock(side_effect=AssertionError('no worker request')))
+                tools.files = ExecutorFiles(rpc, self.workspace, self.state)
+                self.controller.tools = tools
+                with patch.object(tools.files, 'snapshot', side_effect=AssertionError('no snapshot')), \
+                        patch.object(tools.files, 'write_trusted', side_effect=AssertionError('no workspace copy')):
+                    items = await self.controller._input('', [self.attachment()])
+                self.assertEqual(tools._gateway_voice_inbox, self.voice_inbox)
+                tools.speech_to_text.transcribe.assert_awaited_once_with(self.source)
+                self.assertIn('Canonical voice transcript', items[0]['text'])
+                self.assertTrue(self.source.exists())
+                self.assertFalse((self.workspace / 'inbox').exists())
+                self.assertEqual([path for path in self.workspace.rglob('*') if path.is_file()], [])
+                rpc.call.assert_not_awaited()
+
     async def test_untrusted_symlink_hardlink_and_nested_paths_are_rejected(self):
         outside = self.workspace / 'outside.ogg'
         outside.write_bytes(b'not gateway-owned voice')

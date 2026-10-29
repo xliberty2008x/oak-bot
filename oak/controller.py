@@ -706,7 +706,7 @@ class Controller:
                 if attachment.get('mime') != 'audio/ogg' or not self.config.get('state_dir'):
                     raise ValueError('Unsupported temporary voice attachment location.')
                 source = _gateway_voice_source(attachment.get('path'),
-                    Path(self.config['state_dir']) / 'voice-inbox')
+                    Path(self.config['state_dir']).resolve() / 'voice-inbox')
                 if self.tools is None or not callable(getattr(self.tools, 'transcribe', None)):
                     raise ToolUnavailable('Приватний розпізнавач мовлення недоступний.')
                 # Gateway retains the original until durable acceptance or a
