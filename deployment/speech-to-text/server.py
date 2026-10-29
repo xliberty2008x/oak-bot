@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import select
 import signal
 import socket
 import socketserver
@@ -43,6 +44,15 @@ STOP = threading.Event()
 
 class Unavailable(Exception):
     """Contains a fixed machine code only, never a provider response."""
+
+
+class Cancelled(Exception):
+    """The private gateway peer stopped waiting; never initiate a fallback."""
+
+
+def check_cancelled(cancel):
+    if cancel is not None and cancel.is_set():
+        raise Cancelled
 
 
 def parse_audio(content_type, body):
@@ -244,15 +254,32 @@ class Broker:
     def primary_configured(self):
         return bool(os.environ.get('OPENAI_API_KEY', '').strip())
 
-    def paid(self, audio):
+    def paid(self, audio, cancel=None):
+        check_cancelled(cancel)
         process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--openai-worker'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             env=os.environ.copy())
         try:
-            output, _ = process.communicate(audio, timeout=PAID_DEADLINE)
-        except subprocess.TimeoutExpired:
+            if cancel is None:
+                output, _ = process.communicate(audio, timeout=PAID_DEADLINE)
+            else:
+                end, pending = time.monotonic() + PAID_DEADLINE, audio
+                while True:
+                    check_cancelled(cancel)
+                    remaining = end - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired('openai-worker', PAID_DEADLINE)
+                    try:
+                        output, _ = process.communicate(pending, timeout=min(0.1, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        pending = None
+                check_cancelled(cancel)
+        except (subprocess.TimeoutExpired, Cancelled) as error:
             process.kill()
             process.communicate()
+            if isinstance(error, Cancelled):
+                raise
             raise Unavailable('primary_timeout') from None
         if process.returncode or len(output) > MAX_RESPONSE:
             raise Unavailable('malformed_response')
@@ -267,45 +294,68 @@ class Broker:
             raise Unavailable(reason if reason in allowed else 'malformed_response')
         return transcript(json.dumps({'text': result.get('text')}, ensure_ascii=False).encode())
 
-    def local(self, audio=None):
+    def local(self, audio=None, cancel=None):
+        check_cancelled(cancel)
         timeout = 3 if audio is None else FALLBACK_DEADLINE
         connection = UnixConnection(timeout)
         expired = threading.Event()
+        completed = threading.Event()
+        def interrupt():
+            active = connection.active_socket
+            if active is None:
+                return False
+            try:
+                active.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            return True
         def deadline():
             expired.set()
-            if connection.active_socket is not None:
-                try:
-                    connection.active_socket.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
+            interrupt()
+        def cancellation():
+            while not completed.wait(0.05):
+                if cancel.is_set() and interrupt():
+                    return
         timer = threading.Timer(timeout, deadline)
         timer.daemon = True
         timer.start()
+        monitor = threading.Thread(target=cancellation, daemon=True) if cancel is not None else None
+        if monitor is not None:
+            monitor.start()
         try:
+            check_cancelled(cancel)
             if audio is None:
                 connection.request('GET', '/ready')
             else:
                 body, content_type = multipart(audio, False)
                 connection.request('POST', '/v1/audio/transcriptions', body,
                                    {'Content-Type': content_type})
+            check_cancelled(cancel)
             response = connection.getresponse()
             data = response.read(MAX_RESPONSE + 1)
+            check_cancelled(cancel)
             if response.status != 200 or expired.is_set() or len(data) > MAX_RESPONSE:
                 raise Unavailable('fallback_unavailable')
             return True if audio is None else transcript(data)
         except (OSError, http.client.HTTPException):
+            check_cancelled(cancel)
             raise Unavailable('fallback_unavailable') from None
         finally:
+            completed.set()
+            if monitor is not None:
+                monitor.join()
             timer.cancel()
             timer.join()  # No late watchdog can touch the next request's connection.
             connection.close()
 
-    def transcribe(self, audio, seconds):
+    def transcribe(self, audio, seconds, cancel=None):
+        check_cancelled(cancel)
         reason = 'not_configured'
         if self.primary_configured():
             if self.budget.reserve(seconds):
                 try:
-                    text = self.paid(audio)
+                    text = self.paid(audio, cancel) if cancel is not None else self.paid(audio)
+                    check_cancelled(cancel)
                     self.counts['openai'] += 1
                     return {'text': text, 'provider': 'openai', 'engine': 'gpt-transcribe', 'fallback_reason': None}
                 except Unavailable as error:
@@ -314,8 +364,10 @@ class Broker:
                     reason = 'network_error'
             else:
                 reason = 'local_budget_exhausted'
+        check_cancelled(cancel)
         try:
-            text = self.local(audio)
+            text = self.local(audio, cancel) if cancel is not None else self.local(audio)
+            check_cancelled(cancel)
             self.counts['nemotron'] += 1
             return {'text': text, 'provider': 'nemotron', 'engine': 'nemotron-3.5-asr-streaming-0.6b', 'fallback_reason': reason}
         except Unavailable:
@@ -363,6 +415,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
     def error(self, status, code):
         self.reply(status, {'error': {'code': code}})
+    def watch_peer(self, cancel, completed):
+        # The private client sends one complete request and waits for its reply.
+        # An EOF/half-close or unexpected pipelined input means it no longer
+        # follows that contract. Never consume or log any peer data here.
+        poll = select.poll()
+        try:
+            poll.register(self.connection, select.POLLIN | select.POLLHUP | select.POLLERR
+                          | getattr(select, 'POLLRDHUP', 0))
+            while not completed.is_set():
+                if poll.poll(50):
+                    cancel.set()
+                    return
+        except (OSError, ValueError):
+            if not completed.is_set():
+                cancel.set()
     def do_GET(self):
         if self.path not in ('/ready', '/health'):
             return self.error(404, 'not_found')
@@ -374,6 +441,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not INFERENCE.acquire(blocking=False):
             return self.error(503, 'busy')
         body = audio = None
+        cancel, completed = threading.Event(), threading.Event()
+        monitor = None
         try:
             if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
                 return self.error(400, 'content_length_required')
@@ -397,11 +466,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = b''.join(chunks)
             chunks.clear()
             audio, seconds = parse_audio(self.headers.get('Content-Type', ''), body)
-            result = BROKER.transcribe(audio, seconds)
+            monitor = threading.Thread(target=self.watch_peer, args=(cancel, completed), daemon=True)
+            monitor.start()
+            result = BROKER.transcribe(audio, seconds, cancel=cancel)
+            check_cancelled(cancel)
             self.connection.settimeout(5)
             self.reply(200, result)
         except (socket.timeout, TimeoutError):
             self.error(504, 'timeout')
+        except Cancelled:
+            self.close_connection = True
         except Unavailable:
             self.error(503, 'asr_unavailable')
         except (ValueError, UnicodeError, wave.Error, EOFError):
@@ -409,6 +483,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except (OSError, http.client.HTTPException):
             self.error(503, 'asr_unavailable')
         finally:
+            completed.set()
+            if monitor is not None:
+                monitor.join()
             body = audio = None
             INFERENCE.release()
 

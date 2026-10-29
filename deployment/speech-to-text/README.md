@@ -28,6 +28,18 @@ OpenAI transcript is returned without fallback. The fallback uses explicit
 its own inference cancellation policy. This broker never restarts or edits
 the existing Nemotron service.
 
+The private client sends one complete request and keeps its connection open
+while waiting. If it disconnects, half-closes, or sends unsupported pipelined
+input, the broker kills and reaps its ongoing OpenAI worker, stops waiting on
+the local fallback socket, and does not initiate another provider request.
+Peer and cancellation monitors finish before inference admission is released,
+so a subsequent request can proceed. Already accepted OpenAI requests may
+still be billed; their duration reservations remain counted conservatively.
+An inference already accepted by the separate Nemotron service can continue
+under that service's own deadline (180 seconds in the current deployment).
+Cancelling this broker's wait never restarts or terminates the shared native
+service and does not promise cancellation of work already running there.
+
 Successful JSON contains `text`, `provider`, `engine`, and a fixed
 `fallback_reason` code (null for primary success). `/ready` and `/health`
 report only local configuration, local budget availability, fallback health,

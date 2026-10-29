@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 import urllib.error
@@ -156,6 +158,28 @@ class BrokerTests(unittest.TestCase):
                 result = self.broker.transcribe(wav(), 1)
             self.assertEqual(result['fallback_reason'], 'local_budget_exhausted' if configured else 'not_configured')
 
+    def test_disconnect_after_primary_failure_never_starts_fallback(self):
+        cancel = threading.Event()
+        def disconnected_primary(_audio, _cancel):
+            cancel.set()
+            raise server.Unavailable('network_error')
+        with patch.object(self.broker, 'primary_configured', return_value=True), \
+                patch.object(self.broker, 'paid', side_effect=disconnected_primary), \
+                patch.object(self.broker, 'local', side_effect=AssertionError('must not start fallback')):
+            with self.assertRaises(server.Cancelled):
+                self.broker.transcribe(wav(), 1, cancel=cancel)
+        self.budget.reserve.assert_called_once_with(1)  # Keep uncertain paid reservations.
+
+    def test_already_cancelled_request_cannot_reserve_or_call_a_provider(self):
+        cancel = threading.Event()
+        cancel.set()
+        with patch.object(self.broker, 'paid') as paid, patch.object(self.broker, 'local') as local:
+            with self.assertRaises(server.Cancelled):
+                self.broker.transcribe(wav(), 1, cancel=cancel)
+        self.budget.reserve.assert_not_called()
+        paid.assert_not_called()
+        local.assert_not_called()
+
     def test_ready_uses_local_health_when_primary_not_configured(self):
         with patch.object(self.broker, 'primary_configured', return_value=False), \
                 patch.object(self.broker, 'local', return_value=True):
@@ -191,6 +215,28 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(process.communicate.call_count, 2)
         self.assertEqual(spawn.call_args.kwargs['stderr'], subprocess.DEVNULL)
 
+    def test_cancellable_paid_path_keeps_absolute_deadline_and_reaps_child(self):
+        real_spawn = subprocess.Popen
+        children = []
+        def sleeping_worker(*_args, **kwargs):
+            kwargs['env'] = {'PATH': '/usr/bin:/bin'}
+            child = real_spawn([sys.executable, '-c',
+                'import sys,time;sys.stdin.buffer.read();time.sleep(30)'], **kwargs)
+            children.append(child)
+            return child
+        started = time.monotonic()
+        try:
+            with patch('server.subprocess.Popen', side_effect=sleeping_worker), patch('server.PAID_DEADLINE', 0.08):
+                with self.assertRaisesRegex(server.Unavailable, '^primary_timeout$'):
+                    self.broker.paid(wav(), cancel=threading.Event())
+            self.assertLess(time.monotonic() - started, 1)
+            self.assertIsNotNone(children[0].poll())
+        finally:
+            for child in children:
+                if child.poll() is None:
+                    child.kill()
+                child.wait()
+
     def test_paid_worker_rejects_invalid_result_without_exposing_body(self):
         process = Mock(returncode=0)
         process.communicate.return_value = (b'PRIVATE provider error body', None)
@@ -214,6 +260,79 @@ class BrokerTests(unittest.TestCase):
                 self.broker.local(wav())
         connection.sock.shutdown.assert_called_once()
         connection.close.assert_called_once()
+
+    def test_cancelled_local_wait_closes_socket_and_returns_promptly(self):
+        cancel, reading, stopped = threading.Event(), threading.Event(), threading.Event()
+        connection = Mock()
+        connection.active_socket.shutdown.side_effect = lambda *_args: stopped.set()
+        response = Mock(status=200)
+        def read(_limit):
+            reading.set()
+            stopped.wait(2)
+            return b'{"text":""}'
+        response.read.side_effect = read
+        connection.getresponse.return_value = response
+        outcomes = []
+        def local_request():
+            try:
+                self.broker.local(wav(), cancel=cancel)
+            except Exception as error:
+                outcomes.append(error)
+        with patch('server.UnixConnection', return_value=connection):
+            worker = threading.Thread(target=local_request, daemon=True)
+            worker.start()
+            self.assertTrue(reading.wait(1))
+            cancel.set()
+            worker.join(1)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(len(outcomes), 1)
+        self.assertIsInstance(outcomes[0], server.Cancelled)
+        connection.active_socket.shutdown.assert_called_once()
+        connection.close.assert_called_once()
+
+    def test_cancel_before_fallback_socket_exists_cannot_leave_a_blocked_read(self):
+        cancel, connecting = threading.Event(), threading.Event()
+        inspected, connect_allowed, stopped = threading.Event(), threading.Event(), threading.Event()
+        outcomes = []
+        class DelayedConnection:
+            def __init__(self, _timeout):
+                self._active = None
+            @property
+            def active_socket(self):
+                if cancel.is_set() and self._active is None:
+                    inspected.set()
+                return self._active
+            def request(self, *_args):
+                connecting.set()
+                connect_allowed.wait(2)
+                self._active = Mock()
+                self._active.shutdown.side_effect = lambda *_args: stopped.set()
+            def getresponse(self):
+                response = Mock(status=200)
+                response.read.side_effect = lambda _limit: stopped.wait(2) and b'{"text":""}'
+                return response
+            def close(self): pass
+        def request():
+            try:
+                self.broker.local(wav(), cancel=cancel)
+            except Exception as error:
+                outcomes.append(error)
+        with patch('server.UnixConnection', DelayedConnection):
+            worker = threading.Thread(target=request, daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(connecting.wait(1))
+                cancel.set()
+                self.assertTrue(inspected.wait(1))  # Watcher saw cancellation before connect created a socket.
+                connect_allowed.set()
+                worker.join(0.5)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(len(outcomes), 1)
+                self.assertIsInstance(outcomes[0], server.Cancelled)
+            finally:
+                connect_allowed.set()
+                stopped.set()
+                worker.join(1)
 
     def test_fallback_deadline_interrupts_connection_close_response_body(self):
         # A real HTTPConnection sets .sock=None after Connection: close headers.
@@ -352,7 +471,7 @@ class HTTPTests(unittest.TestCase):
     def test_concurrent_second_upload_is_rejected_while_first_runs(self):
         started, released = threading.Event(), threading.Event()
         results = []
-        def slow_provider(*_args):
+        def slow_provider(*_args, **_kwargs):
             started.set()
             released.wait(3)
             return {'text': 'recognized', 'provider': 'openai'}
@@ -369,6 +488,57 @@ class HTTPTests(unittest.TestCase):
         self.assertFalse(worker.is_alive())
         self.assertEqual(results[0][0], 200)
         self.broker.transcribe.assert_called_once()
+
+    def test_disconnected_peer_kills_paid_child_skips_fallback_and_releases_admission(self):
+        budget = Mock()
+        budget.reserve.return_value = True
+        broker = server.Broker(budget)
+        broker.primary_configured = lambda: True
+        broker.local = Mock(side_effect=AssertionError('cancelled request must not fall back'))
+        server.BROKER = broker
+        children = []
+        started = threading.Event()
+        real_spawn = subprocess.Popen
+        def sleeping_worker(*_args, **kwargs):
+            # A real subprocess with no network, provider credentials, or files.
+            kwargs['env'] = {'PATH': '/usr/bin:/bin'}
+            child = real_spawn([sys.executable, '-c',
+                'import sys,time;sys.stdin.buffer.read();time.sleep(30)'], **kwargs)
+            children.append(child)
+            started.set()
+            return child
+        body, content_type = server.multipart(wav(), False)
+        peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        peer.settimeout(2)
+        peer.connect(self.path)
+        try:
+            with patch('server.subprocess.Popen', side_effect=sleeping_worker):
+                peer.sendall(('POST /v1/audio/transcriptions HTTP/1.1\r\nHost: local\r\n'
+                    'Content-Type: ' + content_type + '\r\nContent-Length: ' + str(len(body))
+                    + '\r\n\r\n').encode() + body)
+                self.assertTrue(started.wait(1))
+                peer.close()
+                deadline = time.monotonic() + 2
+                admitted = False
+                while time.monotonic() < deadline:
+                    if server.INFERENCE.acquire(blocking=False):
+                        server.INFERENCE.release()
+                        admitted = True
+                        break
+                    time.sleep(0.01)
+                self.assertTrue(admitted, 'disconnected request retained inference admission')
+                self.assertIsNotNone(children[0].poll(), 'paid worker was not reaped')
+                broker.local.assert_not_called()
+                with patch.object(broker, 'paid', return_value='next request'):
+                    status, result = self.request(body, {'Content-Type': content_type})
+                self.assertEqual((status, result['text']), (200, 'next request'))
+        finally:
+            peer.close()
+            for child in children:
+                if child.poll() is None:
+                    child.kill()
+                child.wait()
+        self.assertEqual(budget.reserve.call_count, 2)
 
     def test_invalid_file_then_success_recovers_and_upload_limit_is_early(self):
         self.assertEqual(self.request(headers={'Content-Length': str(server.MAX_BODY + 1)})[0], 413)
