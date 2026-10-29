@@ -74,6 +74,32 @@ logs by this broker. Native fallback logging policy belongs to its existing
 wrapper. Provider requests naturally send the accepted audio to OpenAI;
 only explicitly approved live voice input should enter this route.
 
+To discard downloaded Telegram voice messages after recognition, set
+`"telegram_discard_voice_audio": true` in the Oak configuration alongside the
+enabled private speech broker. This opt-in applies only to Telegram `voice`
+messages. Their private download goes directly to STT, without making a
+workspace copy. Once submission is accepted, rejected, failed, or cancelled,
+Oak removes the raw download unless it is still referenced by a pending or
+dispatching durable input. A recognition failure asks the user to resend;
+the raw recording is not retained for a later model tool call.
+
+The dedicated `state_dir/voice-inbox` allows at most 20 MiB per download and
+128 MiB total, including conservative reservations for concurrent downloads.
+Oversized input or a full cache is rejected. A cancelled download checks a
+stop flag and cleans its result even if its blocking thread finishes later.
+The voice download has a 120-second copy deadline with at most a 20-second
+blocking network read, and a separate bounded `getFile` request. On startup
+and hourly, Oak removes owned orphan files older than 24 hours, protecting
+active downloads and durable pending/dispatching inputs. A crash can therefore
+leave bounded temporary audio until the next sweep. Unreadable recovery
+state prevents deletion. No filenames, audio, or transcripts are logged.
+
+This policy does not change ordinary audio documents, photos, videos,
+conversation history, outgoing artifacts, or the independently managed local
+Telegram Bot API cache. It does not delete the original message in Telegram.
+Disable the option to restore the ordinary durable attachment route; existing
+private voice files still need an explicit lifecycle-aware cleanup.
+
 Checking out these templates does not install or start a service. For an
 explicitly configured and authorized deployment:
 

@@ -13,6 +13,7 @@ import re
 import sqlite3
 import stat
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -25,6 +26,9 @@ from .media import ToolUnavailable
 from .rendering import render_markdown
 
 MAX_UPLOAD = 50 * 1024 * 1024
+VOICE_DOWNLOAD_LIMIT = 20 * 1024 * 1024
+VOICE_CACHE_LIMIT = 128 * 1024 * 1024
+VOICE_ORPHAN_AGE = 24 * 3600
 CARD = 'oakA2UICard'  # Outbox-only method; resolved to a rich send or an in-place edit.
 CONTROL_COMMANDS = command_names() - {'/stop', '/new', '/approve', '/deny', '/answer'}
 
@@ -115,6 +119,11 @@ class TelegramGateway:
         self.allowed_user_ids = set(allowed_user_ids)
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        config = getattr(controller, 'config', None)
+        self.discard_voice_audio = isinstance(config, dict) and config.get('telegram_discard_voice_audio') is True
+        self.voice_directory = self.state_dir.resolve() / 'voice-inbox'
+        self._voice_downloads = set()
+        self._active_voice_files = set()
         self.offset_path = self.state_dir / 'telegram-offset.json'
         self.offset = 0
         if self.offset_path.exists():
@@ -587,7 +596,89 @@ class TelegramGateway:
         finally:
             os.close(directory)
 
-    def _download_sync(self, remote_path, destination):
+    def _voice_files(self):
+        root = self.voice_directory
+        if root.is_symlink() or root.resolve() != root:
+            raise ValueError('Invalid voice inbox.')
+        root.mkdir(mode=0o700, exist_ok=True)
+        for path in root.iterdir():
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                continue
+            if (stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == os.geteuid()
+                    and not info.st_mode & 0o077):
+                yield path, info
+
+    def _remove_voice(self, path):
+        path = Path(path)
+        if (path.parent != self.voice_directory or self.voice_directory.is_symlink()
+                or self.voice_directory.resolve() != self.voice_directory):
+            return False
+        try:
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid()
+                    or info.st_mode & 0o077):
+                return False
+            path.unlink()
+            return True
+        except FileNotFoundError:
+            return False
+
+    def _pending_voice_paths(self):
+        # Keep raw input needed by the controller's existing crash recovery.
+        db = getattr(self.controller, 'db', None)
+        if not isinstance(db, sqlite3.Connection):
+            raise ValueError('Input state unavailable.')
+        protected = set()
+        for row in db.execute("SELECT attachments FROM inputs WHERE status IN ('pending','dispatching')"):
+            items = json.loads(row[0])
+            if not isinstance(items, list):
+                raise ValueError('Invalid input state.')
+            for item in items:
+                if not isinstance(item, dict) or not isinstance(item.get('path'), str):
+                    raise ValueError('Invalid input state.')
+                protected.add(item['path'])
+        return protected
+
+    def _cleanup_voice_cache(self, now=None):
+        if not self.discard_voice_audio:
+            return 0
+        try:
+            protected = self._pending_voice_paths() | {str(path) for path in self._active_voice_files}
+            cutoff = (time.time() if now is None else now) - VOICE_ORPHAN_AGE
+            removed = 0
+            for path, info in self._voice_files():
+                owned_name = (re.fullmatch(r'[0-9]+-[0-9a-f]{32}\.ogg', path.name)
+                              or re.fullmatch(r'\.download-[A-Za-z0-9_-]+', path.name))
+                if owned_name and info.st_mtime < cutoff and str(path) not in protected:
+                    removed += self._remove_voice(path)
+            return removed
+        except (OSError, ValueError, sqlite3.Error, TypeError, KeyError):
+            return 0  # Unreadable recovery state must never justify deletion.
+
+    async def _voice_cleanup_loop(self):
+        while True:
+            self._cleanup_voice_cache()
+            await asyncio.sleep(3600)
+
+    def _release_voice_attachments(self, attachments):
+        voices = [Path(item['path']) for item in attachments if item.get('ephemeral_voice') is True]
+        if not voices:
+            return
+        try:
+            pending = self._pending_voice_paths()
+        except (OSError, ValueError, sqlite3.Error, TypeError, KeyError):
+            pending = {str(path) for path in voices}
+        for path in voices:
+            self._active_voice_files.discard(path)
+            if str(path) not in pending:
+                try:
+                    self._remove_voice(path)
+                except OSError:
+                    pass  # The bounded orphan sweep can retry failed cleanup.
+
+    def _download_sync(self, remote_path, destination, *, limit=None, cancel=None):
         if (not isinstance(remote_path, str) or not remote_path
                 or any(part in {'.', '..'} for part in remote_path.split('/'))):
             raise ValueError('Telegram returned an invalid attachment path.')
@@ -598,18 +689,30 @@ class TelegramGateway:
         if destination.parent.is_symlink() or destination.parent.resolve() != destination.parent:
             raise ValueError('Attachment inbox must not be a symlink.')
         fd, temporary = tempfile.mkstemp(prefix='.download-', dir=destination.parent)
+        deadline = time.monotonic() + 120 if limit is not None else None
         try:
             with os.fdopen(fd, 'wb') as output:
+                if cancel is not None and cancel.is_set():
+                    raise ValueError('Voice download cancelled.')
                 if local:
                     source = self._local_attachment(remote_path)
                 else:
                     request = urllib.request.Request(f'{self.api_url}/file/bot{self._token}/{remote_path}')
-                    source = urllib.request.build_opener(_NoRedirect()).open(request, timeout=120)
+                    source = urllib.request.build_opener(_NoRedirect()).open(request, timeout=20 if limit else 120)
                 with source:
+                    size = 0
                     while chunk := source.read(65536):
+                        if ((cancel is not None and cancel.is_set())
+                                or (deadline is not None and time.monotonic() > deadline)):
+                            raise ValueError('Voice download stopped.')
+                        size += len(chunk)
+                        if limit is not None and size > limit:
+                            raise ValueError('Voice message exceeds the download limit.')
                         output.write(chunk)
                 output.flush()
                 os.fsync(output.fileno())
+            if cancel is not None and cancel.is_set():
+                raise ValueError('Voice download cancelled.')
             os.replace(temporary, destination)
         except (OSError, urllib.error.URLError):
             raise TelegramError('download') from None
@@ -637,6 +740,57 @@ class TelegramGateway:
             mime = item.get('mime_type') or mimetypes.guess_type(name)[0] or 'video/mp4'
         else:
             return []
+        ephemeral = self.discard_voice_audio and item is message.get('voice')
+        if ephemeral:
+            if type(item.get('file_size')) is int and item['file_size'] > VOICE_DOWNLOAD_LIMIT:
+                raise ValueError('Voice message exceeds the download limit.')
+            self._cleanup_voice_cache()
+            used = sum(info.st_size for _, info in self._voice_files())
+            if used + (len(self._voice_downloads) + 1) * VOICE_DOWNLOAD_LIMIT > VOICE_CACHE_LIMIT:
+                raise ValueError('Voice inbox is full.')
+            destination = self.voice_directory / f'{update_id}-{uuid.uuid4().hex}.ogg'
+            self._voice_downloads.add(destination)
+            self._active_voice_files.add(destination)
+            cancelled = threading.Event()
+            async def download_voice():
+                info = await self._api('getFile', {'file_id': item['file_id']},
+                                       timeout=40)
+                if cancelled.is_set():
+                    return
+                await asyncio.to_thread(self._download_sync, info['file_path'], destination,
+                                        limit=VOICE_DOWNLOAD_LIMIT, cancel=cancelled)
+            download = asyncio.create_task(download_voice())
+            try:
+                await asyncio.shield(download)
+            except asyncio.CancelledError:
+                cancelled.set()
+                # to_thread can finish after cancellation. Its unique result
+                # is not given to the controller and must be removed then.
+                def finished(task):
+                    self._voice_downloads.discard(destination)
+                    self._active_voice_files.discard(destination)
+                    try:
+                        task.result()
+                    except BaseException:
+                        pass
+                    try:
+                        self._remove_voice(destination)
+                    except OSError:
+                        pass
+                download.add_done_callback(finished)
+                raise
+            except BaseException:
+                self._active_voice_files.discard(destination)
+                try:
+                    self._remove_voice(destination)
+                except OSError:
+                    pass
+                raise
+            finally:
+                if download.done():
+                    self._voice_downloads.discard(destination)
+            return [{'path': str(destination), 'mime': 'audio/ogg', 'name': 'voice.ogg',
+                     'ephemeral_voice': True}]
         info = await self._api('getFile', {'file_id': item['file_id']},
                                timeout=3600 if self.local_directory else 40)
         destination = self.state_dir.resolve() / 'inbox' / f'{update_id}-{name}'
@@ -842,9 +996,9 @@ class TelegramGateway:
             else:
                 # submit checkpoints input before it returns. On uncertain
                 # acceptance propagate the failure without advancing the cursor.
+                attachments = []
                 try:
                     try:
-                        attachments = []
                         sources = album or [update]
                         captions = []
                         for source in sources:
@@ -892,6 +1046,8 @@ class TelegramGateway:
                     except TelegramError:
                         pass
                     raise
+                finally:
+                    self._release_voice_attachments(attachments)
         if not queued:
             self._checkpoint(update_id + 1)
 
@@ -1714,6 +1870,8 @@ class TelegramGateway:
                 self._worker_group = tasks
                 tasks.create_task(self._poll())
                 tasks.create_task(self._render())
+                if self.discard_voice_audio:
+                    tasks.create_task(self._voice_cleanup_loop())
                 scopes = set(self._intake_wake) | {row[0] for row in self.db.execute(
                     "SELECT DISTINCT chat_id FROM intake WHERE status='pending'")}
                 for chat_id in scopes:

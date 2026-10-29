@@ -274,6 +274,65 @@ class GatewaySpeechTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(temporary.exists())
         self.assertTrue(stored.exists())
 
+    async def test_private_gateway_voice_bypasses_executor_copy_and_preserves_original(self):
+        state = self.root / 'state'
+        voice = state / 'voice-inbox' / 'unique.ogg'
+        voice.parent.mkdir(parents=True)
+        voice.write_bytes(wav_bytes())
+        voice.chmod(0o600)
+        tools = Tools(self.controller, {'state_dir': str(state), 'telegram_discard_voice_audio': True})
+        self.addAsyncCleanup(tools.browser.close)
+        tools.speech_to_text = SimpleNamespace(transcribe=AsyncMock(return_value='Temporary voice transcript'))
+        tools.executor = object()
+        tools.files = SimpleNamespace(path=AsyncMock(side_effect=AssertionError('no worker path')),
+                                      snapshot=AsyncMock(side_effect=AssertionError('no snapshot')))
+        self.assertEqual(await tools.transcribe(voice, gateway_voice=True), 'Temporary voice transcript')
+        tools.speech_to_text.transcribe.assert_awaited_once_with(voice)
+        self.assertTrue(voice.exists())
+        self.assertEqual(tools._speech_tasks, set())
+        self.assertFalse((Path(self.controller.cwd) / 'inbox').exists())
+
+    async def test_private_gateway_voice_requires_enabled_root_and_backend(self):
+        voice = self.root / 'voice.ogg'
+        voice.write_bytes(wav_bytes())
+        tools = Tools(self.controller, {})
+        self.addAsyncCleanup(tools.browser.close)
+        tools.media_call = AsyncMock(side_effect=AssertionError('no executor ASR fallback'))
+        with self.assertRaises(ToolUnavailable):
+            await tools.transcribe(voice, gateway_voice=True)
+        tools.speech_to_text = SimpleNamespace(transcribe=AsyncMock())
+        with self.assertRaises(ValueError):
+            await tools.transcribe(voice, gateway_voice=True)
+        tools.speech_to_text.transcribe.assert_not_awaited()
+        self.assertTrue(voice.exists())
+
+    async def test_close_tracks_private_gateway_transcription_without_deleting_original(self):
+        state = self.root / 'state'
+        voice = state / 'voice-inbox' / 'unique.ogg'
+        voice.parent.mkdir(parents=True)
+        voice.write_bytes(wav_bytes())
+        voice.chmod(0o600)
+        tools = Tools(self.controller, {'state_dir': str(state), 'telegram_discard_voice_audio': True})
+        started = asyncio.Event()
+        async def pending(_source):
+            started.set()
+            await asyncio.Event().wait()
+        tools.speech_to_text = SimpleNamespace(transcribe=AsyncMock(side_effect=pending), close=AsyncMock())
+        task = asyncio.create_task(tools.transcribe(voice, gateway_voice=True))
+        try:
+            await asyncio.wait_for(started.wait(), 1)
+            with self.assertRaises(ToolUnavailable):
+                await tools.transcribe(voice, gateway_voice=True)
+            await asyncio.wait_for(tools.close(), 1)
+            self.assertTrue(task.cancelled())
+            self.assertTrue(voice.exists())
+            self.assertEqual(tools._speech_tasks, set())
+            tools.speech_to_text.close.assert_awaited_once()
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            await tools.browser.close()
+
     async def test_automatic_legacy_owner_input_uses_gateway_hook_and_keeps_durable_attachment(self):
         workspace = self.root / 'workspace'
         workspace.mkdir()
@@ -351,6 +410,144 @@ class GatewaySpeechTests(unittest.IsolatedAsyncioTestCase):
         tools.speech_to_text.transcribe.assert_not_awaited()
         tools.speech_to_text.close.assert_awaited_once()
         tools.executor.close.assert_awaited_once()
+
+
+class EphemeralControllerVoiceTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        self.workspace = self.root / 'workspace'
+        self.workspace.mkdir()
+        self.state = self.root / 'state'
+        self.voice_inbox = self.state / 'voice-inbox'
+        self.voice_inbox.mkdir(parents=True, mode=0o700)
+        self.source = self.voice_inbox / 'unique.ogg'
+        self.source.write_bytes(b'synthetic ephemeral voice')
+        self.source.chmod(0o600)
+        self.controller = Controller(AsyncMock(), ':memory:', self.workspace, AsyncMock(),
+            config={'state_dir': str(self.state), 'telegram_discard_voice_audio': True})
+        self.addCleanup(self.controller.close)
+        self.controller.tools = SimpleNamespace(transcribe=AsyncMock(return_value='Synthetic transcript'), files=None)
+
+    def attachment(self, path=None, **updates):
+        return {'path': str(path or self.source), 'mime': 'audio/ogg', 'ephemeral_voice': True, **updates}
+
+    async def test_success_uses_original_transcript_echo_without_workspace_copy(self):
+        transcripts = []
+        with patch('oak.controller.shutil.copyfile', side_effect=AssertionError('no audio copy')):
+            items = await self.controller._input('', [self.attachment()], transcripts=transcripts)
+        self.controller.tools.transcribe.assert_awaited_once_with(self.source, gateway_voice=True)
+        self.assertEqual(transcripts, ['Synthetic transcript'])
+        self.assertIn('Голосове повідомлення:\nSynthetic transcript', items[0]['text'])
+        self.assertNotIn(str(self.source), items[0]['text'])
+        self.assertEqual(list(self.workspace.iterdir()), [])
+        self.assertEqual(self.source.read_bytes(), b'synthetic ephemeral voice')
+
+    async def test_executor_mode_also_never_writes_a_workspace_copy(self):
+        self.controller.tools.files = SimpleNamespace(
+            snapshot=AsyncMock(side_effect=AssertionError('no executor snapshot')),
+            write_trusted=AsyncMock(side_effect=AssertionError('no workspace write')))
+        await self.controller._input('', [self.attachment()])
+        self.controller.tools.transcribe.assert_awaited_once_with(self.source, gateway_voice=True)
+        self.assertEqual(list(self.workspace.iterdir()), [])
+        self.assertTrue(self.source.exists())
+
+    async def test_untrusted_symlink_hardlink_and_nested_paths_are_rejected(self):
+        outside = self.workspace / 'outside.ogg'
+        outside.write_bytes(b'not gateway-owned voice')
+        linked = self.voice_inbox / 'linked.ogg'
+        linked.symlink_to(outside)
+        hardlink = self.voice_inbox / 'hardlink.ogg'
+        os.link(outside, hardlink)
+        nested = self.voice_inbox / 'nested' / 'voice.ogg'
+        nested.parent.mkdir()
+        nested.write_bytes(b'synthetic voice')
+        for path in (outside, linked, hardlink, nested, self.voice_inbox, self.voice_inbox / 'missing.ogg'):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                await self.controller._input('', [self.attachment(path)])
+        self.controller.tools.transcribe.assert_not_awaited()
+        self.assertTrue(outside.exists())
+        self.assertTrue(self.source.exists())
+
+    async def test_symlinked_voice_directory_and_wrong_mime_are_rejected(self):
+        with self.assertRaises(ValueError):
+            await self.controller._input('', [self.attachment(mime='application/octet-stream')])
+        actual = self.state / 'real-voice-inbox'
+        self.voice_inbox.rename(actual)
+        self.voice_inbox.symlink_to(actual, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            await self.controller._input('', [self.attachment()])
+        self.controller.tools.transcribe.assert_not_awaited()
+        self.assertTrue((actual / self.source.name).exists())
+
+    async def test_voice_file_must_be_private_and_owned_by_this_gateway(self):
+        self.source.chmod(0o644)
+        with self.assertRaises(ValueError):
+            await self.controller._input('', [self.attachment()])
+        self.source.chmod(0o600)
+        with patch('oak.tools.os.geteuid', return_value=os.geteuid() + 1):
+            with self.assertRaises(ValueError):
+                await self.controller._input('', [self.attachment()])
+        self.controller.tools.transcribe.assert_not_awaited()
+        self.assertTrue(self.source.exists())
+
+    async def test_asr_failure_propagates_and_preserves_original_for_gateway_cleanup(self):
+        for error in (ToolUnavailable('safe ASR unavailable'), ValueError('invalid audio')):
+            self.controller.tools.transcribe.side_effect = error
+            transcripts = []
+            with self.subTest(error=type(error).__name__), self.assertRaises(type(error)):
+                await self.controller._input('', [self.attachment()], transcripts=transcripts)
+            self.assertTrue(self.source.exists())
+            self.assertEqual(transcripts, [])
+            self.assertFalse((self.workspace / 'inbox').exists())
+
+    async def test_recovered_pending_voice_becomes_terminal_on_asr_unavailability(self):
+        attachments = [self.attachment()]
+        with self.controller.db:
+            self.controller.db.execute('INSERT INTO inputs(update_id,chat_id,text,status,attachments) '
+                'VALUES (?,?,?,\'pending\',?)', (101, 7, '', json.dumps(attachments)))
+        self.controller.tools.transcribe.side_effect = ToolUnavailable('safe ASR unavailable')
+        with self.assertRaises(ToolUnavailable):
+            await self.controller.submit(7, '', 101, attachments=attachments)
+        row = self.controller.db.execute('SELECT status FROM inputs WHERE update_id=101').fetchone()
+        self.assertEqual(row['status'], 'failed')
+        self.controller.client.request.assert_not_awaited()
+        self.assertTrue(self.source.exists())  # Only the gateway may clean up the original.
+        self.assertFalse((self.workspace / 'inbox').exists())
+
+    async def test_cancellation_preserves_original_without_later_model_tool_reference(self):
+        started = asyncio.Event()
+        async def pending(*_args, **_kwargs):
+            started.set()
+            await asyncio.Event().wait()
+        self.controller.tools.transcribe.side_effect = pending
+        task = asyncio.create_task(self.controller._input('', [self.attachment()]))
+        await asyncio.wait_for(started.wait(), 1)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        self.assertTrue(task.cancelled())
+        self.assertTrue(self.source.exists())
+        self.assertEqual(list(self.workspace.iterdir()), [])
+
+    async def test_missing_backend_is_a_safe_error_and_preserves_original(self):
+        self.controller.tools = None
+        with self.assertRaises(ToolUnavailable):
+            await self.controller._input('', [self.attachment()])
+        self.assertTrue(self.source.exists())
+
+    async def test_default_and_non_boolean_marker_preserve_ordinary_attachments(self):
+        ordinary = self.workspace / 'ordinary.ogg'
+        ordinary.write_bytes(b'ordinary retained audio')
+        for enabled, marker in ((False, True), (True, 1), (True, None)):
+            self.controller.config['telegram_discard_voice_audio'] = enabled
+            self.controller.tools.transcribe.reset_mock()
+            items = await self.controller._input('', [self.attachment(ordinary, ephemeral_voice=marker)])
+            copied = self.workspace / 'inbox' / ordinary.name
+            self.controller.tools.transcribe.assert_awaited_once_with(copied)
+            self.assertIn('Synthetic transcript', items[0]['text'])
+            self.assertEqual(copied.read_bytes(), b'ordinary retained audio')
+            self.assertTrue(ordinary.exists())
 
 
 if __name__ == '__main__':
