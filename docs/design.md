@@ -142,9 +142,13 @@ are separate features.
 
 `oak/context.py` reads only explicitly configured instructions and memory files.
 These provide startup context. `oak/memory.py` stores independently editable,
-chat-scoped notes and retrieves them with SQLite full-text search. New runtime
-sessions receive selected recent notes; tools can search or change memory during
-an ongoing conversation.
+chat-scoped notes and retrieves them with SQLite full-text search. Notes retain
+creation time and server-assigned writer provenance: direct owner entry, agent
+entry tied to a runtime turn, selected import, or unverified legacy origin.
+Writer provenance is not proof of truth or action authorization. New runtime
+sessions receive a bounded, complete JSON index of recent notes, with explicit
+excerpt and omission flags; tools can search full notes during an ongoing
+conversation. See the [Nod comparison and memory hardening rationale](nod-audit.md).
 
 The importer accepts selected plain text or a JSON folder containing `profile`
 and `logs`. It does not discover remote memories automatically. When another
