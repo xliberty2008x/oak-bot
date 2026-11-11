@@ -15,6 +15,9 @@ class MemoryStore:
             CREATE TABLE IF NOT EXISTS memory_notes (
                 id TEXT PRIMARY KEY, chat_id INTEGER NOT NULL, text TEXT NOT NULL,
                 source TEXT NOT NULL, created REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS memory_origins (
+                note_id TEXT PRIMARY KEY, kind TEXT NOT NULL,
+                thread_id TEXT, turn_id TEXT);
             CREATE TABLE IF NOT EXISTS web_memory_operations (
                 chat_id INTEGER NOT NULL, operation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
                 result TEXT NOT NULL, PRIMARY KEY(chat_id,operation_id));
@@ -127,7 +130,23 @@ class MemoryStore:
         with self.db:
             return self._remember(chat_id, text, source)
 
-    def _remember(self, chat_id, text, source):
+    def remember_agent(self, chat_id, text, *, thread_id, turn_id):
+        """Record the writer's runtime identity, not evidence of owner consent.
+
+        Routing IDs must come from the trusted dispatch envelope, never the
+        model's tool arguments. The dispatcher checks the current active turn.
+        """
+        for value in (thread_id, turn_id):
+            if (not isinstance(value, str) or not 0 < len(value) <= 256
+                    or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)):
+                raise ValueError('Agent memory requires valid runtime routing.')
+        with self.db:
+            return self._remember(chat_id, text, 'agent',
+                                  origin=('agent', thread_id, turn_id))
+
+    def _remember(self, chat_id, text, source, *, origin=None):
+        if not isinstance(text, str):
+            raise ValueError('Memory note must be text.')
         text = text.strip()
         if not text or len(text) > 32000:
             raise ValueError('Нотатка має містити від 1 до 32000 символів.')
@@ -135,22 +154,60 @@ class MemoryStore:
         self.db.execute('INSERT INTO memory_notes VALUES (?,?,?,?,?)',
                         (note_id, chat_id, text, source, time.time()))
         self.db.execute('INSERT INTO memory_search VALUES (?,?,?)', (note_id, chat_id, text))
+        # Existing rows without this companion record stay explicitly legacy:
+        # their old source='owner' could also have been written by the model.
+        kind, thread_id, turn_id = origin or ('owner' if source == 'owner' else 'legacy', None, None)
+        self.db.execute('INSERT INTO memory_origins VALUES (?,?,?,?)',
+                        (note_id, kind, thread_id, turn_id))
         return note_id
 
     def search(self, chat_id, query='', limit=10, offset=0):
+        if not isinstance(query, str) or len(query) > 8000:
+            raise ValueError('Memory query must be text of at most 8000 characters.')
         limit = max(1, min(int(limit), 50))
         if type(offset) is not int or not 0 <= offset <= 10000:
             raise ValueError('Invalid memory offset.')
-        words = re.findall(r'[^\W_]+', query, re.UNICODE)
-        if words:
-            rows = self.db.execute('''SELECT n.id,n.text,n.source FROM memory_search s
-                JOIN memory_notes n ON n.id=s.id WHERE memory_search MATCH ?
-                AND n.chat_id=? ORDER BY rank,n.created DESC,n.id LIMIT ? OFFSET ?''',
+        words = re.findall(r'[^\W_]+', query, re.UNICODE)[:80]
+        selection = ("n.id,n.text,n.source,n.created,COALESCE(o.kind,'legacy'),"
+                     'o.thread_id,o.turn_id')
+        exact = []
+        if re.fullmatch(r'[a-f0-9]{12}', query.strip()):
+            exact = self.db.execute('SELECT ' + selection + ' FROM memory_notes n '
+                'LEFT JOIN memory_origins o ON o.note_id=n.id WHERE n.chat_id=? AND n.id=?',
+                (chat_id, query.strip())).fetchall()
+        if exact:
+            rows = exact[offset:offset + limit]
+        elif words:
+            rows = self.db.execute('SELECT ' + selection + """ FROM memory_search s
+                JOIN memory_notes n ON n.id=s.id
+                LEFT JOIN memory_origins o ON o.note_id=n.id WHERE memory_search MATCH ?
+                AND n.chat_id=? ORDER BY rank,n.created DESC,n.id LIMIT ? OFFSET ?""",
                 (' OR '.join('"' + w + '"' for w in words), chat_id, limit, offset))
         else:
-            rows = self.db.execute('SELECT id,text,source FROM memory_notes WHERE chat_id=? '
-                                   'ORDER BY created DESC,id LIMIT ? OFFSET ?', (chat_id, limit, offset))
-        return [dict(zip(('id', 'text', 'source'), row)) for row in rows]
+            rows = self.db.execute('SELECT ' + selection + ' FROM memory_notes n '
+                                   'LEFT JOIN memory_origins o ON o.note_id=n.id WHERE n.chat_id=? '
+                                   'ORDER BY n.created DESC,n.id LIMIT ? OFFSET ?', (chat_id, limit, offset))
+        return [{'id': row[0], 'text': row[1], 'source': row[2], 'created': row[3],
+                 'provenance': {'kind': row[4], 'thread_id': row[5], 'turn_id': row[6]}}
+                for row in rows]
+
+    def context(self, chat_id):
+        """Return complete JSON within the startup budget, with explicit omissions.
+
+        This is a bounded index, not a truncated JSON document or a statement
+        that these notes are true. Full notes remain available through search.
+        """
+        candidates = self.search(chat_id, limit=21)
+        snapshot = {'notes': [], 'has_more': len(candidates) > 20}
+        for note in candidates[:20]:
+            excerpt = {**note, 'text': note['text'][:2000],
+                       'text_truncated': len(note['text']) > 2000}
+            snapshot['notes'].append(excerpt)
+            if len(json.dumps(snapshot, ensure_ascii=False)) > 24000:
+                snapshot['notes'].pop()
+                snapshot['has_more'] = True
+                break
+        return json.dumps(snapshot, ensure_ascii=False)
 
     def forget(self, chat_id, note_id):
         with self.db:
@@ -161,6 +218,7 @@ class MemoryStore:
                                 (note_id, chat_id)).rowcount
         if found:
             self.db.execute('DELETE FROM memory_search WHERE id=? AND chat_id=?', (note_id, chat_id))
+            self.db.execute('DELETE FROM memory_origins WHERE note_id=?', (note_id,))
         return bool(found)
 
     def change(self, chat_id, operation_id, action, value):
@@ -209,10 +267,6 @@ class MemoryStore:
         with self.db:
             for text in notes:
                 if text.strip():
-                    note_id = uuid.uuid4().hex[:12]
-                    self.db.execute('INSERT INTO memory_notes VALUES (?,?,?,?,?)',
-                                    (note_id, chat_id, text.strip(), 'import:' + source.name, time.time()))
-                    self.db.execute('INSERT INTO memory_search VALUES (?,?,?)',
-                                    (note_id, chat_id, text.strip()))
-                    ids.append(note_id)
+                    ids.append(self._remember(chat_id, text, 'import:' + source.name,
+                                              origin=('import', None, None)))
         return ids
