@@ -140,6 +140,10 @@ Read the [architecture](docs/design.md), [configuration](docs/configuration.md)
 and [validation record](docs/validation.md). Keep account credentials, browser
 profiles, private instructions, user data and generated artifacts out of commits.
 
+The opt-in [SIP voice prototype](docs/voice-sip-prototype.md) provides a standalone
+offline MCP control service and separately disabled OpenAI SIP adapters. It is not
+registered in the normal runtime and does not enable calls or API billing.
+
 The opt-in [media procedure pilot](docs/media-harness-pilot.md) compares the
 current Oak guidance with two proposed procedures on six development tasks,
 then checks a frozen challenger on six held-out tasks using local synthetic media.

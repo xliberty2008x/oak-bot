@@ -4,6 +4,29 @@ Validation separates source-level checks, real local operations, model calls and
 Telegram delivery. A working adapter alone does not establish that every provider
 or deployed conversation has been verified end to end.
 
+## Standalone SIP voice prototype — 2026-11-11
+
+- `python -m unittest discover -s tests -p 'test_voice_*.py' -v`: **64 passed**
+  in the prepared Python 3.12 test environment, including 55 new control/MCP/API
+  tests and 9 existing transient-voice cleanup checks.
+- The standalone MCP executable was launched through stdin/stdout with synthetic
+  requests. Scope isolation, crash recovery, duplicate attempts, cancellation,
+  strict tool arguments and private local state were checked without credentials.
+- Realtime accept/reject/hangup, SDK webhook verification handoff, and GPT-Live
+  outbound creation/hangup were checked with mocked HTTPS/SDK boundaries. These
+  do not verify provider connectivity or real signature cryptography.
+- Module compilation and `git diff --check` passed. No dependency or automatic
+  runtime registration was added; the normal subscription-backed runtime is unchanged.
+- Repository-wide discovery was attempted, but is not a green check in this
+  sandbox. The same existing fixture/Unix-socket failures were reproduced on
+  untouched main (`6d3b2a1`): the selected 11-test baseline subset had 1 failure
+  and 7 errors, including `AF_UNIX` creation rejected with `Operation not permitted`.
+  This does not establish a complete repository regression pass.
+- Not run: live OpenAI calls, carrier/SIP access, paid transactions, real audio,
+  model conversations, Ukrainian speech quality, deployment or live Telegram.
+  Trunk compatibility, approved live-action persistence, sideband supervision,
+  duration/spend enforcement and production gateway wiring remain required.
+
 ## Completed checks
 
 - An earlier integrated validation passed all 71 tests. New feature checks and
