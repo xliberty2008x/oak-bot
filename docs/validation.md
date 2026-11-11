@@ -6,8 +6,8 @@ or deployed conversation has been verified end to end.
 
 ## Standalone SIP voice prototype — 2026-11-11
 
-- `python -m unittest discover -s tests -p 'test_voice_*.py' -v`: **64 passed**
-  in the prepared Python 3.12 test environment, including 55 new control/MCP/API
+- `python -m unittest discover -s tests -p 'test_voice_*.py' -v`: **68 passed**
+  in the prepared Python 3.12 test environment, including 59 new control/MCP/API
   tests and 9 existing transient-voice cleanup checks.
 - The standalone MCP executable was launched through stdin/stdout with synthetic
   requests. Scope isolation, crash recovery, duplicate attempts, cancellation,
@@ -17,11 +17,13 @@ or deployed conversation has been verified end to end.
   do not verify provider connectivity or real signature cryptography.
 - Module compilation and `git diff --check` passed. No dependency or automatic
   runtime registration was added; the normal subscription-backed runtime is unchanged.
-- Repository-wide discovery was attempted, but is not a green check in this
-  sandbox. The same existing fixture/Unix-socket failures were reproduced on
-  untouched main (`6d3b2a1`): the selected 11-test baseline subset had 1 failure
-  and 7 errors, including `AF_UNIX` creation rejected with `Operation not permitted`.
-  This does not establish a complete repository regression pass.
+- Initial repository-wide discovery ran 1,936 tests with 8 failures, 27 errors
+  and 252 skips. It found one new test-fixture dependency on the process umask;
+  that fixture was corrected and the focused suite passed with umask 077.
+  All other 34 failed cases reproduced on untouched main (`6d3b2a1`): 7 failures
+  and 27 errors from restricted Unix sockets, unavailable render isolation and
+  missing Chromium. No guards were weakened. This initial run preceded the last
+  adapter tests; the final focused checks, not a full-suite pass, cover those.
 - Not run: live OpenAI calls, carrier/SIP access, paid transactions, real audio,
   model conversations, Ukrainian speech quality, deployment or live Telegram.
   Trunk compatibility, approved live-action persistence, sideband supervision,

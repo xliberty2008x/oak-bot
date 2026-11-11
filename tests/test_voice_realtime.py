@@ -50,12 +50,23 @@ class RealtimeSipTests(unittest.TestCase):
         self.assertEqual(self.conn.request.call_args.args[1], "/v1/realtime/calls/rtc_123/hangup")
         self.authorize.assert_called_with("rtc_123", "hangup", None)
 
-    def test_call_id_injection_rejected(self):
-        for value in ("", "../accept", "x?key=y", "x/y", "x\n", "☃", "x" * 257, None):
+    def test_invalid_call_ids_rejected(self):
+        for value in ("", "\ud800", "x" * 4097, "☃" * 1366, None):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.client.hangup(value)
         self.factory.assert_not_called()
         self.assertEqual(validate_call_id("rtc_u1-123"), "rtc_u1-123")
+
+    def test_opaque_call_ids_are_preserved_and_encoded_once(self):
+        for value, encoded in (("x/y?z#q%20", "x%2Fy%3Fz%23q%2520"),
+                               ("☃", "%E2%98%83"), (".", "%2E"),
+                               ("..", "%2E%2E"), ("...", "%2E%2E%2E"),
+                               (" x\n", "%20x%0A"), ("x" * 4096, "x" * 4096)):
+            with self.subTest(value=value):
+                self.client.hangup(value)
+                self.assertEqual(self.conn.request.call_args.args[1],
+                                 "/v1/realtime/calls/" + encoded + "/hangup")
+                self.authorize.assert_called_with(value, "hangup", None)
 
     def test_invalid_configuration(self):
         for timeout in (0, -1, 31, float("nan"), float("inf"), True, "10"):
@@ -137,12 +148,23 @@ class WebhookVerificationTests(unittest.TestCase):
                 self.run_verify(headers=headers)
         self.sdk.webhooks.unwrap.assert_not_called()
 
+    def test_verified_call_and_event_ids_are_opaque(self):
+        self.sdk.webhooks.unwrap.return_value.data.call_id = " ☃/call?#% " + "x" * 300
+        self.sdk.webhooks.unwrap.return_value.id = "event/☃?%#" + "x" * 300
+        result = self.run_verify()
+        self.assertEqual(result["call_id"], self.sdk.webhooks.unwrap.return_value.data.call_id)
+        self.assertEqual(result["event_id"], self.sdk.webhooks.unwrap.return_value.id)
+        for invalid in ("", "\ud800", "x" * 4097):
+            self.sdk.webhooks.unwrap.return_value.id = invalid
+            with self.assertRaises(RealtimeControlError):
+                self.run_verify()
+
     def test_wrong_event_and_bad_call_id_fail_closed(self):
         self.sdk.webhooks.unwrap.return_value.type = "live.transport.incoming"
         with self.assertRaises(RealtimeControlError):
             self.run_verify()
         self.sdk.webhooks.unwrap.return_value.type = "realtime.call.incoming"
-        self.sdk.webhooks.unwrap.return_value.data.call_id = "../bad"
+        self.sdk.webhooks.unwrap.return_value.data.call_id = ""
         with self.assertRaises(RealtimeControlError):
             self.run_verify()
 

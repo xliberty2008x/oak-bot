@@ -13,7 +13,7 @@ import ipaddress
 import json
 import re
 
-from oak.voice_realtime import RealtimeControlError, RealtimeSipClient, validate_call_id
+from oak.voice_realtime import RealtimeControlError, RealtimeSipClient, validate_call_id, encode_provider_id
 
 
 @dataclass(frozen=True, repr=False)
@@ -32,6 +32,13 @@ class LiveAction:
     provider_url: str = ""
     instructions_sha256: str = ""
     session_id: str = ""
+
+
+def _intent_id(value: str) -> str:
+    # Local application intent keys are not opaque provider identifiers.
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", value):
+        raise ValueError("Invalid local intent identifier")
+    return value
 
 
 def _text(value: str, label: str, limit: int) -> str:
@@ -111,7 +118,7 @@ class LiveSipClient:
               provider_url: str, username: str, password: str, model: str,
               instructions: str, voice: str = "marin") -> str:
         """Return initialized session ID, NOT proof the callee answered."""
-        intent_id = validate_call_id(intent_id)
+        intent_id = _intent_id(intent_id)
         destination, caller_number = _number(destination), _number(caller_number)
         provider_url = validate_provider_url(provider_url)
         username = _text(username, "SIP username", 256)
@@ -139,9 +146,9 @@ class LiveSipClient:
 
     def hangup(self, session_id: str, *, intent_id: str) -> None:
         session_id = validate_call_id(session_id)
-        action = LiveAction(validate_call_id(intent_id), "hangup", hashlib.sha256(b"").hexdigest(),
+        action = LiveAction(_intent_id(intent_id), "hangup", hashlib.sha256(b"").hexdigest(),
                             session_id=session_id)
-        self._post("/v1/live/sessions/" + session_id + "/hangup", None, action, create=False)
+        self._post("/v1/live/sessions/" + encode_provider_id(session_id) + "/hangup", None, action, create=False)
 
     def _post(self, path: str, body: bytes | None, action: LiveAction, *, create: bool):
         if not self._enabled:

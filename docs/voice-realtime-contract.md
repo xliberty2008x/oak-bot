@@ -77,7 +77,10 @@ A future receiver must implement this sequence:
    installed or added to Oak's requirements by this change.
 3. Require the expected event type and a valid provider `data.call_id`.
    SIP `From`, `To`, and `Call-ID` headers are untrusted metadata, not owner
-   identity or authorization. The adapter rejects path/query/control characters.
+   identity or authorization. Provider call and event IDs remain unchanged opaque strings (nonempty, UTF-8
+   encodable, at most 4096 bytes). Before insertion into request paths, IDs are
+   percent-encoded exactly once as single segments, including literal percent
+   signs and dot-only segments; no trimming or Unicode normalization occurs.
 4. Durably deduplicate webhook deliveries and maintain a single decision owner
    per call. Store minimal operational identifiers; do not retain raw payloads,
    phone numbers, transcripts, prompts or credentials in logs.
@@ -141,7 +144,7 @@ or returning an error does not undo an accepted call.
 
 Run `python -m unittest discover -s tests -p test_voice_realtime.py -v`.
 All tests mock HTTPS and use dummy credentials. They cover exact payloads and
-routes, disabled mode, call/action authorization, ID/header injection, timeout
+routes, disabled mode, call/action authorization, opaque-ID path encoding and header injection, timeout
 bounds, redaction, no retry, no response-body reads and connection closure.
 These are protocol unit checks, not live provider, SIP or voice tests.
 
@@ -204,7 +207,7 @@ subset of hostnames; it does not perform DNS resolution or certify provider rout
 Provider endpoint checks and account restrictions still apply server-side.
 
 The response is read with a 16 KiB limit, decoded as UTF-8 and parsed with duplicate
-keys and non-finite constants rejected. It must identify SIP transport and a path-safe opaque session ID.
+keys and non-finite constants rejected. It must identify SIP transport and an opaque session ID (nonempty, UTF-8 encodable, at most 4096 bytes).
 Only the ID is returned; extra response data is discarded. Invalid/truncated/oversized
 responses are uncertain, even after a successful HTTP code: a real call may exist.
 Errors and redirects are not followed, retried, or read for messages. Transport
@@ -215,3 +218,6 @@ mock tests. They validate wire payloads, approval fingerprint binding, input
 rejection, bounded responses, failure redaction, no retry and the 200/201 discrepancy.
 No real SIP, provider enrollment, model conversation, audio or billable API behavior
 has been verified. Provider choice remains open; this adapter is provider-neutral.
+
+Local outbound intent IDs retain a separate restricted application grammar. They
+are not provider session IDs; signed webhook call/event IDs use the opaque contract.

@@ -56,6 +56,29 @@ class LiveSipTests(unittest.TestCase):
         self.assertEqual((action.action, action.session_id, action.intent_id), ("hangup", "live_123", "end_123"))
         self.response.read.assert_not_called()
 
+    def test_opaque_session_ids_roundtrip_and_encode_once(self):
+        for value, encoded in (("live/☃?x#y%20", "live%2F%E2%98%83%3Fx%23y%2520"),
+                               (".", "%2E"), ("..", "%2E%2E"), ("...", "%2E%2E%2E"),
+                               (" x\n", "%20x%0A"), ("x" * 4096, "x" * 4096)):
+            with self.subTest(value=value):
+                self.response.status = 201
+                self.response.read.return_value = json.dumps({"session":{"id":value},
+                                                             "transport":{"type":"sip"}}).encode()
+                self.assertEqual(self.client.start(**self.args), value)
+                self.response.status = 200
+                self.client.hangup(value, intent_id="end")
+                self.assertEqual(self.conn.request.call_args.args[1],
+                                 "/v1/live/sessions/" + encoded + "/hangup")
+                self.assertEqual(self.authorize.call_args.args[0].session_id, value)
+
+    def test_invalid_session_ids_in_creation_response_are_uncertain(self):
+        for value in ("\ud800", "x" * 4097, "☃" * 1366):
+            self.response.read.return_value = json.dumps({"session":{"id":value},
+                                                         "transport":{"type":"sip"}}).encode()
+            with self.assertRaises(RealtimeControlError) as raised:
+                self.client.start(**self.args)
+            self.assertTrue(raised.exception.outcome_uncertain)
+
     def test_default_and_denial_make_no_network_request(self):
         for client in (LiveSipClient(), LiveSipClient(live_enabled=True),
                        LiveSipClient(live_enabled=True, api_key="test")):
@@ -74,7 +97,7 @@ class LiveSipTests(unittest.TestCase):
                            ("instructions", ""), ("voice", "a\n")):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 self.client.start(**{**self.args, key:value})
-        for session_id in ("../x", "x?secret", "", None):
+        for session_id in ("", None, "\ud800", "x" * 4097):
             with self.assertRaises(ValueError):
                 self.client.hangup(session_id, intent_id="end")
         self.authorize.assert_not_called()
@@ -112,7 +135,7 @@ class LiveSipTests(unittest.TestCase):
 
     def test_bad_response_is_uncertain(self):
         for response in (b"x" * 16385, b"not-json", b"[]", b"{}", b"\xff",
-                         b'{"session":{"id":"../bad"},"transport":{"type":"sip"}}',
+                         b'{"session":{"id":""},"transport":{"type":"sip"}}',
                          b'{"session":{"id":"live_123"},"transport":{"type":"webrtc"}}',
                          b'{"session":{"id":"live_123","id":"other"},"transport":{"type":"sip"}}'):
             self.response.read.return_value = response

@@ -8,7 +8,7 @@ from __future__ import annotations
 import http.client
 import json
 import math
-import re
+from urllib.parse import quote
 from collections.abc import Callable
 
 
@@ -23,10 +23,25 @@ class RealtimeControlError(RuntimeError):
 
 
 def validate_call_id(call_id: str) -> str:
-    # The provider's opaque ID, NOT the caller-controlled SIP Call-ID header.
-    if not isinstance(call_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", call_id):
-        raise ValueError("Invalid Realtime call ID")
+    """Preserve opaque provider identifiers; limit only type and UTF-8 byte size."""
+    try:
+        valid = isinstance(call_id, str) and 0 < len(call_id.encode("utf-8")) <= 4096
+    except UnicodeError:
+        valid = False
+    if not valid:
+        raise ValueError("Invalid provider identifier")
     return call_id
+
+
+def encode_provider_id(identifier: str) -> str:
+    """Encode exactly once as one path segment, including literal percent signs."""
+    identifier = validate_call_id(identifier)
+    encoded = quote(identifier, safe="", encoding="utf-8", errors="strict")
+    # quote intentionally leaves RFC-unreserved dots alone. Dot-only segments
+    # must not become path navigation (including through normalizing proxies).
+    if set(identifier) == {"."}:
+        encoded = encoded.replace(".", "%2E")
+    return encoded
 
 
 class RealtimeSipClient:
@@ -103,7 +118,7 @@ class RealtimeSipClient:
             headers = {"Authorization": "Bearer " + self._api_key}
             if body is not None:
                 headers["Content-Type"] = "application/json"
-            connection.request("POST", "/v1/realtime/calls/" + call_id + "/" + action,
+            connection.request("POST", "/v1/realtime/calls/" + encode_provider_id(call_id) + "/" + action,
                                body=body, headers=headers)
             response = connection.getresponse()
             status = response.status
@@ -155,9 +170,7 @@ def verify_incoming_webhook(raw_body: bytes, headers: dict[str, str], *,
         if event.type != "realtime.call.incoming":
             raise ValueError("Unexpected event")
         call_id = validate_call_id(event.data.call_id)
-        event_id = event.id
-        if not isinstance(event_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", event_id):
-            raise ValueError("Invalid event ID")
+        event_id = validate_call_id(event.id)
     except Exception:
         # Includes invalid signature/timestamp, malformed SDK events, and missing
         # SDK functionality. No parsed-JSON or unsigned compatibility fallback.

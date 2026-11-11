@@ -156,6 +156,9 @@ class VoiceControlTests(unittest.TestCase):
     def test_rejects_nonprivate_or_symlink_state(self):
         public = self.root / 'public'
         public.mkdir(mode=0o755)
+        # Other repository tests use a restrictive process umask. Make this
+        # deliberately unsafe fixture explicit instead of inheriting that mask.
+        public.chmod(0o755)
         with self.assertRaisesRegex(VoiceError, 'private'):
             VoiceControl(public, 'scope')
         link = self.root / 'link'
