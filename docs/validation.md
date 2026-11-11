@@ -4,6 +4,31 @@ Validation separates source-level checks, real local operations, model calls and
 Telegram delivery. A working adapter alone does not establish that every provider
 or deployed conversation has been verified end to end.
 
+## Standalone SIP voice prototype — 2026-11-11
+
+- `python -m unittest discover -s tests -p 'test_voice_*.py' -v`: **68 passed**
+  in the prepared Python 3.12 test environment, including 59 new control/MCP/API
+  tests and 9 existing transient-voice cleanup checks.
+- The standalone MCP executable was launched through stdin/stdout with synthetic
+  requests. Scope isolation, crash recovery, duplicate attempts, cancellation,
+  strict tool arguments and private local state were checked without credentials.
+- Realtime accept/reject/hangup, SDK webhook verification handoff, and GPT-Live
+  outbound creation/hangup were checked with mocked HTTPS/SDK boundaries. These
+  do not verify provider connectivity or real signature cryptography.
+- Module compilation and `git diff --check` passed. No dependency or automatic
+  runtime registration was added; the normal subscription-backed runtime is unchanged.
+- Initial repository-wide discovery ran 1,936 tests with 8 failures, 27 errors
+  and 252 skips. It found one new test-fixture dependency on the process umask;
+  that fixture was corrected and the focused suite passed with umask 077.
+  All other 34 failed cases reproduced on untouched main (`6d3b2a1`): 7 failures
+  and 27 errors from restricted Unix sockets, unavailable render isolation and
+  missing Chromium. No guards were weakened. This initial run preceded the last
+  adapter tests; the final focused checks, not a full-suite pass, cover those.
+- Not run: live OpenAI calls, carrier/SIP access, paid transactions, real audio,
+  model conversations, Ukrainian speech quality, deployment or live Telegram.
+  Trunk compatibility, approved live-action persistence, sideband supervision,
+  duration/spend enforcement and production gateway wiring remain required.
+
 ## Completed checks
 
 - An earlier integrated validation passed all 71 tests. New feature checks and
