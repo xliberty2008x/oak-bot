@@ -60,8 +60,8 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
         intercepted.start()
         self.addCleanup(intercepted.stop)
 
-    def start_gateway(self):
-        self.gateway = TelegramGateway(self.controller, 'fixture-token', {17}, self.root)
+    def start_gateway(self, owners=None):
+        self.gateway = TelegramGateway(self.controller, 'fixture-token', {17} if owners is None else owners, self.root)
         self.addCleanup(self.gateway.db.close)
         self.gateway.configure_proactive_alerts()
 
@@ -199,6 +199,62 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
         await self.update('why this?', reply_to=receipt)
         self.assertIn(url, self.requests[-1]['text'])
         self.assertIn(interest, self.requests[-1]['text'])
+
+    async def test_owner_selector_restarts_with_manual_watches_and_opt_out(self):
+        owners = {17, 18, 19}
+        config = self.controller.config
+        del config['proactive_discovery']
+        config['proactive_catalogue'] = [{
+            'topic': 'Space', 'source': 'https://publisher.test/feed',
+            'context_terms': ['astronomy'], 'item_terms': ['mission'],
+        }]
+        self.gateway.db.close()
+        self.start_gateway(owners)
+        alerts = self.gateway.proactive_alerts
+        self.assertEqual(alerts.discovery_owners, {'17', '18', '19'})
+        for owner in owners:
+            self.controller.memory.remember(owner, 'I study astronomy.')
+        alerts.command('19', '/alerts disable discovery')
+        alerts.command('17', '/alerts watch funding | https://publisher.test/feed | supporting my project')
+        alerts.command('17', '/alerts quiet off')
+
+        # Restart with persisted enrollments, a narrower rollout and an unauthorized ID.
+        config['proactive_discovery_owner_ids'] = [18, 19, 99]
+        self.gateway.db.close()
+        self.start_gateway(owners)
+        alerts = self.gateway.proactive_alerts
+        self.assertEqual(alerts.discovery_owners, {'18', '19'})
+        self.assertEqual(self.gateway._discovery_context('17'), [])
+        self.assertEqual(self.gateway._discovery_context('99'), [])
+        self.assertEqual(self.gateway._discovery_context('18'), ['I study astronomy.'])
+        self.broker.publish('next-funding', 'Funding available')
+        await alerts.tick({'17', '18', '19'})
+        # Two reads for the excluded owner's manual scan/recheck and one automatic
+        # scan for 18. The prior enrollment for 17 and opt-out for 19 add no reads.
+        self.assertEqual(self.broker.calls, ['research.feed'] * 3)
+        self.assertEqual([request['chat_id'] for request in self.requests], [17])
+        self.assertIn('supporting my project', self.requests[0]['text'])
+        self.assertFalse(alerts.is_enabled('19'))
+
+        config['proactive_discovery_owner_ids'] = []
+        self.gateway.configure_proactive_alerts()
+        self.assertFalse(alerts.discovery_owners)  # Also revoke in-flight discovery evaluations.
+        alerts = self.gateway.proactive_alerts
+        self.assertFalse(alerts.discovery_owners)
+        self.broker.calls.clear()
+        await alerts.tick(owners)
+        self.assertEqual(self.broker.calls, ['research.feed'])  # The existing manual watch re-scans.
+        self.assertEqual(len(self.requests), 1)  # Its prior receipt still deduplicates.
+        del config['proactive_discovery_owner_ids']
+        self.gateway.configure_proactive_alerts()
+        self.assertFalse(self.gateway.proactive_alerts.is_enabled('19'))
+
+    def test_discovery_owner_selector_requires_positive_numeric_ids(self):
+        for value in (None, 17, '17', [True], ['17'], [-1], [0]):
+            with self.subTest(value=value):
+                self.controller.config['proactive_discovery_owner_ids'] = value
+                with self.assertRaisesRegex(ValueError, 'proactive_discovery_owner_ids'):
+                    self.gateway.configure_proactive_alerts()
 
     async def test_automatic_context_uses_authenticated_main_chat_and_assigned_brief(self):
         brief = self.root / 'private-project.txt'

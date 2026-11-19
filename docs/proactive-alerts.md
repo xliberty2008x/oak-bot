@@ -12,7 +12,7 @@ The owner can reply **why this?**, **less like this**, or **mute this topic**. T
 
 ## Deployment
 
-`proactive_discovery` defaults to `true` for authorized private Telegram owners. Set it to `false` to disable automatic discovery for the deployment. Configure `timezone` with an IANA time zone. Oak has a built-in catalogue of first-party publishers for topics including space exploration, creative electronics, and digital illustration. An explicit `proactive_catalogue` list replaces the defaults. An empty list gives the scanner no automatic sources.
+`proactive_discovery` defaults to `true` for authorized private Telegram owners. Set it to `false` to disable automatic discovery for the deployment. To pilot with a subset, set `proactive_discovery_owner_ids` to the selected numeric Telegram owner IDs. Oak intersects this list with `allowed_user_ids`. Omitting the selector includes every allowed owner. An empty list disables automatic discovery for everyone. Existing manual watches and owner opt-outs survive changes to the selector and restarts. Configure `timezone` with an IANA time zone. Oak has a built-in catalogue of first-party publishers for topics including space exploration, creative electronics, and digital illustration. An explicit `proactive_catalogue` list replaces the defaults. An empty list gives the scanner no automatic sources.
 
 Each catalogue entry specifies a public HTTPS RSS or Atom feed, phrases to match in private context, and terms to match in publisher headlines or summaries. A trailing asterisk matches a word stem of four or more characters. This is an example for a deployment that follows space missions.
 
@@ -20,6 +20,8 @@ Each catalogue entry specifies a public HTTPS RSS or Atom feed, phrases to match
 {
   "timezone": "America/New_York",
   "proactive_discovery": true,
+  "allowed_user_ids": [101, 202],
+  "proactive_discovery_owner_ids": [202],
   "proactive_catalogue": [{
     "topic": "Space missions",
     "source": "https://www.nasa.gov/feed/",
