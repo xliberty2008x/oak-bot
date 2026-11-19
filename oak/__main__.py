@@ -261,6 +261,7 @@ async def run(config_path):
                 from .commands import register_commands
                 await register_commands(gateway, allowed, web_available=bool(web_gateway and web_gateway.public_url))
                 await controller.recover()
+                gateway.configure_proactive_alerts()
                 save_ready()
                 print(json.dumps(ready), flush=True)
                 async with asyncio.TaskGroup() as group:

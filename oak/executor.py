@@ -24,7 +24,7 @@ OPERATIONS = frozenset({
     'hello', 'probe', 'file.read', 'file.write', 'file.open_read', 'file.read_chunk',
     'file.close', 'file.open_write', 'file.write_chunk', 'file.finish_write',
     'media.generate_image', 'media.generate_video', 'media.montage',
-    'media.speak', 'media.transcribe', 'research.search', 'research.fetch',
+    'media.speak', 'media.transcribe', 'research.search', 'research.fetch', 'research.feed',
     'research.youtube', 'browser.run', 'browser.close', 'computer.run',
     'computer.type', 'computer.key', 'computer.status', 'remote.start',
     'remote.read', 'remote.write', 'remote.close', 'remote.type', 'remote.key',

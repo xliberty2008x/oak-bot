@@ -348,6 +348,7 @@ OPERATIONS = {
     'media.montage': (('image_paths',), ('seconds_per_image',)),
     'media.speak': (('text',), ('language',)), 'media.transcribe': (('path',), ('language',)),
     'research.search': (('query',), ('limit',)), 'research.fetch': (('url',), ()), 'research.youtube': (('url',), ()),
+    'research.feed': (('url',), ()),
     'browser.run': ((), ('action', 'url', 'selector', 'text', 'frame', 'files', 'timeout_ms', 'tab')),
     'browser.close': ((), ()),
     'computer.run': ((), ('action', 'x', 'y', 'end_x', 'end_y', 'button', 'clicks', 'text', 'key', 'direction', 'steps', 'seconds')),
@@ -551,6 +552,10 @@ class Worker:
                 _keys(models, (), ('piper_model', 'vosk_model', 'whisper_model'))
                 self.media = MediaTools(self.profile['workspace'], **models)
             return await asyncio.to_thread(getattr(self.media, method), **args)
+        if op == 'research.feed':
+            from oak.proactive_sources import read_feed
+            raw = await read_feed(args['url'])
+            return {'xml': raw.decode('utf-8-sig')}
         if self.research is None:
             from oak.research import ResearchTools
             self.research = ResearchTools(search_url=self.profile.get('search_url'))

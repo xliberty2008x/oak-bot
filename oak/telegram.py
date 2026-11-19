@@ -23,6 +23,7 @@ import uuid
 from .a2ui_telegram import card_blocks
 from .commands import command_names
 from .media import ToolUnavailable
+from .proactive import ProactiveAlerts, is_alert_command
 from .rendering import render_markdown
 
 MAX_UPLOAD = 50 * 1024 * 1024
@@ -145,6 +146,7 @@ class TelegramGateway:
         self._delivery_locks = {}
         self._rich_supported = True  # Capability cache for this API endpoint.
         self._running = False
+        self.proactive_alerts = None
         self._activity = {}
         self._typing_tasks = {}
         self._intake_tasks = {}
@@ -225,6 +227,57 @@ class TelegramGateway:
                 else:
                     reply.error = 'Попередню відповідь перервано перезапуском.'
             self._replies.setdefault(row['chat_id'], deque()).append(reply)
+
+    def configure_proactive_alerts(self):
+        """Bind autonomous reads to the same execution boundary as owner-requested reads."""
+        from .proactive_sources import FeedSource
+        executor = self.controller.tools.executor
+
+        async def read_feed(url):
+            result = await executor.call('research.feed', {'url': url})
+            return result['xml'].encode('utf-8')
+
+        source = FeedSource(fetch=read_feed) if executor is not None else FeedSource()
+        self.proactive_alerts = ProactiveAlerts(
+            self.state_dir / 'proactive-alerts.sqlite3', source, self._send_alert,
+            recent=self._alert_recent, timezone=self.controller.config.get('timezone', 'Europe/Kyiv'))
+
+    def _alert_recent(self, owner, candidate):
+        # Inspect only the approved private destination. Other topics have separate memory.
+        chat_id = int(owner)
+        rows = self.db.execute(
+            "SELECT payload FROM intake WHERE chat_id=? AND status IN ('pending','processing','done') "
+            "ORDER BY update_id DESC LIMIT 24", (chat_id,))
+        messages = []
+        for row in rows:
+            message = json.loads(row['payload']).get('message', {})
+            messages.append(message.get('text') or message.get('caption') or '')
+        for row in self.db.execute("SELECT value FROM replies WHERE chat_id=? AND status='delivered' "
+                                   "ORDER BY rowid DESC LIMIT 24", (chat_id,)):
+            messages.extend(json.loads(row['value']).get('parts', {}).values())
+        return any(link.rstrip('.,;:!?])') == candidate.url for message in messages
+                   for link in re.findall(r'https?://[^\s<>"\']+', message))
+
+    async def _send_alert(self, owner, text):
+        chat_id = int(owner)
+        if self._destination(chat_id) != {'chat_id': chat_id}:
+            raise ValueError('Proactive delivery requires an allowed private owner.')
+        # The engine has durably claimed this delivery. Dispatch immediately so a paused
+        # or expired candidate cannot be replayed later from a second outbox.
+        receipt = await self._api('sendMessage', {'chat_id': chat_id, 'text': text,
+            'link_preview_options': {'is_disabled': True}}, timeout=10, rate_limit_attempts=1)
+        if not isinstance(receipt, dict) or type(receipt.get('message_id')) is not int or receipt['message_id'] <= 0:
+            raise TelegramError('sendMessage')
+        self._last_send[chat_id] = time.monotonic()
+        return receipt['message_id']
+
+    async def _proactive_loop(self):
+        while True:
+            try:
+                await self.proactive_alerts.tick(owners={str(owner) for owner in self.allowed_user_ids})
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+                print(f'Proactive scan unavailable ({type(exc).__name__}).', flush=True)
+            await asyncio.sleep(900)
 
     def _completed_turn(self, chat_id, turn_id):
         db = self.sessions.db
@@ -844,6 +897,21 @@ class TelegramGateway:
         text = message.get('text') or ''
         return text.strip().split()[0].split('@', 1)[0] if text.strip() else ''
 
+    def _alert_command(self, message):
+        text = message.get('text') or ''
+        if self._command(message) == '/alerts':
+            parts = text.strip().split(maxsplit=1)
+            text = '/alerts' + (' ' + parts[1] if len(parts) > 1 else '')
+        reply_to = (message.get('reply_to_message') or {}).get('message_id')
+        if is_alert_command(text):
+            return text, reply_to
+        if (message.get('message_thread_id') in (None, 1) and is_alert_command(text, reply_to=reply_to)
+                and self._owner(message, message.get('from') or {}, self.allowed_user_ids)
+                and self.proactive_alerts is not None):
+            if self.proactive_alerts.owns_receipt(str(message['from']['id']), reply_to):
+                return text, reply_to
+        return None
+
     async def _cancel_intake(self, chat_id):
         processing = [row[0] for row in self.db.execute(
             "SELECT update_id FROM intake WHERE chat_id=? AND status='processing'", (chat_id,))]
@@ -949,7 +1017,27 @@ class TelegramGateway:
                          'delivery_reference': 'telegram-delivery:' + previous['id']},
                         request_id='telegram-update:' + str(update_id))
             command = self._command(message)
-            if command == '/improve':
+            alert = self._alert_command(message)
+            alert_reply = None
+            if alert:
+                if chat_id != user_id:
+                    alert_reply = 'Керуй сповіщеннями в основній приватній розмові. Саме туди вони надходитимуть.'
+                elif (message.get('forward_origin') or message.get('forward_from') or
+                        message.get('forward_sender_name') or message.get('via_bot')):
+                    alert_reply = 'Напиши команду сповіщень особисто.'
+                elif self.proactive_alerts is None:
+                    alert_reply = 'Проактивні сповіщення недоступні.'
+                else:
+                    try:
+                        alert_reply = self.proactive_alerts.command(str(user_id), alert[0], reply_to=alert[1])
+                    except (OSError, sqlite3.Error):
+                        alert_reply = 'Не вдалося підтвердити зміну сповіщень. Перевір стан командою /alerts.'
+            if alert_reply is not None:
+                for index, chunk in enumerate(split_text(alert_reply)):
+                    self._queue_delivery(chat_id, 'sendMessage', {'chat_id': chat_id, 'text': chunk,
+                        'link_preview_options': {'is_disabled': True}}, f'alerts-control:{update_id}:{index}')
+                self.events.put_nowait(None)
+            elif command == '/improve':
                 await self._notice(chat_id, self._improvement_control(chat_id, text))
             elif command in {'/approve', '/deny', '/answer'}:
                 if message.get('forward_origin') or message.get('forward_from'):
@@ -1056,7 +1144,7 @@ class TelegramGateway:
         if type(update_id) is not int or update_id < self.offset:
             return
         message = update.get('message') or update.get('edited_message') or {}
-        if (update.get('callback_query') or update.get('edited_message') or self._command(message) in
+        if (update.get('callback_query') or update.get('edited_message') or self._alert_command(message) or self._command(message) in
                 {'/stop', '/new', '/approve', '/deny', '/answer', '/status', '/help', '/start', '/web', '/model'}
                 or self._topic_service(message)
                 or not self._owner(message, message.get('from') or {}, self.allowed_user_ids)):
@@ -1870,6 +1958,8 @@ class TelegramGateway:
                 self._worker_group = tasks
                 tasks.create_task(self._poll())
                 tasks.create_task(self._render())
+                if self.proactive_alerts is not None:
+                    tasks.create_task(self._proactive_loop())
                 if self.discard_voice_audio:
                     tasks.create_task(self._voice_cleanup_loop())
                 scopes = set(self._intake_wake) | {row[0] for row in self.db.execute(

@@ -8,6 +8,7 @@ SOURCE_FILES = (
     'oak/features.py', 'oak/__main__.py', 'oak/controller.py', 'oak/requests.py', 'oak/runtime.py', 'oak/tools.py',
     'oak/activity.py', 'oak/chat_models.py', 'oak/commands.py', 'oak/events.py', 'oak/job_controls.py',
     'oak/owner_views.py', 'oak/recovery.py', 'oak/reminders.py', 'oak/schedule.py',
+    'oak/proactive.py', 'oak/proactive_sources.py', 'oak/website_navigation_transport.py',
     'oak/status.py', 'oak/strings.py', 'oak/time_input.py',
     'oak/messages.py', 'oak/rendering.py', 'oak/media.py',
     'oak/hf_spaces.py', 'oak/animation.py', 'oak/animation_tools.py',
