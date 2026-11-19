@@ -26,6 +26,12 @@ def load_config(config_path):
             config[name] = str(path if path.is_absolute() else config_file.parent / path)
     config.setdefault('state_dir', str(config_file.parent / '.state'))
     config.setdefault('workspace', str(Path(config['state_dir']) / 'workspace'))
+    if 'proactive_context_files' in config:
+        files = config['proactive_context_files']
+        if not isinstance(files, dict) or not all(isinstance(value, str) and value.strip() for value in files.values()):
+            raise ValueError('proactive_context_files must map private owner IDs to project brief files.')
+        config['proactive_context_files'] = {
+            owner: str(config_file.parent / Path(value).expanduser()) for owner, value in files.items()}
     if config.get('web', {}).get('access_key_file'):
         key = Path(config['web']['access_key_file']).expanduser()
         config['web']['access_key_file'] = str(key if key.is_absolute() else config_file.parent / key)
@@ -261,6 +267,7 @@ async def run(config_path):
                 from .commands import register_commands
                 await register_commands(gateway, allowed, web_available=bool(web_gateway and web_gateway.public_url))
                 await controller.recover()
+                gateway.configure_proactive_alerts()
                 save_ready()
                 print(json.dumps(ready), flush=True)
                 async with asyncio.TaskGroup() as group:

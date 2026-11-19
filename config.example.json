@@ -10,6 +10,8 @@
   "state_dir": ".state",
   "runtime_home": ".state/runtime",
   "timezone": "UTC",
+  "proactive_discovery": true,
+  "proactive_context_files": {},
   "sandbox": "workspace-write",
   "runtime_config": {
     "approval_policy": "on-request",
