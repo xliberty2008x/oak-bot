@@ -1,47 +1,62 @@
-# Proactive alerts
+# When Oak starts a conversation
 
-In the main conversation of your private Telegram chat, send `/alerts` to see your settings. Add a watch with a headline topic, the exact RSS or Atom feed from the publisher, and the reason that topic matters to you. A watch continues until you mute, pause, or remove it.
+Oak can write first in the main private Telegram conversation. An owner can mention a project in ordinary conversation, leave the chat, and later receive a short message when a publisher reports something timely and useful to that project. The message connects the finding to the project in the owner's language and includes a direct source link. An owner can reply and continue the conversation.
 
-```text
-/alerts watch Alaska | https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.atom | I follow seismic activity in Alaska
-/alerts quiet 22:00-08:00 America/Anchorage
-/alerts cap 1
+The gateway checks every 15 minutes. It looks for matches in recent owner-authored messages in the main chat, owner-authored saved notes, and any project brief explicitly configured for this owner. It checks the matching publishers, re-reads the primary evidence, and asks a separate tool-free model turn whether the finding merits an interruption. The model can choose silence. Before sending, Oak checks the current context, controls, recent conversation links, and previous delivery attempts. Publishers receive only ordinary feed requests. The owner's conversation stays out of public requests.
+
+New automatic discovery settings allow one message per day, with quiet hours from 22:00 to 08:00 in the deployment's configured time zone. Existing owner preferences take precedence. A finding must still be fresh at delivery. Oak records the Telegram receipt and treats an ambiguous delivery as a possible send across restarts.
+
+## Owner controls
+
+The owner can reply **why this?**, **less like this**, or **mute this topic**. They can pause and resume proactive contact in ordinary chat. The optional `/alerts` command shows settings, permitted topics and recent delivery decisions. It also supports setting a daily cap, quiet hours, and explicit publisher watches. Existing watches continue to work.
+
+## Deployment
+
+`proactive_discovery` defaults to `true` for authorized private Telegram owners. Set it to `false` to disable automatic discovery for the deployment. Configure `timezone` with an IANA time zone. Oak has a built-in catalogue of first-party publishers for topics including space exploration, creative electronics, and digital illustration. An explicit `proactive_catalogue` list replaces the defaults. An empty list gives the scanner no automatic sources.
+
+Each catalogue entry specifies a public HTTPS RSS or Atom feed, phrases to match in private context, and terms to match in publisher headlines or summaries. A trailing asterisk matches a word stem of four or more characters. This is an example for a deployment that follows space missions.
+
+```json
+{
+  "timezone": "America/New_York",
+  "proactive_discovery": true,
+  "proactive_catalogue": [{
+    "topic": "Space missions",
+    "source": "https://www.nasa.gov/feed/",
+    "context_terms": ["space exploration", "Artemis", "Voyager"],
+    "item_terms": ["mission*", "spacecraft", "Artemis", "Voyager"]
+  }]
+}
 ```
 
-The topic matches a word or phrase in the headline, ignoring case. Use `*` only if you want updates about any item in that feed. Each owner can register up to eight watches. Quiet hours use the named time zone, including clock changes. The default limit is two alerts per local calendar day.
+A deployment with an existing owner project brief can use `proactive_context_files`, an object mapping each allowed Telegram owner ID to their own UTF-8 text file. Relative paths resolve from the deployment configuration directory. The gateway considers up to eight nonempty lines (8 KiB total) and prioritizes more recent conversation. Private topics and other owners' files remain separate.
 
-Reply to a delivered alert with **why this?**, **less like this**, **mute this topic**, or **resolved**. “Less like this” limits the topic to one alert every three days. Use `/alerts resolve ITEM_URL` for a finding you already handled. Send `/alerts history` for recent delivery decisions, `/alerts pause` to stop scanning, and `/alerts resume` to resume with your saved choices. Use `/alerts unmute TOPIC` or `/alerts remove TOPIC` to manage individual topics.
+The built-in reader checks exact approved public HTTPS feeds without cookies or redirects, accepts UTF-8 RSS 2.0 and Atom up to 512 KiB, and requires a dated headline with a same-host item link. A finding expires after 48 hours or an earlier explicit publisher expiry. In isolated Oak deployments the execution worker performs public requests. The model receives bounded publisher evidence and a matching private context excerpt. Oak controls the destination and appends the verified link.
 
-## What gets delivered
+## Other assistant hosts
 
-Every 15 minutes the gateway scans active watches. The built-in reader accepts public HTTPS RSS 2.0 and Atom feeds in UTF-8, up to 512 KiB. It reads the approved URL without cookies, credentials, or redirects. Each finding needs a dated headline and a link on the publisher's host. In an isolated Oak deployment, the execution worker performs these reads.
-
-Oak checks recent conversation links, previous delivery attempts, the owner's settings, and publication times. Before an eligible send, it reads the publisher again and checks that the item still exists with the same evidence. A changed item can qualify on a later tick if its evidence then agrees. The built-in reader stops considering a finding after 48 hours or an earlier explicit publisher expiry. Oak only reports an expiry supplied by the publisher. Quiet-hour and capped findings can qualify on a later scan while the publisher still lists them and they remain timely.
-
-The Oak gateway sends alerts to the main conversation of the owner's private chat and checks recent links in that conversation. Private topics retain their own history. The message includes the publisher's headline, publication date, the saved reason for the watch and the direct link. Each assistant uses its own SQLite state. A transaction reserves the owner and finding before sending, then records the confirmed private message ID. A lost receipt leaves an uncertain attempt in history. Replays skip that attempt because the message might already have arrived.
-
-## Use the engine in another assistant
-
-Import `ProactiveAlerts` from `oak.proactive` and `FeedSource` from `oak.proactive_sources` in a checkout of this release. The engine and built-in reader use the Python standard library. Supply a path in that assistant's private state directory and its existing private sender. The sender must make one bounded delivery attempt and return its confirmed message ID. An optional synchronous `recent(owner, candidate)` callback checks for the item's URL in the owner's recent conversation.
+Import `ProactiveAlerts`, `FeedSource`, `load_catalogue` and `make_writer` from the corresponding `oak.proactive*` modules. Supply a private SQLite path, an authenticated owner destination, a bounded read-only context callback (newest excerpts first), a private tool-free completion, and a single-attempt sender that returns a confirmed message ID.
 
 ```python
-alerts = ProactiveAlerts(state_dir / 'alerts.sqlite3', FeedSource(), send_private, recent=recent)
+alerts = ProactiveAlerts(
+    state_dir / 'proactive.sqlite3', FeedSource(), send_private,
+    catalogue=load_catalogue(), context=owner_context,
+    compose=make_writer(complete), recent=recently_discussed,
+    timezone=local_timezone,
+)
+for owner_id in authorized_private_owners:
+    alerts.configure_discovery(str(owner_id))
 
-# After the host authenticates a private, owner-authored message:
-response = alerts.command(owner_id, message.text, reply_to=quoted_message_id)
-if response is not None:
-    await send_private(owner_id, response)
-
-# From a bounded periodic task in the same service:
-await alerts.tick(owners=authorized_owner_ids)
+# Run from the host's background task even when there is no inbound message.
+await alerts.tick(owners=authorized_private_owners)
 ```
 
-A custom read-only source implements `scan(watch, now)` and `verify(watch, candidate, now)` as async methods. The scanner returns candidates. The verifier independently confirms the observed facts and timestamps before delivery. The host supplies authorized owner IDs and scopes storage and transport to its own deployment. Both the Oak gateway and external hosts use the same policy engine.
+Pass authenticated owner replies to `command(owner, text, reply_to=message_id)`. Use `conversation_context(owner, reply_to=message_id)` in ordinary conversation to let the model refer back to its own confirmed outgoing message. Each assistant instance owns its state and transport.
 
 ## Verification
 
-Run the policy and gateway tests with a temporary state directory and intercepted delivery. Set the environment variable below to include real, read-only HTTP requests to PyPI and the USGS. The public-feed checks need internet access and fresh items from both publishers.
+The tests use temporary SQLite state and intercept outbound Telegram sends. Enable the public-feed tests for real HTTPS requests to independent publishers. The model test requires an authenticated subscription runtime. It starts from an ordinary project conversation, obtains a real model decision, and exercises a follow-up through the ordinary assistant thread.
 
 ```sh
-OAK_TEST_PUBLIC_FEEDS=1 python -m unittest discover -s tests -p 'test_proactive*.py' -v
+OAK_TEST_PUBLIC_FEEDS=1 OAK_TEST_PROACTIVE_MODEL=1 python -m unittest discover -s tests -p 'test_proactive*.py' -v
 ```

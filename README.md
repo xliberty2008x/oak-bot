@@ -19,7 +19,7 @@ Mini App. The LLM runtime has no automatic API-key or model fallback.
 | Cards | Agent-composed metrics, splits, tables, charts, images and forms; rich Telegram messages edited in place and full layout in the Mini App ([A2UI](docs/a2ui.md)) |
 | Events | Durable AG-UI event stream with independent conversation/run subscribers and separate tool results |
 | Memory | Per-conversation notes, full-text retrieval, forgetting and selected-file import |
-| Proactive alerts | Owner-approved publication watches, quiet hours and verified private notifications ([setup](docs/proactive-alerts.md)) |
+| Proactive conversations | Oak can message an owner first when verified news is useful to an ongoing project ([how it works](docs/proactive-alerts.md)) |
 | Scheduling | One-time reminders, recurring reminders and scheduled assistant tasks |
 | Tools | Workspace files and runtime tools, interactive approvals and follow-up questions |
 | Images | Native image generation when available to the signed-in account; local Unicode title cards and thumbnails |

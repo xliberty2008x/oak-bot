@@ -28,6 +28,19 @@ class FeedTests(unittest.IsolatedAsyncioTestCase):
         candidate, = await source.scan(self.watch, time.time())
         self.assertFalse(await source.verify(self.watch, candidate, time.time()))
 
+    def test_recheck_uses_publisher_facts_and_ignores_changing_view_counts(self):
+        raw = b'''<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+        <entry><id>video-1</id><title>Grant application walkthrough</title>
+        <published>2026-11-19T12:00:00Z</published><link href="https://example.org/watch?id=1"/>
+        <media:group><media:description>How to apply for the grant.</media:description>
+        <media:community><media:statistics views="100"/></media:community></media:group></entry></feed>'''
+        first, = parse_feed(raw, self.watch)
+        self.assertEqual(first.summary, 'How to apply for the grant.')
+        later, = parse_feed(raw.replace(b'views="100"', b'views="101"'), self.watch)
+        self.assertEqual(first, later)
+        changed, = parse_feed(raw.replace(b'How to apply', b'Applications are closed'), self.watch)
+        self.assertNotEqual(first, changed)
+
     def test_excludes_unrelated_stories_conflicting_records_and_external_links(self):
         unrelated = self.item.replace('grant opens', 'grantmaker opens')
         external = self.item.replace('example.org/grants', 'other.example/grants')

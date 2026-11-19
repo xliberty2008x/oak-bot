@@ -4,6 +4,8 @@ import asyncio
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 import hashlib
+import json
+from html.parser import HTMLParser
 from http.client import HTTPSConnection
 import re
 import socket
@@ -21,6 +23,7 @@ FRESHNESS = 48 * 3600
 ATOM = '{http://www.w3.org/2005/Atom}'
 DC = '{http://purl.org/dc/elements/1.1/}'
 CAP = '{urn:oasis:names:tc:emergency:cap:1.2}'
+MEDIA = '{http://search.yahoo.com/mrss/}'
 
 
 def feed_url(url):
@@ -81,6 +84,43 @@ def _timestamp(value):
     return date.timestamp()
 
 
+class _SummaryText(HTMLParser):
+    """Strip publisher markup, including script and style contents."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.hidden = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {'script', 'style'}:
+            self.hidden += 1
+
+    def handle_endtag(self, tag):
+        if tag in {'script', 'style'}:
+            self.hidden = max(0, self.hidden - 1)
+
+    def handle_data(self, text):
+        if not self.hidden:
+            self.parts.append(text)
+
+
+def _summary(entry, atom):
+    tags = (ATOM + 'summary', ATOM + 'content') if atom else ('description',)
+    tags += (MEDIA + 'description', MEDIA + 'group/' + MEDIA + 'description')
+    for tag in tags:
+        node = entry.find(tag)
+        if node is None:
+            continue
+        parser = _SummaryText()
+        parser.feed(' '.join(node.itertext())[:8192])
+        parser.close()
+        value = ' '.join(' '.join(parser.parts).split())
+        if value:
+            return value[:700]
+    return ''
+
+
 def _candidate(entry, atom, watch):
     if atom:
         title = entry.findtext(ATOM + 'title')
@@ -109,8 +149,14 @@ def _candidate(entry, atom, watch):
     # A publisher ID survives a revised permalink. Include the normalized item
     # evidence separately so changed availability/text cannot pass the recheck.
     key = hashlib.sha256((ident or link).encode()).hexdigest()
-    evidence = hashlib.sha256(ET.tostring(entry, encoding='utf-8').strip()).hexdigest()
-    return Candidate(key, title, link, published, expires, evidence_id=evidence, deadline_at=deadline)
+    summary = _summary(entry, atom)
+    # Views, rating counters and markup can change between two reads. Bind the
+    # facts actually passed to the writer and shown to the owner.
+    facts = json.dumps([key, title, link, published, expires, deadline, summary],
+                       ensure_ascii=False, separators=(',', ':'))
+    evidence = hashlib.sha256(facts.encode()).hexdigest()
+    return Candidate(key, title, link, published, expires, evidence_id=evidence, deadline_at=deadline,
+                     summary=summary)
 
 
 def parse_feed(raw, watch):

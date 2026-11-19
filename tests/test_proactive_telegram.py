@@ -9,12 +9,14 @@ import os
 from pathlib import Path
 import sqlite3
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import urllib.request
 
 from oak.sessions import SessionStore
+from oak.memory import MemoryStore
 from oak.telegram import TelegramGateway
 
 
@@ -47,7 +49,8 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
         db = sqlite3.connect(self.root / 'sessions.sqlite')
         self.addCleanup(db.close)
         # There is deliberately no agent submit() or text-generation implementation.
-        self.controller = SimpleNamespace(sessions=SessionStore(db), config={'timezone': 'UTC'},
+        self.controller = SimpleNamespace(sessions=SessionStore(db), memory=MemoryStore(db),
+                                          config={'timezone': 'UTC', 'proactive_discovery': False},
                                           tools=SimpleNamespace(executor=self.broker))
         self.requests = []
         self.update_id = 0
@@ -73,7 +76,7 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
     async def update(self, text, *, sender=17, chat_type='private', reply_to=None, forwarded=False, topic=None):
         self.update_id += 1
         message = {'chat': {'type': chat_type, 'id': 17}, 'from': {'id': sender, 'is_bot': False},
-                   'message_id': 10000 + self.update_id, 'text': text}
+                   'message_id': 10000 + self.update_id, 'text': text, 'date': int(time.time())}
         if reply_to:
             message['reply_to_message'] = {'message_id': reply_to}
         if forwarded:
@@ -196,3 +199,115 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
         await self.update('why this?', reply_to=receipt)
         self.assertIn(url, self.requests[-1]['text'])
         self.assertIn(interest, self.requests[-1]['text'])
+
+    async def test_automatic_context_uses_authenticated_main_chat_and_assigned_brief(self):
+        brief = self.root / 'private-project.txt'
+        brief.write_text('I build painted miniatures for the science fair.')
+        config = self.controller.config
+        del config['proactive_discovery']  # Exercise the default for an existing deployment.
+        config['proactive_context_files'] = {'17': str(brief)}
+        self.gateway.configure_proactive_alerts()
+        await self.update('I enjoy sculpting.')
+        await self.update('Text from another topic.', topic=4)
+        await self.update('Text forwarded from someone else.', forwarded=True)
+        await self.update('Unverified sender.', sender=99)
+        other_scope = self.controller.sessions.resolve(17, 4)
+        self.controller.memory.remember(17, 'I am building a sculpture.')
+        self.controller.memory.remember(other_scope, 'Other topic memory.')
+        self.controller.memory.remember_agent(17, 'Model-authored claim.', thread_id='t', turn_id='q')
+        self.assertEqual(set(self.gateway._discovery_context('17')), {
+            'I enjoy sculpting.', 'I am building a sculpture.', 'I build painted miniatures for the science fair.'})
+        self.assertEqual(self.gateway._discovery_context('99'), [])
+        await self.gateway.proactive_alerts.tick({'17'})
+        self.assertEqual(self.broker.calls, [])
+        self.assertEqual(self.requests, [])
+        config['proactive_discovery'] = False
+        self.gateway.configure_proactive_alerts()
+        await self.update('I study earthquakes.')
+        await self.gateway.proactive_alerts.tick({'17'})
+        self.assertEqual(self.broker.calls, [])
+        self.assertEqual(self.requests, [])
+
+    @unittest.skipUnless(os.getenv('OAK_TEST_PROACTIVE_MODEL') == '1',
+                         'requires public publisher access and an authenticated subscription runtime')
+    async def test_live_discovery_uses_real_model_without_watch(self):
+        from oak.executor_worker import Worker
+
+        worker = Worker({'workspace': str(self.root), 'runtime_home': str(self.root)})
+        self.addAsyncCleanup(worker.close)
+        reads = []
+
+        async def dispatch(operation, args):
+            self.assertEqual(operation, 'research.feed')
+            self.assertEqual(args['url'], 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.atom')
+            response = await worker.dispatch(operation, args)
+            reads.append(response['xml'])
+            return response
+
+        self.controller.tools.executor = SimpleNamespace(call=dispatch)
+        # Exercise the production default and keep the qualification inside daytime quiet-hour policy.
+        self.controller.config = {'workspace': str(self.root),
+            'timezone': f'Etc/GMT{datetime.now(timezone.utc).hour - 12:+d}'}
+        self.gateway.configure_proactive_alerts()
+        await self.update('На урок сейсмології я складаю карту сьогоднішніх сильних землетрусів '
+                          'і порівнюю їхні магнітуди та глибину. Мені потрібні свіжі приклади.')
+        self.assertEqual(self.requests, [])
+        await self.gateway.proactive_alerts.tick({'17'})
+        self.assertEqual(len(self.requests), 1, self.gateway.proactive_alerts.command('17', '/alerts history'))
+        self.assertGreaterEqual(len(reads), 2)
+        alert = self.requests[0]
+        self.assertEqual(alert['chat_id'], 17)
+        prose, url = alert['text'].rsplit('\n', 1)
+        self.assertRegex(prose, '[іїєґІЇЄҐ]')
+        self.assertIn(url, reads[0])
+        self.assertIn(url, reads[-1])
+        self.gateway.db.close()
+        self.start_gateway()
+        await self.gateway.proactive_alerts.tick({'17'})
+        self.assertEqual(len(self.requests), 1)
+        await self.update('why this?', reply_to=1)
+        self.assertIn(url, self.requests[-1]['text'])
+        await self.verify_normal_conversation_reply(url)
+
+    async def verify_normal_conversation_reply(self, source_url):
+        from oak.controller import Controller
+        from oak.evidence_runtime import _DISABLED_FEATURES
+        from oak.runtime import RuntimeClient
+
+        received = asyncio.Queue()
+
+        async def emit(owner, event):
+            self.assertEqual(owner, 17)
+            received.put_nowait(event)
+
+        settings = {'web_search': 'disabled', 'approval_policy': 'never',
+                    **{f'features.{name}': False for name in _DISABLED_FEATURES}}
+        async with RuntimeClient(cwd=self.root, sandbox='read-only', config=settings) as client:
+            native = Controller(client, self.root / 'followup.sqlite', self.root, emit)
+            self.addCleanup(native.close)
+            self.gateway.controller = native
+            pump = asyncio.create_task(native.run_events())
+            try:
+                followup = 'Нагадай, будь ласка, точне посилання на землетрус, про який ти щойно написав. Лише URL.'
+                self.update_id += 1
+                async with asyncio.timeout(90):
+                    await self.gateway.handle_update({'update_id': self.update_id, 'message': {
+                        'chat': {'type': 'private', 'id': 17}, 'from': {'id': 17},
+                        'message_id': 20000, 'text': followup}})
+                    parts = []
+                    while True:
+                        event = await received.get()
+                        self.assertNotEqual(event['type'], 'RUN_ERROR')
+                        if event['type'] == 'TEXT_MESSAGE_CONTENT':
+                            parts.append(event['delta'])
+                        if event['type'] == 'RUN_FINISHED':
+                            break
+                self.assertIn(source_url, ''.join(parts))
+                row = native.db.execute('SELECT text,assistant_context FROM inputs WHERE update_id=?',
+                                        (self.update_id,)).fetchone()
+                self.assertEqual(row['text'], followup)
+                self.assertIn(source_url, row['assistant_context'])
+            finally:
+                pump.cancel()
+                with suppress(asyncio.CancelledError):
+                    await pump
