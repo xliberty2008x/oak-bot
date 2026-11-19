@@ -162,6 +162,60 @@ class ProactiveTelegramTests(unittest.IsolatedAsyncioTestCase):
         await self.update('/alerts history')
         self.assertIn('recent conversation', self.requests[-1]['text'])
 
+    async def test_private_send_rejection_retries_after_restart_but_lost_receipt_does_not(self):
+        requests = []
+
+        async def telegram(reader, writer):
+            headers = (await reader.readuntil(b'\r\n\r\n')).decode().split('\r\n')
+            size = next(int(line.split(':')[1]) for line in headers if line.lower().startswith('content-length:'))
+            requests.append((headers[0], json.loads(await reader.readexactly(size))))
+            if len(requests) <= 2:
+                limited = len(requests) == 1
+                result = ({'ok': False, 'error_code': 429, 'parameters': {'retry_after': 120}}
+                          if limited else {'ok': True, 'result': {'message_id': 44}})
+                body = json.dumps(result).encode()
+                status = '429 Too Many Requests' if limited else '200 OK'
+                writer.write(f'HTTP/1.0 {status}\r\nContent-Length: {len(body)}\r\n\r\n'.encode() + body)
+                await writer.drain()
+            # For the third POST, consume the message then drop the connection before returning its receipt.
+            writer.close()
+            await writer.wait_closed()
+
+        server = await asyncio.start_server(telegram, '127.0.0.1', 0)
+        url = f'http://127.0.0.1:{server.sockets[0].getsockname()[1]}'
+        now = time.time()
+
+        def open_gateway():
+            gateway = TelegramGateway(self.controller, 'fixture-token', {17}, self.root,
+                                      api_url=url, local_directory=self.root)
+            self.addCleanup(gateway.db.close)
+            gateway.configure_proactive_alerts()
+            engine = gateway.proactive_alerts
+            engine.clock = lambda: now
+            return engine
+
+        async with server:
+            engine = open_gateway()
+            engine.command('17', '/alerts watch funding | https://publisher.test/feed | my project')
+            self.broker.publish('first', 'Funding is open')
+            now += 1
+            await engine.tick()
+            self.assertIn('private delivery rejected', engine.command('17', '/alerts history'))
+            engine = open_gateway()
+            now += 119
+            await engine.tick()
+            self.assertEqual(len(requests), 1)
+            now += 1
+            await engine.tick()
+            self.assertTrue(engine.owns_receipt('17', 44))
+            self.broker.publish('second', 'Funding for another opportunity')
+            await engine.tick()
+            self.assertIn('uncertain', engine.command('17', '/alerts history'))
+            await open_gateway().tick()
+            self.assertEqual([msg['text'].splitlines()[0] for _, msg in requests],
+                             ['Funding is open', 'Funding is open', 'Funding for another opportunity'])
+            self.assertTrue(all(req.startswith('POST /botfixture-token/sendMessage ') for req, _ in requests))
+
     @unittest.skipUnless(os.getenv('OAK_TEST_PUBLIC_FEEDS') == '1', 'requires outbound public HTTPS')
     async def test_live_usgs_feed_to_intercepted_private_telegram(self):
         from oak.executor_worker import Worker

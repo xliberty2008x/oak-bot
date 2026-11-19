@@ -43,6 +43,14 @@ class Candidate:
     summary: str = ""
 
 
+class DeliveryRejected(Exception):
+    """The private transport confirmed it did not accept this message."""
+
+    def __init__(self, retry_after=0):
+        super().__init__("Private delivery rejected")
+        self.retry_after = retry_after
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS alert_owner (
     owner TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, timezone TEXT NOT NULL,
@@ -77,6 +85,9 @@ CREATE TABLE IF NOT EXISTS alert_scan_failure (
 );
 CREATE TABLE IF NOT EXISTS alert_resolved (
     owner TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY(owner,url)
+);
+CREATE TABLE IF NOT EXISTS alert_delivery_backoff (
+    owner TEXT PRIMARY KEY REFERENCES alert_owner(owner), retry_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS alert_item (
     owner TEXT NOT NULL, id TEXT NOT NULL, topic TEXT COLLATE NOCASE NOT NULL, source TEXT NOT NULL,
@@ -596,6 +607,9 @@ class ProactiveAlerts:
             return "suppressed", "publication is in the future"
         if candidate.uncertainty:
             return "suppressed", "uncertain evidence"
+        if db.execute("SELECT 1 FROM alert_delivery_backoff WHERE owner=? AND retry_at>?",
+                      (watch.owner, now)).fetchone():
+            return "deferred", "private delivery rate limited"
         if watch.discovery:
             if not self._discovery_enabled(db, watch.owner):
                 return "deferred", "contextual discovery disabled or paused"
@@ -721,6 +735,17 @@ class ProactiveAlerts:
             receipt = await self.sender(watch.owner, text)
             if isinstance(receipt, bool) or not isinstance(receipt, (str, int)) or not str(receipt).strip():
                 raise ValueError("missing confirmed message receipt")
+        except DeliveryRejected as exc:
+            now = self.clock()
+            with self._db() as db:
+                db.execute("""UPDATE alert_item SET state='deferred',reason='private delivery rejected',
+                              updated_at=?,attempted_at=NULL WHERE owner=? AND id=? AND state='uncertain'""",
+                           (now, watch.owner, item_id))
+                if exc.retry_after > 0:
+                    db.execute("""INSERT INTO alert_delivery_backoff(owner,retry_at) VALUES(?,?)
+                                  ON CONFLICT(owner) DO UPDATE SET retry_at=max(retry_at,excluded.retry_at)""",
+                               (watch.owner, now + exc.retry_after))
+            return
         except Exception:
             # Telegram may have accepted the send before an error or a process crash.
             return

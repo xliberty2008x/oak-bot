@@ -23,7 +23,7 @@ import uuid
 from .a2ui_telegram import card_blocks
 from .commands import command_names
 from .media import ToolUnavailable
-from .proactive import ProactiveAlerts, is_alert_command
+from .proactive import DeliveryRejected, ProactiveAlerts, is_alert_command
 from .rendering import render_markdown
 
 MAX_UPLOAD = 50 * 1024 * 1024
@@ -37,9 +37,10 @@ CONTROL_COMMANDS = command_names() - {'/stop', '/new', '/approve', '/deny', '/an
 class TelegramError(RuntimeError):
     """Never include request URLs, tokens, or response bodies in diagnostics."""
 
-    def __init__(self, method, code=0, *, reason=''):
+    def __init__(self, method, code=0, *, reason='', retry_after=0):
         self.code = code
         self.reason = reason
+        self.retry_after = retry_after
         detail = " Another poller or a webhook may own this bot." if code == 409 else ""
         super().__init__(f"Telegram {method} failed (code {code or 'network/protocol'}).{detail}")
 
@@ -344,8 +345,13 @@ class TelegramGateway:
             raise ValueError('Proactive delivery requires an allowed private owner.')
         # The engine has durably claimed this delivery. Dispatch immediately so a paused
         # or expired candidate cannot be replayed later from a second outbox.
-        receipt = await self._api('sendMessage', {'chat_id': chat_id, 'text': text,
-            'link_preview_options': {'is_disabled': True}}, timeout=10, rate_limit_attempts=1)
+        try:
+            receipt = await self._api('sendMessage', {'chat_id': chat_id, 'text': text,
+                'link_preview_options': {'is_disabled': True}}, timeout=10, rate_limit_attempts=1)
+        except TelegramError as exc:
+            if 400 <= exc.code < 500:
+                raise DeliveryRejected(exc.retry_after) from exc
+            raise
         if not isinstance(receipt, dict) or type(receipt.get('message_id')) is not int or receipt['message_id'] <= 0:
             raise TelegramError('sendMessage')
         self._last_send[chat_id] = time.monotonic()
@@ -583,7 +589,7 @@ class TelegramGateway:
                     waited += delay
                     await asyncio.sleep(delay)
                     continue
-                raise TelegramError(method, code)
+                raise TelegramError(method, code, retry_after=delay if math.isfinite(delay) else 1)
             description = str(response.get('description') or '').lower()
             # An edit retry can observe the desired text already installed.
             if method == 'editMessageText' and code == 400 and 'message is not modified' in description:

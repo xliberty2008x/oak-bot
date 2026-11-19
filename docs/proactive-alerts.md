@@ -53,6 +53,8 @@ for owner_id in authorized_private_owners:
 await alerts.tick(owners=authorized_private_owners)
 ```
 
+If the transport explicitly rejects a send, raise `DeliveryRejected` with the provider's retry delay in seconds when available. Oak rechecks freshness and owner preferences before trying again. A lost response leaves the delivery uncertain across restarts.
+
 Pass authenticated owner replies to `command(owner, text, reply_to=message_id)`. Use `conversation_context(owner, reply_to=message_id)` in ordinary conversation to let the model refer back to its own confirmed outgoing message. Each assistant instance owns its state and transport.
 
 ## Verification
