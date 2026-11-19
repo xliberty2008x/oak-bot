@@ -501,8 +501,9 @@ class Controller:
         task = asyncio.current_task()
         self._dispatching.add(task)
         try:
+            context = {'assistant_context': assistant_context} if assistant_context is not None else {}
             return await self._submit(chat_id, text, update_id, attachments, idle_only, expected_thread,
-                                      expected_surface, assistant_context=assistant_context)
+                                      expected_surface, **context)
         finally:
             self._dispatching.discard(task)
 
